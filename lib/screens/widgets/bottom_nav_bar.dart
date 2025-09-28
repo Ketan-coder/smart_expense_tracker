@@ -47,13 +47,13 @@ class _BottomNavBarState extends State<BottomNavBar> {
     _initializeDebugMode();
   }
 
-  Future<bool> addExpense(double amount, String desc, List<int> categoryKeys) async {
+  Future<bool> addExpense(double amount, String desc, String type, List<int> categoryKeys) async {
     try{
       final expenseBox = Hive.box<Expense>(AppConstants.expenses);
       final expense = Expense(
         amount: amount,
         date: DateTime.now(),
-        description: desc,
+        description: type != '' ? 'Payment via $type' : desc,
         categoryKeys: categoryKeys,
       );
       await expenseBox.add(expense); // Auto increments key
@@ -65,13 +65,13 @@ class _BottomNavBarState extends State<BottomNavBar> {
     }
   }
 
-  Future<bool> addIncome(double amount, String desc, List<int> categoryKeys) async {
+  Future<bool> addIncome(double amount, String desc, String type, List<int> categoryKeys) async {
     try{
       final incomeBox = Hive.box<Income>(AppConstants.incomes);
       final income = Income(
         amount: amount,
         date: DateTime.now(),
-        description: desc,
+        description: type != '' ? 'Payment via $type' : desc,
         categoryKeys: categoryKeys,
       );
       await incomeBox.add(income); // Auto increments key
@@ -154,9 +154,9 @@ class _BottomNavBarState extends State<BottomNavBar> {
       final String description = (transaction['description'] ?? '').toString();
       bool results = false;
       if (transaction['type'] == 'debit'){
-         results = await addExpense(amount, description, [1, 2]);
+         results = await addExpense(amount, description, transaction['method'], [1, 2]);
       } else if (transaction['type'] == 'credit'){
-        results = await addIncome(amount, description, [3, 4]);
+        results = await addIncome(amount, description, transaction['method'], [3, 4]);
       }
 
       print('${results ? '✅ Added Expense' : '❌'} Transaction: ${transaction['type']} ₹${transaction['amount']}');

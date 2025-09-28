@@ -158,6 +158,28 @@ class SmsListener {
     return isCredit;
   }
 
+  static String extractMethod(String message) {
+    debugPrint("🔍 Extracting method from message: ${message.length > 50 ? '${message.substring(0, 50)}...' : message}");
+
+    String upperMsg = message.toUpperCase();
+    List<String> methodKeywords = [
+      'UPI', 'NEFT', 'IMPS', 'RTGS', 'BANK', 'ATM', 'POS', 'ONLINE'
+    ];
+
+    String method = 'UNKNOWN';
+
+    for (String keyword in methodKeywords) {
+      if (upperMsg.contains(keyword)) {
+        method = keyword;
+        break;
+      }
+    }
+
+    debugPrint("🔍 Extracted method: $method");
+    return method;
+  }
+
+
   static double? extractAmount(String message) {
     debugPrint("💰 Extracting amount from: ${message.length > 100 ? message.substring(0, 100) + '...' : message}");
 
@@ -262,12 +284,15 @@ class SmsListener {
 
     String bankName = extractBankName(sender);
 
+    String method = extractMethod(message);
+
     Map<String, dynamic> transaction = {
       'type': transactionType,
       'amount': amount,
       'sender': sender,
       'bankName': bankName,
       'message': message,
+      'method': method,
       'timestamp': DateTime.fromMillisecondsSinceEpoch(timestamp),
       'rawTimestamp': timestamp,
     };
@@ -276,6 +301,7 @@ class SmsListener {
     debugPrint("   Type: ${transaction['type']}");
     debugPrint("   Amount: ₹${transaction['amount']}");
     debugPrint("   Bank: ${transaction['bankName']}");
+    debugPrint("   Method: ${transaction['method']}");
 
     return transaction;
   }

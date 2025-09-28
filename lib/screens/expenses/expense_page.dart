@@ -68,83 +68,85 @@ class _ExpensePageState extends State<ExpensePage> {
   Widget build(BuildContext context) {
     final isLight = Helpers().isLightMode(context);
 
-    return Scaffold(
-      body: SimpleCustomAppBar(
-        title: "Expenses",
-        hasContent: true,
-        expandedHeight: 300.0,
-        centerTitle: true,
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: () => initCall),
-          // IconButton(icon: const Icon(Icons.logout), onPressed: () {}),
-        ],
-        child: Container(
-          margin: const EdgeInsets.all(10),
-          padding: const EdgeInsets.all(25),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(25),
-            color: isLight ? Colors.white : Colors.black,
-          ),
-          child: SizedBox(
-            height:
-                MediaQuery.of(context).size.height -
-                300, // fit in expanded area
-            child: ValueListenableBuilder<Box<Expense>>(
-              valueListenable: Hive.box<Expense>(AppConstants.expenses).listenable(),
-              builder: (context, box, _) {
-                final expenses = box.values.toList();
-
-                if (expenses.isEmpty) {
-                  return const Center(child: Text("No expenses yet."));
-                }
-
-                return ListView.separated(
-                  itemCount: expenses.length,
-                  separatorBuilder: (_, __) => const Divider(),
-                  itemBuilder: (context, index) {
-                    final key = box.keyAt(index) as int;
-                    final expense = box.get(key)!;
-
-                    return Container(
-                      key: ValueKey(key), // unique per Hive object
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        color: isLight ? Colors.grey[200] : Colors.grey[900],
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: ListTile(
-                        title: Text(expense.description),
-                        subtitle: Text("₹${expense.amount.toStringAsFixed(2)}"),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () async {
-                                // Example: update description
-                                final newExpense = Expense(
-                                  amount: expense.amount,
-                                  date: expense.date,
-                                  description:
-                                      "${expense.description} (edited)",
-                                  categoryKeys: expense.categoryKeys,
-                                );
-                                await updateExpense(key, newExpense);
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () async {
-                                await deleteExpense(key);
-                              },
-                            ),
-                          ],
+    return SafeArea(
+      child: Scaffold(
+        body: SimpleCustomAppBar(
+          title: "Expenses",
+          hasContent: true,
+          expandedHeight: 300.0,
+          centerTitle: true,
+          actions: [
+            IconButton(icon: const Icon(Icons.refresh), onPressed: () => initCall),
+            // IconButton(icon: const Icon(Icons.logout), onPressed: () {}),
+          ],
+          child: Container(
+            margin: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(25),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(25),
+              color: isLight ? Colors.white : Colors.black,
+            ),
+            child: SizedBox(
+              height:
+                  MediaQuery.of(context).size.height -
+                  300, // fit in expanded area
+              child: ValueListenableBuilder<Box<Expense>>(
+                valueListenable: Hive.box<Expense>(AppConstants.expenses).listenable(),
+                builder: (context, box, _) {
+                  final expenses = box.values.toList();
+      
+                  if (expenses.isEmpty) {
+                    return const Center(child: Text("No expenses yet."));
+                  }
+      
+                  return ListView.separated(
+                    itemCount: expenses.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final key = box.keyAt(index) as int;
+                      final expense = box.get(key)!;
+      
+                      return Container(
+                        key: ValueKey(key), // unique per Hive object
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: isLight ? Colors.grey[200] : Colors.grey[900],
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                      ),
-                    );
-                  },
-                );
-              },
+                        child: ListTile(
+                          title: Text(expense.description),
+                          subtitle: Text("₹${expense.amount.toStringAsFixed(2)}"),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () async {
+                                  // Example: update description
+                                  final newExpense = Expense(
+                                    amount: expense.amount,
+                                    date: expense.date,
+                                    description:
+                                        "${expense.description} (edited)",
+                                    categoryKeys: expense.categoryKeys,
+                                  );
+                                  await updateExpense(key, newExpense);
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed: () async {
+                                  await deleteExpense(key);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ),

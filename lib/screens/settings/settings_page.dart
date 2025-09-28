@@ -10,6 +10,6 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    return SafeArea(child: const Placeholder());
   }
 }
