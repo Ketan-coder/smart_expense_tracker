@@ -223,89 +223,240 @@ class _BottomNavBarState extends State<BottomNavBar> {
             case 0:
               break;
 
-            case 1: // Todos
+            case 1: // Expenses
+              final addController = TextEditingController();
+              final amountController = TextEditingController();
+              double amount = 0.0;
+              List<int> selectedCategoryKeys = [];
+              String selectedType = 'UPI'; // default payment type
+
               Dialogs.showCustomDialog(
                 context: context,
-                child: const Text("Add new Todo"),
+                title: "Add Expense",
+                child: StatefulBuilder(
+                  builder: (context, setState) {
+                    final categoryBox = Hive.box<Category>(AppConstants.categories);
+                    final categories = categoryBox.values.toList();
+
+                    return SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Description input
+                          TextField(
+                            controller: addController,
+                            decoration: const InputDecoration(labelText: "Description"),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Amount input
+                          TextField(
+                            controller: amountController,
+                            decoration: const InputDecoration(labelText: "Amount"),
+                            keyboardType: TextInputType.number,
+                            onChanged: (value) {
+                              setState(() {
+                                amount = double.tryParse(value) ?? 0.0;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Payment type selector
+                          DropdownButton<String>(
+                            value: selectedType,
+                            items: ["UPI", "Cash", "NEFT", "IMPS", "RTGS", "Card", "Online"]
+                                .map((type) => DropdownMenuItem(
+                              value: type,
+                              child: Text(type),
+                            ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) setState(() => selectedType = value);
+                            },
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Category multiple selection
+                          Wrap(
+                            spacing: 10,
+                            children: categories.map((category) {
+                              final key = categoryBox.keyAt(categories.indexOf(category)) as int;
+                              final isSelected = selectedCategoryKeys.contains(key);
+
+                              return ChoiceChip(
+                                label: Text(category.name),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      selectedCategoryKeys.add(key);
+                                    } else {
+                                      selectedCategoryKeys.remove(key);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Save button
+                          FilledButton(
+                            onPressed: () async {
+                              if (addController.text.trim().isEmpty ||
+                                  amount <= 0 ||
+                                  selectedCategoryKeys.isEmpty) {
+                                SnackBars.show(
+                                  context,
+                                  message: "Please enter all fields and select at least one category",
+                                  type: SnackBarType.warning,
+                                );
+                                return;
+                              }
+
+                              final success = await addExpense(
+                                amount,
+                                addController.text.trim(),
+                                selectedType,
+                                selectedCategoryKeys,
+                              );
+
+                              if (success) {
+                                Navigator.pop(context);
+                                SnackBars.show(
+                                  context,
+                                  message: "Expense Added",
+                                  type: SnackBarType.success,
+                                );
+                              }
+                            },
+                            child: const Text("Save"),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               );
               break;
 
-            case 2: // Reminders
+            case 2: // Incomes
               BottomSheetUtil.show(context: context, title: "Add new Reminder", child: const Text("Add new Reminders"));
               break;
 
-            case 3: // Share
-              final _editController = TextEditingController();
-              String selectedType = 'expense';
-              Color selectedColor = Colors.white;
+            case 3: // Category
+              final addController = TextEditingController();
+              final amountController = TextEditingController();
+              double amount = 0.0;
+              List<int> selectedCategoryKeys = [];
+              String selectedType = 'UPI'; // default payment type
+
               Dialogs.showCustomDialog(
                 context: context,
-                title: "Edit Category",
+                title: "Add Expense",
                 child: StatefulBuilder(
                   builder: (context, setState) {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Name input
-                        TextField(
-                          controller: _editController,
-                          decoration: const InputDecoration(labelText: "Category Name"),
-                        ),
-                        const SizedBox(height: 10),
+                    final categoryBox = Hive.box<Category>(AppConstants.categories);
+                    final categories = categoryBox.values.toList();
 
-                        // Type selector
-                        DropdownButton<String>(
-                          value: selectedType,
-                          items: ["expense", "income", "habit", "general"]
-                              .map((type) => DropdownMenuItem(
-                            value: type,
-                            child: Text(type),
-                          ))
-                              .toList(),
-                          onChanged: (value) {
-                            if (value != null) setState(() => selectedType = value);
-                          },
-                        ),
-                        const SizedBox(height: 10),
+                    return SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Description input
+                          TextField(
+                            controller: addController,
+                            decoration: const InputDecoration(labelText: "Description"),
+                          ),
+                          const SizedBox(height: 10),
 
-                        // Color picker (simple example with buttons)
-                        Wrap(
-                          spacing: 8,
-                          children: [
-                            Colors.red,
-                            Colors.green,
-                            Colors.blue,
-                            Colors.orange,
-                            Colors.purple
-                          ].map((color) {
-                            return GestureDetector(
-                              onTap: () => setState(() => selectedColor = color),
-                              child: Container(
-                                width: 30,
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                  border: selectedColor == color
-                                      ? Border.all(width: 3, color: Colors.black)
-                                      : null,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 20),
+                          // Amount input
+                          TextField(
+                            controller: amountController,
+                            decoration: const InputDecoration(labelText: "Amount"),
+                            keyboardType: TextInputType.number,
+                            onChanged: (value) {
+                              setState(() {
+                                amount = double.tryParse(value) ?? 0.0;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 10),
 
-                        // Save button
-                        FilledButton(
-                          onPressed: () async {
-                            addCategory(_editController.text.trim(), selectedType, selectedColor);
-                            Navigator.pop(context);
-                            SnackBars.show(context, message: "New Category Added", type: SnackBarType.success);
-                          },
-                          child: const Text("Save"),
-                        ),
-                      ],
+                          // Payment type selector
+                          DropdownButton<String>(
+                            value: selectedType,
+                            items: ["UPI", "Cash", "NEFT", "IMPS", "RTGS", "Card", "Online"]
+                                .map((type) => DropdownMenuItem(
+                              value: type,
+                              child: Text(type),
+                            ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) setState(() => selectedType = value);
+                            },
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Category multiple selection
+                          Wrap(
+                            spacing: 10,
+                            children: categories.map((category) {
+                              final key = categoryBox.keyAt(categories.indexOf(category)) as int;
+                              final isSelected = selectedCategoryKeys.contains(key);
+
+                              return ChoiceChip(
+                                label: Text(category.name),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      selectedCategoryKeys.add(key);
+                                    } else {
+                                      selectedCategoryKeys.remove(key);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Save button
+                          FilledButton(
+                            onPressed: () async {
+                              if (addController.text.trim().isEmpty ||
+                                  amount <= 0 ||
+                                  selectedCategoryKeys.isEmpty) {
+                                SnackBars.show(
+                                  context,
+                                  message: "Please enter all fields and select at least one category",
+                                  type: SnackBarType.warning,
+                                );
+                                return;
+                              }
+
+                              final success = await addExpense(
+                                amount,
+                                addController.text.trim(),
+                                selectedType,
+                                selectedCategoryKeys,
+                              );
+
+                              if (success) {
+                                Navigator.pop(context);
+                                SnackBars.show(
+                                  context,
+                                  message: "Expense Added",
+                                  type: SnackBarType.success,
+                                );
+                              }
+                            },
+                            child: const Text("Save"),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 ),
