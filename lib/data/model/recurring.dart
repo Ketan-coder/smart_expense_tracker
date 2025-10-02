@@ -3,7 +3,7 @@ import 'package:hive_ce/hive.dart';
 part 'recurring.g.dart';
 
 @HiveType(typeId: 6)
-class Recurring {
+class Recurring extends HiveObject {
   @HiveField(0)
   double amount;
 

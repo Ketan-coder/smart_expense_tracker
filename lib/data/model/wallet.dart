@@ -3,7 +3,7 @@ import 'package:hive_ce/hive.dart';
 part 'wallet.g.dart';
 
 @HiveType(typeId: 7) // make sure to give unique typeId
-class Wallet {
+class Wallet extends HiveObject {
   @HiveField(0)
   String name; // Wallet name (e.g., Cash, Bank, UPI, Paytm, Credit Card)
 

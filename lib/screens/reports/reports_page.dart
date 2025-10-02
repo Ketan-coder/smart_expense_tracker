@@ -170,7 +170,8 @@ class _ReportsPageState extends State<ReportsPage> {
                                 const SizedBox(height: 12),
                                 _buildCashFlowChart(totalIncome, totalExpense, colorScheme, theme),
                                 const SizedBox(height: 16),
-
+                                Divider(height: 1, color: colorScheme.onSurfaceVariant.withValues(alpha: .2)),
+                                const SizedBox(height: 12),
                                 // Recent Transactions
                                 Text('Recent Transactions', style: theme.textTheme.titleMedium),
                                 const SizedBox(height: 12),

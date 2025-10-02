@@ -166,9 +166,8 @@ import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
+import '../../data/model/wallet.dart';
 import '../widgets/custom_app_bar.dart';
-
-// --- Top-level Helper Functions ---
 
 
 // Enum to manage filter state
@@ -186,13 +185,45 @@ class _ExpensePageState extends State<ExpensePage> {
   ExpenseFilter _selectedFilter = ExpenseFilter.all;
 
   /// Add new expense to Hive
+  // Future<void> addExpense(
+  //     double amount,
+  //     String desc,
+  //     String type,
+  //     List<int> categoryKeys,
+  //     ) async {
+  //   final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+  //   final expense = Expense(
+  //     amount: amount,
+  //     date: DateTime.now(),
+  //     description: desc,
+  //     method: type,
+  //     categoryKeys: categoryKeys,
+  //   );
+  //   await expenseBox.add(expense);
+  // }
+  //
+  // /// Update a single expense in Hive
+  // Future<void> updateExpense(int key, Expense newExpense) async {
+  //   final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+  //   await expenseBox.put(key, newExpense);
+  // }
+  //
+  // /// Delete a single expense
+  // Future<void> deleteExpense(int key) async {
+  //   final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+  //   await expenseBox.delete(key);
+  // }
+
+  /// Add an expense and update wallet balance
   Future<void> addExpense(
       double amount,
       String desc,
-      String type,
+      String type, // wallet name (Cash, Bank, etc.)
       List<int> categoryKeys,
       ) async {
     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+
     final expense = Expense(
       amount: amount,
       date: DateTime.now(),
@@ -200,18 +231,51 @@ class _ExpensePageState extends State<ExpensePage> {
       method: type,
       categoryKeys: categoryKeys,
     );
+
     await expenseBox.add(expense);
+
+    // Update wallet balance
+    final wallet = walletBox.values.firstWhere((w) => w.name == type);
+    wallet.balance -= amount;
+    wallet.updatedAt = DateTime.now();
+    await wallet.save();
   }
 
-  /// Update a single expense in Hive
+  /// Update a single expense in Hive + adjust wallet balance
   Future<void> updateExpense(int key, Expense newExpense) async {
     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+
+    final oldExpense = expenseBox.get(key);
+    if (oldExpense == null) return;
+
+    // Revert old expense from wallet
+    final oldWallet = walletBox.values.firstWhere((w) => w.name == oldExpense.method);
+    oldWallet.balance += oldExpense.amount;
+    await oldWallet.save();
+
+    // Save new expense
     await expenseBox.put(key, newExpense);
+
+    // Deduct from new wallet
+    final newWallet = walletBox.values.firstWhere((w) => w.name == newExpense.method);
+    newWallet.balance -= newExpense.amount;
+    newWallet.updatedAt = DateTime.now();
+    await newWallet.save();
   }
 
-  /// Delete a single expense
+  /// Delete a single expense + revert wallet balance
   Future<void> deleteExpense(int key) async {
     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+
+    final expense = expenseBox.get(key);
+    if (expense != null) {
+      final wallet = walletBox.values.firstWhere((w) => w.name == expense.method);
+      wallet.balance += expense.amount;
+      wallet.updatedAt = DateTime.now();
+      await wallet.save();
+    }
     await expenseBox.delete(key);
   }
 
@@ -358,13 +422,14 @@ class _ExpensePageState extends State<ExpensePage> {
                       ),
                       const SizedBox(height: 16),
                     ],
+                    Divider(height: 1, color: colorScheme.onSurfaceVariant.withValues(alpha: .2)),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Recent Transactions', style: theme.textTheme.titleMedium),
                         TextButton.icon(
                           onPressed: () {
-                            Helpers.navigateTo(context, const IncomePage());
+                            // Helpers.navigateTo(context, const IncomePage());
                           },
                           icon: const Icon(Icons.arrow_forward_outlined),
                           label: const Text('Show All'),

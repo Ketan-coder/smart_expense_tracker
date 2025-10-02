@@ -167,6 +167,7 @@ import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/category.dart';
 import '../../data/model/income.dart';
+import '../../data/model/wallet.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/snack_bar.dart';
 
@@ -251,14 +252,17 @@ class _IncomePageState extends State<IncomePage> {
   // State for the income filter
   IncomeFilter _selectedFilter = IncomeFilter.all;
 
-  /// Add new income to Hive
+  /// Add new income to Hive and update wallet balance
   Future<bool> addIncome(
       double amount,
       String desc,
+      String type, // ✅ Add wallet type (Bank/UPI/Cash etc.)
       List<int> categoryKeys,
       ) async {
     try {
       final incomeBox = Hive.box<Income>(AppConstants.incomes);
+      final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+
       final income = Income(
         amount: amount,
         date: DateTime.now(),
@@ -266,6 +270,24 @@ class _IncomePageState extends State<IncomePage> {
         categoryKeys: categoryKeys,
       );
       await incomeBox.add(income);
+
+      // ✅ Find wallet
+      Wallet? wallet;
+      try {
+        wallet = walletBox.values.firstWhere(
+              (w) => w.name.toLowerCase() == type.toLowerCase(),
+        );
+      } catch (_) {
+        wallet = null;
+      }
+
+      // ✅ Update wallet balance
+      if (wallet != null) {
+        wallet.balance += amount; // income → add
+        wallet.updatedAt = DateTime.now();
+        await wallet.save();
+      }
+
       return true;
     } catch (e) {
       debugPrint("Error adding income: $e");
@@ -273,11 +295,36 @@ class _IncomePageState extends State<IncomePage> {
     }
   }
 
-  /// Update a single income in Hive
-  Future<bool> updateIncome(int key, Income newIncome) async {
+  /// Update a single income and adjust wallet balances
+  Future<bool> updateIncome(int key, Income newIncome, String type) async {
     try {
       final incomeBox = Hive.box<Income>(AppConstants.incomes);
+      final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+
+      // ✅ Get old income before updating
+      final oldIncome = incomeBox.get(key);
       await incomeBox.put(key, newIncome);
+
+      if (oldIncome != null) {
+        // ✅ Find wallet
+        Wallet? wallet;
+        try {
+          wallet = walletBox.values.firstWhere(
+                (w) => w.name.toLowerCase() == type.toLowerCase(),
+          );
+        } catch (_) {
+          wallet = null;
+        }
+
+        // ✅ Adjust wallet balance (remove old, add new)
+        if (wallet != null) {
+          wallet.balance -= oldIncome.amount;
+          wallet.balance += newIncome.amount;
+          wallet.updatedAt = DateTime.now();
+          await wallet.save();
+        }
+      }
+
       return true;
     } catch (e) {
       debugPrint("Error updating income: $e");
@@ -285,10 +332,32 @@ class _IncomePageState extends State<IncomePage> {
     }
   }
 
-  /// Delete a single income
-  Future<void> deleteIncome(int key) async {
+  /// Delete a single income and roll back wallet balance
+  Future<void> deleteIncome(int key, String type) async {
     final incomeBox = Hive.box<Income>(AppConstants.incomes);
-    await incomeBox.delete(key);
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+
+    final income = incomeBox.get(key);
+    if (income != null) {
+      // ✅ Find wallet
+      Wallet? wallet;
+      try {
+        wallet = walletBox.values.firstWhere(
+              (w) => w.name.toLowerCase() == type.toLowerCase(),
+        );
+      } catch (_) {
+        wallet = null;
+      }
+
+      // ✅ Rollback balance
+      if (wallet != null) {
+        wallet.balance -= income.amount;
+        wallet.updatedAt = DateTime.now();
+        await wallet.save();
+      }
+
+      await incomeBox.delete(key);
+    }
   }
 
   // --- Data Fetching and Processing ---
@@ -434,8 +503,10 @@ class _IncomePageState extends State<IncomePage> {
                       ),
                       const SizedBox(height: 16),
                     ],
-                    Text('Recent Transactions', style: theme.textTheme.titleMedium),
+                    Divider(height: 1, color: colorScheme.onSurfaceVariant.withValues(alpha: .2)),
                     const SizedBox(height: 12),
+                    Text('Recent Transactions', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 5),
                     if (groupedIncomes.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 24.0),
@@ -531,7 +602,7 @@ class _IncomePageState extends State<IncomePage> {
             ),
           );
           if (confirm == true) {
-            await deleteIncome(keyId);
+            await deleteIncome(keyId, income.method ?? '');
             return true;
           }
           return false;
@@ -683,6 +754,8 @@ class _IncomePageState extends State<IncomePage> {
     final addController = TextEditingController(text: isEditing ? income.description : '');
     final amountController = TextEditingController(text: isEditing ? income.amount.toString() : '');
     List<int> selectedCategoryKeys = isEditing ? List<int>.from(income.categoryKeys) : [];
+    String selectedType = isEditing ? income.method ?? 'UPI' : '';
+
 
     showModalBottomSheet(
       context: context,
@@ -717,6 +790,20 @@ class _IncomePageState extends State<IncomePage> {
                       controller: amountController,
                       decoration: const InputDecoration(labelText: "Amount", border: OutlineInputBorder(), prefixText: "₹"),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedType,
+                      decoration: const InputDecoration(
+                        labelText: "Payment Method",
+                        border: OutlineInputBorder(),
+                      ),
+                      items: ["UPI", "Cash", "NEFT", "IMPS", "RTGS", "Card", "Online"]
+                          .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) setState(() => selectedType = value);
+                      },
                     ),
                     const SizedBox(height: 16),
                     Wrap(
@@ -760,7 +847,7 @@ class _IncomePageState extends State<IncomePage> {
                             description: addController.text.trim(),
                             categoryKeys: selectedCategoryKeys,
                           );
-                          final success = await updateIncome(key, newIncome);
+                          final success = await updateIncome(key, newIncome, selectedType);
                           if (success && context.mounted) {
                             Navigator.pop(context);
                             SnackBars.show(context, message: "Income Updated", type: SnackBarType.success);
@@ -769,6 +856,7 @@ class _IncomePageState extends State<IncomePage> {
                           final success = await addIncome(
                             amount,
                             addController.text.trim(),
+                            selectedType,
                             selectedCategoryKeys,
                           );
                           if (success && context.mounted) {

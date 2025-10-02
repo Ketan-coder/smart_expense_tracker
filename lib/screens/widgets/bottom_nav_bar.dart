@@ -693,9 +693,17 @@ class _BottomNavBarState extends State<BottomNavBar> {
     _initializeDebugMode();
   }
 
-  Future<bool> addExpense(double amount, String desc, String type, List<int> categoryKeys) async {
+  Future<bool> addExpense(
+      double amount,
+      String desc,
+      String type,
+      List<int> categoryKeys,
+      ) async {
     try {
       final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+      final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+
+      // ✅ Create Expense
       final expense = Expense(
         amount: amount,
         date: DateTime.now(),
@@ -704,19 +712,50 @@ class _BottomNavBarState extends State<BottomNavBar> {
         categoryKeys: categoryKeys,
       );
       await expenseBox.add(expense);
+
+      // Deduct from Wallet safely
+      Wallet? wallet;
+      try {
+        wallet = walletBox.values.firstWhere(
+              (w) => w.name.toLowerCase() == type.toLowerCase(),
+        );
+      } catch (_) {
+        wallet = null;
+      }
+
+      if (wallet != null) {
+        wallet.balance -= amount;
+        wallet.updatedAt = DateTime.now();
+        await wallet.save();
+      }
+
       return true;
     } catch (e) {
       debugPrint('Error in Adding Expense ==> ${e.toString()}');
       if (mounted) {
-        SnackBars.show(context, message: 'Error in Adding Expense', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
+        SnackBars.show(
+          context,
+          message: 'Error in Adding Expense',
+          type: SnackBarType.error,
+          behavior: SnackBarBehavior.floating,
+        );
       }
       return false;
     }
   }
 
-  Future<bool> addIncome(double amount, String desc, String type, List<int> categoryKeys) async {
+
+  Future<bool> addIncome(
+      double amount,
+      String desc,
+      String type,
+      List<int> categoryKeys,
+      ) async {
     try {
       final incomeBox = Hive.box<Income>(AppConstants.incomes);
+      final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+
+      //  Create Income
       final income = Income(
         amount: amount,
         date: DateTime.now(),
@@ -724,11 +763,33 @@ class _BottomNavBarState extends State<BottomNavBar> {
         categoryKeys: categoryKeys,
       );
       await incomeBox.add(income);
+
+      // Deduct from Wallet safely
+      Wallet? wallet;
+      try {
+        wallet = walletBox.values.firstWhere(
+              (w) => w.name.toLowerCase() == type.toLowerCase(),
+        );
+      } catch (_) {
+        wallet = null;
+      }
+
+      if (wallet != null) {
+        wallet.balance += amount;
+        wallet.updatedAt = DateTime.now();
+        await wallet.save();
+      }
+
       return true;
     } catch (e) {
       debugPrint('Error in Adding Income ==> ${e.toString()}');
       if (mounted) {
-        SnackBars.show(context, message: 'Error in Adding Income', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
+        SnackBars.show(
+          context,
+          message: 'Error in Adding Income',
+          type: SnackBarType.error,
+          behavior: SnackBarBehavior.floating,
+        );
       }
       return false;
     }
