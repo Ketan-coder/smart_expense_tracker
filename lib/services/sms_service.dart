@@ -74,7 +74,7 @@ class SmsListener {
             debugPrint("📨 SMS Details:");
             debugPrint("   👤 Sender: $sender");
             debugPrint("   📝 Message length: ${message.length}");
-            debugPrint("   📝 Message preview: ${message.length > 50 ? message.substring(0, 50) + '...' : message}");
+            debugPrint("   📝 Message preview: ${message.length > 50 ? '${message.substring(0, 50)}...' : message}");
             debugPrint("   ⏰ Timestamp: $timestamp");
 
             _callback!(sender, message, timestamp);
@@ -112,7 +112,7 @@ class SmsListener {
 
   // Enhanced debugging for transaction detection
   static bool isTransactionMessage(String message) {
-    debugPrint("🔍 Checking if transaction message: ${message.length > 50 ? message.substring(0, 50) + '...' : message}");
+    debugPrint("🔍 Checking if transaction message: ${message.length > 50 ? '${message.substring(0, 50)}...' : message}");
 
     String lowerMsg = message.toLowerCase();
 
@@ -181,7 +181,7 @@ class SmsListener {
 
 
   static double? extractAmount(String message) {
-    debugPrint("💰 Extracting amount from: ${message.length > 100 ? message.substring(0, 100) + '...' : message}");
+    debugPrint("💰 Extracting amount from: ${message.length > 100 ? '${message.substring(0, 100)}...' : message}");
 
     List<RegExp> amountPatterns = [
       RegExp(r'(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.[0-9]{2})?)', caseSensitive: false),

@@ -1,44 +1,44 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'expense.dart';
+part of 'wallet.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class ExpenseAdapter extends TypeAdapter<Expense> {
+class WalletAdapter extends TypeAdapter<Wallet> {
   @override
-  final typeId = 1;
+  final typeId = 7;
 
   @override
-  Expense read(BinaryReader reader) {
+  Wallet read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return Expense(
-      amount: (fields[0] as num).toDouble(),
-      date: fields[1] as DateTime,
-      description: fields[2] as String,
-      categoryKeys: (fields[3] as List).cast<int>(),
-      method: fields[4] as String?,
+    return Wallet(
+      name: fields[0] as String,
+      balance: (fields[1] as num).toDouble(),
+      type: fields[2] as String,
+      createdAt: fields[3] as DateTime,
+      updatedAt: fields[4] as DateTime?,
     );
   }
 
   @override
-  void write(BinaryWriter writer, Expense obj) {
+  void write(BinaryWriter writer, Wallet obj) {
     writer
       ..writeByte(5)
       ..writeByte(0)
-      ..write(obj.amount)
+      ..write(obj.name)
       ..writeByte(1)
-      ..write(obj.date)
+      ..write(obj.balance)
       ..writeByte(2)
-      ..write(obj.description)
+      ..write(obj.type)
       ..writeByte(3)
-      ..write(obj.categoryKeys)
+      ..write(obj.createdAt)
       ..writeByte(4)
-      ..write(obj.method);
+      ..write(obj.updatedAt);
   }
 
   @override
@@ -47,7 +47,7 @@ class ExpenseAdapter extends TypeAdapter<Expense> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is ExpenseAdapter &&
+      other is WalletAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

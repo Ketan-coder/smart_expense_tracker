@@ -9,6 +9,7 @@ import 'package:expense_tracker/data/model/habit.dart';
 import 'package:expense_tracker/data/model/income.dart';
 import 'package:expense_tracker/data/model/recurring.dart';
 import 'package:expense_tracker/data/model/users.dart';
+import 'package:expense_tracker/data/model/wallet.dart';
 
 extension HiveRegistrar on HiveInterface {
   void registerAdapters() {
@@ -18,6 +19,7 @@ extension HiveRegistrar on HiveInterface {
     registerAdapter(IncomeAdapter());
     registerAdapter(RecurringAdapter());
     registerAdapter(UserAdapter());
+    registerAdapter(WalletAdapter());
   }
 }
 
@@ -29,5 +31,6 @@ extension IsolatedHiveRegistrar on IsolatedHiveInterface {
     registerAdapter(IncomeAdapter());
     registerAdapter(RecurringAdapter());
     registerAdapter(UserAdapter());
+    registerAdapter(WalletAdapter());
   }
 }

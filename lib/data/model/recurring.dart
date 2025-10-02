@@ -22,6 +22,9 @@ class Recurring {
   @HiveField(5)
   DateTime? endDate; // optional: when recurrence stops
 
+  @HiveField(6)
+  DateTime? deductionDate;
+
   Recurring({
     required this.amount,
     required this.startDate,
@@ -29,9 +32,10 @@ class Recurring {
     required this.categoryKeys,
     required this.interval,
     this.endDate,
+    this.deductionDate
   });
 
   @override
   String toString() =>
-      "Recurring(amount: $amount, startDate: $startDate, desc: $description, interval: $interval, categories: $categoryKeys, endDate: $endDate)";
+      "Recurring(amount: $amount, startDate: $startDate, desc: $description, interval: $interval, categories: $categoryKeys, endDate: $endDate, deductionDate: $deductionDate)";
 }

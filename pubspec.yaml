@@ -45,6 +45,9 @@ dependencies:
   hive_ce: ^2.13.2
   hive_ce_flutter: ^2.3.2
 
+  collection: any
+  flutter_colorpicker: ^1.1.0
+  dynamic_color: ^1.8.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

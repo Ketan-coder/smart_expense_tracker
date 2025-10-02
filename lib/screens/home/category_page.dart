@@ -1,4 +1,5 @@
 import 'package:expense_tracker/data/model/category.dart';
+import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import '../../core/app_constants.dart';
@@ -6,6 +7,7 @@ import '../../core/helpers.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/dialog.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 class CategoryPage extends StatefulWidget {
   const CategoryPage({super.key});
@@ -27,7 +29,7 @@ class _CategoryPageState extends State<CategoryPage> {
     final category = Category(
       name: name,
       type: type,
-      color: color.toString(),
+      color: colorToHex(color), // Convert Color to hex string
     );
     await categoryBox.add(category);
   }
@@ -74,18 +76,18 @@ class _CategoryPageState extends State<CategoryPage> {
         body: SimpleCustomAppBar(
           title: "Category",
           hasContent: true,
-          expandedHeight: 300.0,
+          expandedHeight: 270.0,
           centerTitle: true,
           actions: [
             IconButton(icon: const Icon(Icons.refresh), onPressed: () => initCall),
             // IconButton(icon: const Icon(Icons.logout), onPressed: () {}),
           ],
           child: Container(
-            margin: const EdgeInsets.all(1),
-            padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 10),
+            margin: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(25),
-              color: isLight ? Colors.white : Colors.black,
+              color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
             ),
             child: SizedBox(
               height:
@@ -99,129 +101,261 @@ class _CategoryPageState extends State<CategoryPage> {
                   if (categories.isEmpty) {
                     return const Center(child: Text("No Categories yet."));
                   }
-      
-                  return ListView.separated(
-                    itemCount: categories.length,
-                    separatorBuilder: (_, __) => const Divider(),
-                    itemBuilder: (context, index) {
-                      final key = box.keyAt(index) as int;
-                      final category = box.get(key)!;
-      
-                      return Container(
-                        key: ValueKey(key), // unique per Hive object
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: isLight ? Colors.grey[200] : Colors.grey[900],
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: ListTile(
-                          title: Text(category.name),
-                          subtitle: Text(category.type),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit),
-                                onPressed: () async {
-                                  final _editController = TextEditingController(text: category.name);
-                                  String selectedType = category.type;
-                                  Color selectedColor = Colors.white; // assuming you stored Color as int string
-      
-                                  await Dialogs.showCustomDialog(
-                                    context: context,
-                                    title: "Edit Category",
-                                    child: StatefulBuilder(
-                                      builder: (context, setState) {
-                                        return Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            // Name input
-                                            TextField(
-                                              controller: _editController,
-                                              decoration: const InputDecoration(labelText: "Category Name"),
-                                            ),
-                                            const SizedBox(height: 10),
-      
-                                            // Type selector
-                                            DropdownButton<String>(
-                                              value: selectedType,
-                                              items: ["expense", "income", "habit", "general"]
-                                                  .map((type) => DropdownMenuItem(
-                                                value: type,
-                                                child: Text(type),
-                                              ))
-                                                  .toList(),
-                                              onChanged: (value) {
-                                                if (value != null) setState(() => selectedType = value);
+
+                  return Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: ListView.separated(
+                      itemCount: categories.length,
+                      separatorBuilder: (_, __) => const Divider(),
+                      itemBuilder: (context, index) {
+                        final key = box.keyAt(index) as int;
+                        final category = box.get(key)!;
+
+                        return Dismissible(
+                          key: ValueKey(key), // Unique per Hive object
+                          background: _buildDismissibleBackground(
+                            color: Colors.blue,
+                            icon: Icons.edit,
+                            alignment: Alignment.centerLeft,
+                          ),
+                          secondaryBackground: _buildDismissibleBackground(
+                            color: Colors.red,
+                            icon: Icons.delete,
+                            alignment: Alignment.centerRight,
+                          ),
+                          confirmDismiss: (direction) async {
+                            if (direction == DismissDirection.startToEnd) {
+                              // Edit: Show bottom sheet
+                              final editController = TextEditingController(text: category.name);
+                              String selectedType = category.type;
+                              Color selectedColor = Helpers().hexToColor(category.color); // Parse stored color
+
+                              await BottomSheetUtil.show(
+                                context: context,
+                                title: "Edit Category",
+                                child: StatefulBuilder(
+                                  builder: (context, setState) {
+                                    void showColorPickerDialog() {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Pick a color!'),
+                                          content: SingleChildScrollView(
+                                            child: ColorPicker(
+                                              pickerColor: selectedColor,
+                                              onColorChanged: (color) {
+                                                setState(() {
+                                                  selectedColor = color;
+                                                });
                                               },
                                             ),
-                                            const SizedBox(height: 10),
-      
-                                            // Color picker (simple example with buttons)
-                                            Wrap(
-                                              spacing: 8,
-                                              children: [
-                                                Colors.red,
-                                                Colors.green,
-                                                Colors.blue,
-                                                Colors.orange,
-                                                Colors.purple
-                                              ].map((color) {
-                                                return GestureDetector(
-                                                  onTap: () => setState(() => selectedColor = color),
-                                                  child: Container(
-                                                    width: 30,
-                                                    height: 30,
-                                                    decoration: BoxDecoration(
-                                                      color: color,
-                                                      shape: BoxShape.circle,
-                                                      border: selectedColor == color
-                                                          ? Border.all(width: 3, color: Colors.black)
-                                                          : null,
-                                                    ),
-                                                  ),
-                                                );
-                                              }).toList(),
-                                            ),
-                                            const SizedBox(height: 20),
-      
-                                            // Save button
-                                            FilledButton(
-                                              onPressed: () async {
-                                                final updatedCategory = Category(
-                                                  name: _editController.text.trim(),
-                                                  type: selectedType,
-                                                  color: selectedColor.value.toString(),
-                                                );
-      
-                                                await updateCategory(key, updatedCategory);
-                                                Helpers().createRoute(BottomNavBar(currentIndex: 3));
+                                          ),
+                                          actions: <Widget>[
+                                            ElevatedButton(
+                                              child: const Text('Got it'),
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
                                               },
-                                              child: const Text("Save"),
                                             ),
                                           ],
-                                        );
-                                      },
-                                    ),
-                                  );
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete),
-                                onPressed: () async {
-                                  final bool? confirmed = await Dialogs.showConfirmation(context: context);
-                                  if (confirmed == true) {
-                                    await deleteCategory(key);
-                                  } else {
-                                    Helpers().createRoute(BottomNavBar(currentIndex: 3));
-                                  }
-                                },
-                              ),
-                            ],
+                                        ),
+                                      );
+                                    }
+
+                                    return Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        TextField(
+                                          controller: editController,
+                                          decoration: const InputDecoration(labelText: "Category Name"),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            const Text("Category Color", style: TextStyle(fontSize: 16)),
+                                            GestureDetector(
+                                              onTap: showColorPickerDialog,
+                                              child: Container(
+                                                width: 100,
+                                                height: 40,
+                                                decoration: BoxDecoration(
+                                                  color: selectedColor,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: Colors.grey.shade400),
+                                                ),
+                                                alignment: Alignment.center,
+                                                child: const Text(
+                                                  "Change",
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    shadows: [Shadow(blurRadius: 2, color: Colors.black54)],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 10),
+                                        FilledButton(
+                                          onPressed: () async {
+                                            final updatedCategory = Category(
+                                              name: editController.text.trim(),
+                                              type: selectedType,
+                                              color: colorToHex(selectedColor), // Store as hex
+                                            );
+                                            await updateCategory(key, updatedCategory);
+                                            if (context.mounted) {
+                                              Navigator.of(context).pop(); // Close bottom sheet
+                                              Helpers().createRoute(const BottomNavBar(currentIndex: 3));
+                                            }
+                                          },
+                                          child: const Text("Save"),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              );
+                              return false; // Don't dismiss the tile
+                            } else {
+                              // Delete: Show confirmation dialog
+                              final bool? confirmed = await Dialogs.showConfirmation(context: context);
+                              if (confirmed == true) {
+                                await deleteCategory(key);
+                                return true; // Dismiss the tile
+                              }
+                              return false; // Don't dismiss the tile
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isLight ? Colors.grey[200] : Colors.grey[900],
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: ListTile(
+                              title: Text(category.name),
+                              subtitle: Text(category.type),
+                              // trailing: Row(
+                              //   mainAxisSize: MainAxisSize.min,
+                              //   children: [
+                              //     IconButton(
+                              //       icon: const Icon(Icons.edit),
+                              //       onPressed: () async {
+                              //         final editController = TextEditingController(text: category.name);
+                              //         String selectedType = category.type;
+                              //         Color selectedColor = Helpers().hexToColor(category.color);
+                              //
+                              //         await BottomSheetUtil.show(
+                              //           context: context,
+                              //           title: "Edit Category",
+                              //           child: StatefulBuilder(
+                              //             builder: (context, setState) {
+                              //               void showColorPickerDialog() {
+                              //                 showDialog(
+                              //                   context: context,
+                              //                   builder: (context) => AlertDialog(
+                              //                     title: const Text('Pick a color!'),
+                              //                     content: SingleChildScrollView(
+                              //                       child: ColorPicker(
+                              //                         pickerColor: selectedColor,
+                              //                         onColorChanged: (color) {
+                              //                           setState(() {
+                              //                             selectedColor = color;
+                              //                           });
+                              //                         },
+                              //                       ),
+                              //                     ),
+                              //                     actions: <Widget>[
+                              //                       ElevatedButton(
+                              //                         child: const Text('Got it'),
+                              //                         onPressed: () {
+                              //                           Navigator.of(context).pop();
+                              //                         },
+                              //                       ),
+                              //                     ],
+                              //                   ),
+                              //                 );
+                              //               }
+                              //
+                              //               return Column(
+                              //                 mainAxisSize: MainAxisSize.min,
+                              //                 children: [
+                              //                   TextField(
+                              //                     controller: editController,
+                              //                     decoration: const InputDecoration(labelText: "Category Name"),
+                              //                   ),
+                              //                   const SizedBox(height: 10),
+                              //                   Row(
+                              //                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              //                     children: [
+                              //                       const Text("Category Color", style: TextStyle(fontSize: 16)),
+                              //                       GestureDetector(
+                              //                         onTap: showColorPickerDialog,
+                              //                         child: Container(
+                              //                           width: 100,
+                              //                           height: 40,
+                              //                           decoration: BoxDecoration(
+                              //                             color: selectedColor,
+                              //                             borderRadius: BorderRadius.circular(8),
+                              //                             border: Border.all(color: Colors.grey.shade400),
+                              //                           ),
+                              //                           alignment: Alignment.center,
+                              //                           child: const Text(
+                              //                             "Change",
+                              //                             style: TextStyle(
+                              //                               color: Colors.white,
+                              //                               fontWeight: FontWeight.bold,
+                              //                               shadows: [Shadow(blurRadius: 2, color: Colors.black54)],
+                              //                             ),
+                              //                           ),
+                              //                         ),
+                              //                       ),
+                              //                     ],
+                              //                   ),
+                              //                   const SizedBox(height: 10),
+                              //                   FilledButton(
+                              //                     onPressed: () async {
+                              //                       final updatedCategory = Category(
+                              //                         name: editController.text.trim(),
+                              //                         type: selectedType,
+                              //                         color: colorToHex(selectedColor),
+                              //                       );
+                              //                       await updateCategory(key, updatedCategory);
+                              //                       if (context.mounted) {
+                              //                         Navigator.of(context).pop();
+                              //                         Helpers().createRoute(const BottomNavBar(currentIndex: 3));
+                              //                       }
+                              //                     },
+                              //                     child: const Text("Save"),
+                              //                   ),
+                              //                 ],
+                              //               );
+                              //             },
+                              //           ),
+                              //         );
+                              //       },
+                              //     ),
+                              //     IconButton(
+                              //       icon: const Icon(Icons.delete),
+                              //       onPressed: () async {
+                              //         final bool? confirmed = await Dialogs.showConfirmation(context: context);
+                              //         if (confirmed == true) {
+                              //           await deleteCategory(key);
+                              //         } else {
+                              //           Helpers().createRoute(const BottomNavBar(currentIndex: 3));
+                              //         }
+                              //       },
+                              //     ),
+                              //   ],
+                              // ),
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   );
                 },
               ),
@@ -231,4 +365,21 @@ class _CategoryPageState extends State<CategoryPage> {
       ),
     );
   }
+}
+
+Container _buildDismissibleBackground({
+  required Color color,
+  required IconData icon,
+  required Alignment alignment,
+}) {
+  return Container(
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    alignment: alignment,
+    padding: const EdgeInsets.symmetric(horizontal: 20),
+    margin: const EdgeInsets.only(bottom: 8),
+    child: Icon(icon, color: Colors.white),
+  );
 }

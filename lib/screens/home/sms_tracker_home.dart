@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../../services/sms_service.dart';
 
 class SmsDebugScreen extends StatefulWidget {
+  const SmsDebugScreen({super.key});
+
   @override
   _SmsDebugScreenState createState() => _SmsDebugScreenState();
 }
@@ -124,8 +126,8 @@ class _SmsDebugScreenState extends State<SmsDebugScreen> {
               SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _initializeDebugMode,
-                child: Text('🔐 Request Permissions'),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                child: Text('🔐 Request Permissions'),
               ),
             ],
           ],
@@ -166,16 +168,16 @@ class _SmsDebugScreenState extends State<SmsDebugScreen> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () => setState(() {}),
-                    child: Text('📨 All SMS (${allMessages.length})'),
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                    child: Text('📨 All SMS (${allMessages.length})'),
                   ),
                 ),
                 SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () => setState(() {}),
-                    child: Text('💰 Transactions (${transactions.length})'),
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    child: Text('💰 Transactions (${transactions.length})'),
                   ),
                 ),
               ],
@@ -197,17 +199,17 @@ class _SmsDebugScreenState extends State<SmsDebugScreen> {
           FloatingActionButton(
             heroTag: "test",
             onPressed: _simulateTestSms,
-            child: Icon(Icons.bug_report),
             backgroundColor: Colors.purple,
             mini: true,
+            child: Icon(Icons.bug_report),
           ),
           SizedBox(height: 8),
           // Restart listener button
           FloatingActionButton(
             heroTag: "restart",
             onPressed: permissionsGranted && !isListening ? _startListening : null,
-            child: Icon(Icons.refresh),
             backgroundColor: isListening ? Colors.grey : Colors.blue,
+            child: Icon(Icons.refresh),
           ),
         ],
       ),

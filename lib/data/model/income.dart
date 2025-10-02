@@ -16,14 +16,18 @@ class Income {
   @HiveField(3)
   List<int> categoryKeys; // links to Category box keys
 
+  @HiveField(4)
+  String? method;
+
   Income({
     required this.amount,
     required this.date,
     required this.description,
     required this.categoryKeys,
+    this.method,
   });
 
   @override
   String toString() =>
-      "Income(amount: $amount, date: $date, desc: $description, categories: $categoryKeys)";
+      "Income(amount: $amount, date: $date, desc: $description, categories: $categoryKeys, method: $method)";
 }

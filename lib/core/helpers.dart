@@ -50,9 +50,66 @@ class Helpers {
     );
   }
 
+  /// Navigate to another screen using custom route (Right → Left)
+  static Future<T?> navigateTo<T>(BuildContext context, Widget screen) {
+    return Navigator.of(context).push<T>(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 600),
+        pageBuilder: (context, animation, secondaryAnimation) => screen,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0); // Start from the right
+          const end = Offset.zero;        // End at center
+          const curve = Curves.easeInOut;
+
+          var tween =
+          Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
+
+          return SlideTransition(position: offsetAnimation, child: child);
+        },
+      ),
+    );
+  }
+
   String formatDateTime(DateTime dateTime) {
     return '${dateTime.day}/${dateTime.month}/${dateTime.year} '
         '${dateTime.hour.toString().padLeft(2, '0')}:'
         '${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  // Checks if two DateTime objects are on the same day, ignoring time.
+  bool isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  /// Formats a double value into a compact currency string (e.g., 1500 -> 1.5k).
+  String formatCompactCurrency(double value) {
+    if (value < 1000) {
+      return value.toStringAsFixed(0);
+    }
+    return NumberFormat.compact().format(value);
+  }
+
+  String colorToHex(Color color) {
+    return '#${color.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+  }
+
+  Color hexToColor(String? hex) {
+    if (hex == null || hex.isEmpty) {
+      return Colors.grey;
+    }
+    hex = hex.replaceFirst('#', '');
+    if (hex.length != 6 && hex.length != 8) {
+      return Colors.grey;
+    }
+    if (hex.length == 6) {
+      hex = 'FF$hex';
+    }
+    try {
+      return Color(int.parse(hex, radix: 16));
+    } catch (e) {
+      debugPrint('Invalid hex color: $hex, error: $e');
+      return Colors.grey;
+    }
   }
 }
