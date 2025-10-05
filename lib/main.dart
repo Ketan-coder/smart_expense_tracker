@@ -1,5 +1,6 @@
 import 'package:expense_tracker/core/app_constants.dart';
 import 'package:expense_tracker/screens/widgets/bottom_nav_bar.dart';
+import 'package:expense_tracker/services/recurring_scheduler.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'core/theme.dart';
@@ -51,6 +52,8 @@ void main() async {
   await Hive.openBox<Category>(AppConstants.categories);
   await Hive.openBox<Recurring>(AppConstants.recurrings);
   await Hive.openBox<Wallet>(AppConstants.wallets);
+
+  await registerRecurringTask();
 
   runApp(const MyApp());
 }

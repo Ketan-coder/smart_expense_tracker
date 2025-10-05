@@ -2,6 +2,8 @@
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
     <application
         android:label="expense_tracker"
         android:name="${applicationName}"
@@ -53,6 +55,14 @@
                 <action android:name="android.provider.Telephony.SMS_DELIVER" />
             </intent-filter>
 
+        </receiver>
+        <receiver
+            android:name="vn.hunghd.flutterdownloader.DownloadBroadcastReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
         </receiver>
     </application>
     <!-- Required to query activities that can process text, see:

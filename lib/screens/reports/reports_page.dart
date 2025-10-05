@@ -103,6 +103,12 @@ class _ReportsPageState extends State<ReportsPage> {
         hasContent: true,
         expandedHeight: 270.0,
         centerTitle: true,
+        onRefresh: () async {
+          _getFilteredTransactions(
+            Hive.box<Income>(AppConstants.incomes),
+            Hive.box<Expense>(AppConstants.expenses),
+          );
+        },
         actions: [
           PopupMenuButton<ReportFilter>(
             onSelected: (filter) {
@@ -190,7 +196,7 @@ class _ReportsPageState extends State<ReportsPage> {
                                     ),
                                   )
                                 else
-                                  ...transactions.take(10).map((t) {
+                                  ...transactions.take(5).map((t) {
                                     final isIncome = t.value is Income;
                                     final transaction = t.value;
                                     final categoryBox = Hive.box<Category>(AppConstants.categories);

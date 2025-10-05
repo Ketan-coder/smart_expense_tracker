@@ -651,6 +651,7 @@ import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
+import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
 import '../../data/model/income.dart';
@@ -693,122 +694,122 @@ class _BottomNavBarState extends State<BottomNavBar> {
     _initializeDebugMode();
   }
 
-  Future<bool> addExpense(
-      double amount,
-      String desc,
-      String type,
-      List<int> categoryKeys,
-      ) async {
-    try {
-      final expenseBox = Hive.box<Expense>(AppConstants.expenses);
-      final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+  // Future<bool> addExpense(
+  //     double amount,
+  //     String desc,
+  //     String type,
+  //     List<int> categoryKeys,
+  //     ) async {
+  //   try {
+  //     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+  //     final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+  //
+  //     // ✅ Create Expense
+  //     final expense = Expense(
+  //       amount: amount,
+  //       date: DateTime.now(),
+  //       description: desc,
+  //       method: type,
+  //       categoryKeys: categoryKeys,
+  //     );
+  //     await expenseBox.add(expense);
+  //
+  //     // Deduct from Wallet safely
+  //     Wallet? wallet;
+  //     try {
+  //       wallet = walletBox.values.firstWhere(
+  //             (w) => w.name.toLowerCase() == type.toLowerCase(),
+  //       );
+  //     } catch (_) {
+  //       wallet = null;
+  //     }
+  //
+  //     if (wallet != null) {
+  //       wallet.balance -= amount;
+  //       wallet.updatedAt = DateTime.now();
+  //       await wallet.save();
+  //     }
+  //
+  //     return true;
+  //   } catch (e) {
+  //     debugPrint('Error in Adding Expense ==> ${e.toString()}');
+  //     if (mounted) {
+  //       SnackBars.show(
+  //         context,
+  //         message: 'Error in Adding Expense',
+  //         type: SnackBarType.error,
+  //         behavior: SnackBarBehavior.floating,
+  //       );
+  //     }
+  //     return false;
+  //   }
+  // }
+  //
+  //
+  // Future<bool> addIncome(
+  //     double amount,
+  //     String desc,
+  //     String type,
+  //     List<int> categoryKeys,
+  //     ) async {
+  //   try {
+  //     final incomeBox = Hive.box<Income>(AppConstants.incomes);
+  //     final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+  //
+  //     //  Create Income
+  //     final income = Income(
+  //       amount: amount,
+  //       date: DateTime.now(),
+  //       description: type != '' ? 'Payment via $type' : desc,
+  //       categoryKeys: categoryKeys,
+  //     );
+  //     await incomeBox.add(income);
+  //
+  //     // Deduct from Wallet safely
+  //     Wallet? wallet;
+  //     try {
+  //       wallet = walletBox.values.firstWhere(
+  //             (w) => w.name.toLowerCase() == type.toLowerCase(),
+  //       );
+  //     } catch (_) {
+  //       wallet = null;
+  //     }
+  //
+  //     if (wallet != null) {
+  //       wallet.balance += amount;
+  //       wallet.updatedAt = DateTime.now();
+  //       await wallet.save();
+  //     }
+  //
+  //     return true;
+  //   } catch (e) {
+  //     debugPrint('Error in Adding Income ==> ${e.toString()}');
+  //     if (mounted) {
+  //       SnackBars.show(
+  //         context,
+  //         message: 'Error in Adding Income',
+  //         type: SnackBarType.error,
+  //         behavior: SnackBarBehavior.floating,
+  //       );
+  //     }
+  //     return false;
+  //   }
+  // }
 
-      // ✅ Create Expense
-      final expense = Expense(
-        amount: amount,
-        date: DateTime.now(),
-        description: desc,
-        method: type,
-        categoryKeys: categoryKeys,
-      );
-      await expenseBox.add(expense);
-
-      // Deduct from Wallet safely
-      Wallet? wallet;
-      try {
-        wallet = walletBox.values.firstWhere(
-              (w) => w.name.toLowerCase() == type.toLowerCase(),
-        );
-      } catch (_) {
-        wallet = null;
-      }
-
-      if (wallet != null) {
-        wallet.balance -= amount;
-        wallet.updatedAt = DateTime.now();
-        await wallet.save();
-      }
-
-      return true;
-    } catch (e) {
-      debugPrint('Error in Adding Expense ==> ${e.toString()}');
-      if (mounted) {
-        SnackBars.show(
-          context,
-          message: 'Error in Adding Expense',
-          type: SnackBarType.error,
-          behavior: SnackBarBehavior.floating,
-        );
-      }
-      return false;
-    }
-  }
-
-
-  Future<bool> addIncome(
-      double amount,
-      String desc,
-      String type,
-      List<int> categoryKeys,
-      ) async {
-    try {
-      final incomeBox = Hive.box<Income>(AppConstants.incomes);
-      final walletBox = Hive.box<Wallet>(AppConstants.wallets);
-
-      //  Create Income
-      final income = Income(
-        amount: amount,
-        date: DateTime.now(),
-        description: type != '' ? 'Payment via $type' : desc,
-        categoryKeys: categoryKeys,
-      );
-      await incomeBox.add(income);
-
-      // Deduct from Wallet safely
-      Wallet? wallet;
-      try {
-        wallet = walletBox.values.firstWhere(
-              (w) => w.name.toLowerCase() == type.toLowerCase(),
-        );
-      } catch (_) {
-        wallet = null;
-      }
-
-      if (wallet != null) {
-        wallet.balance += amount;
-        wallet.updatedAt = DateTime.now();
-        await wallet.save();
-      }
-
-      return true;
-    } catch (e) {
-      debugPrint('Error in Adding Income ==> ${e.toString()}');
-      if (mounted) {
-        SnackBars.show(
-          context,
-          message: 'Error in Adding Income',
-          type: SnackBarType.error,
-          behavior: SnackBarBehavior.floating,
-        );
-      }
-      return false;
-    }
-  }
-
-  Future<bool> addCategory(String name, String type, Color color) async {
-    try {
-      final categoryBox = Hive.box<Category>(AppConstants.categories);
-      final category = Category(
-        name: name,
-        type: type,
-        color: '#${color.value.toRadixString(16).substring(2, 8)}',
-      );
-      await categoryBox.add(category);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
+  // Future<bool> addCategory(String name, String type, Color color) async {
+  //   try {
+  //     final categoryBox = Hive.box<Category>(AppConstants.categories);
+  //     final category = Category(
+  //       name: name,
+  //       type: type,
+  //       color: '#${color.value.toRadixString(16).substring(2, 8)}',
+  //     );
+  //     await categoryBox.add(category);
+  //     return true;
+  //   } catch (e) {
+  //     return false;
+  //   }
+  // }
 
   void _onTabTapped(int index) {
     setState(() {
@@ -857,9 +858,9 @@ class _BottomNavBarState extends State<BottomNavBar> {
       bool results = false;
 
       if (transaction['type'] == 'debit') {
-        results = await addExpense(amount, description, transaction['method'], [1, 2]);
+        results = await UniversalHiveFunctions().addExpense(amount, description, transaction['method'], [1, 2]);
       } else if (transaction['type'] == 'credit') {
-        results = await addIncome(amount, description, transaction['method'], [3, 4]);
+        results = await UniversalHiveFunctions().addIncome(amount, description, transaction['method'], [3, 4]);
       }
 
       if (mounted) {
@@ -1743,7 +1744,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
                     return;
                   }
 
-                  final success = await addExpense(
+                  final success = await UniversalHiveFunctions().addExpense(
                     amount,
                     addController.text.trim(),
                     selectedType,
@@ -1850,7 +1851,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
                     return;
                   }
 
-                  final success = await addIncome(
+                  final success = await UniversalHiveFunctions().addIncome(
                     amount,
                     addController.text.trim(),
                     selectedType,
@@ -1944,7 +1945,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
                     return;
                   }
 
-                  final success = await addCategory(
+                  final success = await UniversalHiveFunctions().addCategory(
                     addController.text.trim(),
                     'expense', // You might want to make this selectable
                     selectedColor,
