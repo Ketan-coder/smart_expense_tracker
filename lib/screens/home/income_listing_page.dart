@@ -310,7 +310,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
       body: SimpleCustomAppBar(
         title: "All Income",
         hasContent: true,
-        expandedHeight: 200.0,
+        expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         actions: [
           PopupMenuButton<String>(

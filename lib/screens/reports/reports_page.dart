@@ -101,7 +101,7 @@ class _ReportsPageState extends State<ReportsPage> {
       body: SimpleCustomAppBar(
         title: "Reports",
         hasContent: true,
-        expandedHeight: 270.0,
+        expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         onRefresh: () async {
           _getFilteredTransactions(

@@ -94,7 +94,7 @@ class _IncomePageState extends State<IncomePage> {
       body: SimpleCustomAppBar(
         title: "Income",
         hasContent: true,
-        expandedHeight: 200.0,
+        expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         actions: [
           IconButton(

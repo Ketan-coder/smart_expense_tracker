@@ -21,7 +21,7 @@ class _SettingsPageState extends State<SettingsPage> {
       body: SimpleCustomAppBar(
         title: "Settings",
         hasContent: true,
-        expandedHeight: 270.0,
+        expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         actions: [
           IconButton(

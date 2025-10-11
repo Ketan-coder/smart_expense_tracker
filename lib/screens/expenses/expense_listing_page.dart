@@ -309,7 +309,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
       body: SimpleCustomAppBar(
         title: "All Expenses",
         hasContent: true,
-        expandedHeight: 200.0,
+        expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         actions: [
           PopupMenuButton<String>(

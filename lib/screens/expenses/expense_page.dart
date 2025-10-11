@@ -92,7 +92,7 @@ class _ExpensePageState extends State<ExpensePage> {
       body: SimpleCustomAppBar(
         title: "Expenses",
         hasContent: true,
-        expandedHeight: 200.0,
+        expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         actions: [
           IconButton(
@@ -398,7 +398,7 @@ class _ExpensePageState extends State<ExpensePage> {
               axisNameWidget: Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  'Last 30 Days',
+                  'Last 7 Days',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -411,7 +411,7 @@ class _ExpensePageState extends State<ExpensePage> {
                 interval: 5,
                 reservedSize: 22,
                 getTitlesWidget: (value, meta) {
-                  final daysAgo = 29 - value.toInt();
+                  final daysAgo = 7 - value.toInt();
                   if (value.toInt() % 10 == 0) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 4),
@@ -440,7 +440,7 @@ class _ExpensePageState extends State<ExpensePage> {
           barTouchData: BarTouchData(
             touchTooltipData: BarTouchTooltipData(
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                final daysAgo = 29 - group.x.toInt();
+                final daysAgo = 7 - group.x.toInt();
                 return BarTooltipItem(
                   '₹${rod.toY.toStringAsFixed(0)}\n',
                   TextStyle(
