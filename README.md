@@ -91,7 +91,7 @@ SmartSpend monitors your SMS inbox for transaction notifications (like UPI payme
 | Language | Dart |
 | Database | Hive (local NoSQL) |
 | State Management | Provider *(planned)* |
-| Charts | *[Add your chart library]* |
+| Charts | *[fl_chars/Own Made]* |
 
 ---
 
@@ -142,16 +142,16 @@ We welcome contributions! Whether you're fixing bugs, adding features, or improv
 
 ## 📄 License
 
-[Add your license here - e.g., MIT, Apache 2.0, GPL]
+MIT
 
 ---
 
 ## 📧 Contact
 
 **Developer**: Ketan  
-💼 LinkedIn: [Add your LinkedIn]  
+💼 LinkedIn: www.linkedin.com/in/ketan-vishwakarmadevanddesigner  
 📧 Email: ketanv288@gmail.com
-🐛 Issues: [GitHub Issues](https://github.com/<your-username>/smartspend/issues)
+🐛 Issues: [GitHub Issues](https://github.com/Ketan-coder/smart_expense_tracker/issues)
 
 ---
 
