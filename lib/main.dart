@@ -1,5 +1,6 @@
 import 'package:expense_tracker/core/app_constants.dart';
 import 'package:expense_tracker/screens/widgets/bottom_nav_bar.dart';
+import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:expense_tracker/services/notification_service.dart';
 import 'package:expense_tracker/services/recurring_scheduler.dart';
 import 'package:flutter/material.dart';
@@ -67,24 +68,24 @@ void main() async {
     await NotificationService.initialize();
 
     // 🔥 Test notification immediately
-    await NotificationService.testImmediateNotification();
-    debugPrint('🔥 Test notification scheduling..........');
-    await NotificationService.scheduleUsingShow(
-        id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        title: '🔥 Emulator Notification',
-        body: 'You should see this in 20 seconds!',
-        scheduledDate: DateTime.now().add(Duration(seconds: 20)),
-        channelId: 'test_channel',
-        channelName: 'Test Channel',
-        channelDescription: 'A channel for testing notifications'
-    );
-    NotificationService.scheduleNotification(
-      id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title: '🔔 Reminder',
-      body: 'This is a manually checked notification!',
-      scheduledDate: DateTime.now().add(Duration(seconds: 10)),
-    );
-    debugPrint('🔥 Test notification scheduled!');
+    // await NotificationService.testImmediateNotification();
+    // debugPrint('🔥 Test notification scheduling..........');
+    // await NotificationService.scheduleUsingShow(
+    //     id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    //     title: '🔥 Emulator Notification',
+    //     body: 'You should see this in 20 seconds!',
+    //     scheduledDate: DateTime.now().add(Duration(seconds: 20)),
+    //     channelId: 'test_channel',
+    //     channelName: 'Test Channel',
+    //     channelDescription: 'A channel for testing notifications'
+    // );
+    // NotificationService.scheduleNotification(
+    //   id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    //   title: '🔔 Reminder',
+    //   body: 'This is a manually checked notification!',
+    //   scheduledDate: DateTime.now().add(Duration(seconds: 10)),
+    // );
+    // debugPrint('🔥 Test notification scheduled!');
   }
 
   await Hive.initFlutter();

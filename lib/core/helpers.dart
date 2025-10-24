@@ -160,7 +160,7 @@ class Helpers {
 
   Future<bool?> getCurrentAutoThemeState() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('autoThemeState') ?? false;
+    return prefs.getBool('autoThemeState') ?? true;
   }
 
   Future<void> setCurrentAutoThemeState(bool state) async {
@@ -171,7 +171,7 @@ class Helpers {
   // In Helpers class
   Future<bool?> getCurrentBiometricState() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('biometric_state');
+    return prefs.getBool('biometric_state') ?? false;
   }
 
   Future<void> setCurrentBiometricState(bool state) async {

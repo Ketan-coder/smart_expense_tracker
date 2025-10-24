@@ -354,15 +354,15 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
 
                 // Biometric Authentication
-                ListTile(
-                  leading: const Icon(Icons.fingerprint),
-                  title: const Text("Biometric Authentication"),
-                  subtitle: const Text("Use fingerprint or face ID to unlock app"),
-                  trailing: Switch(
-                    value: _biometricState,
-                    onChanged: _updateBiometricState,
-                  ),
-                ),
+                // ListTile(
+                //   leading: const Icon(Icons.fingerprint),
+                //   title: const Text("Biometric Authentication"),
+                //   subtitle: const Text("Use fingerprint or face ID to unlock app"),
+                //   trailing: Switch(
+                //     value: _biometricState,
+                //     onChanged: _updateBiometricState,
+                //   ),
+                // ),
 
                 // Auto Theme
                 ListTile(
