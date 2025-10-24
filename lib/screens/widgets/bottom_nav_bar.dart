@@ -161,7 +161,7 @@
 //         results = await addIncome(amount, description, transaction['method'], [3, 4]);
 //       }
 //
-//       print('${results ? '✅ Added Expense' : '❌'} Transaction: ${transaction['type']} ₹${transaction['amount']}');
+//       print('${results ? '✅ Added Expense' : '❌'} Transaction: ${transaction['type']} $_currentCurrency ${transaction['amount']}');
 //
 //
 //       // if (results) {
@@ -171,9 +171,9 @@
 //       //   transactions.insert(0, transaction);
 //       // });
 //
-//       SnackBars.show(context, message:  'Transaction: ${transaction['type']} ₹${transaction['amount']}', type: transaction['type'] == 'credit' ?  SnackBarType.success : SnackBarType.error, behavior: SnackBarBehavior.floating);
+//       SnackBars.show(context, message:  'Transaction: ${transaction['type']} $_currentCurrency ${transaction['amount']}', type: transaction['type'] == 'credit' ?  SnackBarType.success : SnackBarType.error, behavior: SnackBarBehavior.floating);
 //       // _showSnackBar(
-//       //   'Transaction: ${transaction['type']} ₹${transaction['amount']}',
+//       //   'Transaction: ${transaction['type']} $_currentCurrency ${transaction['amount']}',
 //       //   transaction['type'] == 'credit' ? Colors.green : Colors.red,
 //       // );
 //     } else {
@@ -654,6 +654,8 @@ import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/helpers.dart';
 import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../services/sms_service.dart';
@@ -674,7 +676,7 @@ class BottomNavBar extends StatefulWidget {
 class _BottomNavBarState extends State<BottomNavBar> {
   int _currentIndex = 0;
   bool _canActivateSMSFeature = false;
-
+  String _currentCurrency = 'INR';
 
   final List<Widget> _tabs = const [
     ReportsPage(),
@@ -694,124 +696,8 @@ class _BottomNavBarState extends State<BottomNavBar> {
     super.initState();
     _currentIndex = widget.currentIndex;
     _initializeDebugMode();
+    _loadInitialData();
   }
-
-  // Future<bool> addExpense(
-  //     double amount,
-  //     String desc,
-  //     String type,
-  //     List<int> categoryKeys,
-  //     ) async {
-  //   try {
-  //     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
-  //     final walletBox = Hive.box<Wallet>(AppConstants.wallets);
-  //
-  //     // ✅ Create Expense
-  //     final expense = Expense(
-  //       amount: amount,
-  //       date: DateTime.now(),
-  //       description: desc,
-  //       method: type,
-  //       categoryKeys: categoryKeys,
-  //     );
-  //     await expenseBox.add(expense);
-  //
-  //     // Deduct from Wallet safely
-  //     Wallet? wallet;
-  //     try {
-  //       wallet = walletBox.values.firstWhere(
-  //             (w) => w.name.toLowerCase() == type.toLowerCase(),
-  //       );
-  //     } catch (_) {
-  //       wallet = null;
-  //     }
-  //
-  //     if (wallet != null) {
-  //       wallet.balance -= amount;
-  //       wallet.updatedAt = DateTime.now();
-  //       await wallet.save();
-  //     }
-  //
-  //     return true;
-  //   } catch (e) {
-  //     debugPrint('Error in Adding Expense ==> ${e.toString()}');
-  //     if (mounted) {
-  //       SnackBars.show(
-  //         context,
-  //         message: 'Error in Adding Expense',
-  //         type: SnackBarType.error,
-  //         behavior: SnackBarBehavior.floating,
-  //       );
-  //     }
-  //     return false;
-  //   }
-  // }
-  //
-  //
-  // Future<bool> addIncome(
-  //     double amount,
-  //     String desc,
-  //     String type,
-  //     List<int> categoryKeys,
-  //     ) async {
-  //   try {
-  //     final incomeBox = Hive.box<Income>(AppConstants.incomes);
-  //     final walletBox = Hive.box<Wallet>(AppConstants.wallets);
-  //
-  //     //  Create Income
-  //     final income = Income(
-  //       amount: amount,
-  //       date: DateTime.now(),
-  //       description: type != '' ? 'Payment via $type' : desc,
-  //       categoryKeys: categoryKeys,
-  //     );
-  //     await incomeBox.add(income);
-  //
-  //     // Deduct from Wallet safely
-  //     Wallet? wallet;
-  //     try {
-  //       wallet = walletBox.values.firstWhere(
-  //             (w) => w.name.toLowerCase() == type.toLowerCase(),
-  //       );
-  //     } catch (_) {
-  //       wallet = null;
-  //     }
-  //
-  //     if (wallet != null) {
-  //       wallet.balance += amount;
-  //       wallet.updatedAt = DateTime.now();
-  //       await wallet.save();
-  //     }
-  //
-  //     return true;
-  //   } catch (e) {
-  //     debugPrint('Error in Adding Income ==> ${e.toString()}');
-  //     if (mounted) {
-  //       SnackBars.show(
-  //         context,
-  //         message: 'Error in Adding Income',
-  //         type: SnackBarType.error,
-  //         behavior: SnackBarBehavior.floating,
-  //       );
-  //     }
-  //     return false;
-  //   }
-  // }
-
-  // Future<bool> addCategory(String name, String type, Color color) async {
-  //   try {
-  //     final categoryBox = Hive.box<Category>(AppConstants.categories);
-  //     final category = Category(
-  //       name: name,
-  //       type: type,
-  //       color: '#${color.value.toRadixString(16).substring(2, 8)}',
-  //     );
-  //     await categoryBox.add(category);
-  //     return true;
-  //   } catch (e) {
-  //     return false;
-  //   }
-  // }
 
   void _onTabTapped(int index) {
     setState(() {
@@ -819,31 +705,99 @@ class _BottomNavBarState extends State<BottomNavBar> {
     });
   }
 
+  Future<void> _loadInitialData() async {
+    _currentCurrency = await Helpers().getCurrentCurrency() ?? 'INR';
+    debugPrint("_currentCurrency: $_currentCurrency");
+    if (mounted) {
+      setState(() {});
+    }
+  }
+  // Future<void> _initializeDebugMode() async {
+  //   try {
+  //     if (kIsWeb || !Platform.isAndroid || !Platform.isIOS) {
+  //       _canActivateSMSFeature = true;
+  //     }
+  //     bool hasPermissions = await SmsListener.initialize();
+  //
+  //     if (mounted) {
+  //       setState(() {
+  //         permissionsGranted = hasPermissions;
+  //       });
+  //
+  //       if (hasPermissions && _canActivateSMSFeature) {
+  //         _startListening();
+  //       } else if (!hasPermissions && !_canActivateSMSFeature) {
+  //         SnackBars.show(context, message: "SMS Feature isn't Supported on this Platform", type: SnackBarType.error, behavior: SnackBarBehavior.floating);
+  //       }
+  //       else {
+  //         SnackBars.show(context, message: 'Please grant SMS permissions', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
+  //       }
+  //     }
+  //     // Check if it is first time
+  //     // final prefs = await SharedPreferences.getInstance();
+  //     // bool isFirstTime = prefs.getBool('isFirstTime') ?? true;
+  //     // if (isFirstTime) {
+  //     //   UniversalHiveFunctions().initCategories();
+  //     //   await prefs.setBool('isFirstTime', false);
+  //     // }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       SnackBars.show(context, message: 'Error initializing SMS listener', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
+  //     }
+  //   }
+  // }
+
   Future<void> _initializeDebugMode() async {
     try {
-      if (kIsWeb || !Platform.isAndroid || !Platform.isIOS) {
-        _canActivateSMSFeature = true;
-      }
-      bool hasPermissions = await SmsListener.initialize();
+      // Initialize platform features
+      await _initializePlatformFeatures();
 
-      if (mounted) {
-        setState(() {
-          permissionsGranted = hasPermissions;
-        });
+      // Initialize first-time setup (separated)
+      await _initializeFirstTimeSetup();
 
-        if (hasPermissions && _canActivateSMSFeature) {
-          _startListening();
-        } else if (!hasPermissions && !_canActivateSMSFeature) {
-          SnackBars.show(context, message: "SMS Feature isn't Supported on this Platform", type: SnackBarType.error, behavior: SnackBarBehavior.floating);
-        }
-        else {
-          SnackBars.show(context, message: 'Please grant SMS permissions', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
-        }
-      }
     } catch (e) {
       if (mounted) {
         SnackBars.show(context, message: 'Error initializing SMS listener', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
       }
+    }
+  }
+
+  Future<void> _initializePlatformFeatures() async {
+    if (kIsWeb || !Platform.isAndroid || !Platform.isIOS) {
+      _canActivateSMSFeature = true;
+    }
+
+    bool hasPermissions = await SmsListener.initialize();
+
+    if (!mounted) return;
+
+    setState(() {
+      permissionsGranted = hasPermissions;
+    });
+
+    if (hasPermissions && _canActivateSMSFeature) {
+      _startListening();
+    } else if (!hasPermissions && !_canActivateSMSFeature) {
+      SnackBars.show(context, message: "SMS Feature isn't Supported on this Platform", type: SnackBarType.error, behavior: SnackBarBehavior.floating);
+    } else {
+      SnackBars.show(context, message: 'Please grant SMS permissions', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
+    }
+  }
+
+  Future<void> _initializeFirstTimeSetup() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      bool isFirstTime = prefs.getBool('isFirstTime') ?? true;
+
+      if (isFirstTime) {
+        await UniversalHiveFunctions().initCategories();
+        if (mounted) {
+          await prefs.setBool('isFirstTime', false);
+        }
+      }
+    } catch (e) {
+      // Silently handle first-time setup errors
+      debugPrint('First-time setup failed: $e');
     }
   }
 
@@ -876,7 +830,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
       if (mounted) {
         SnackBars.show(
           context,
-          message: 'Transaction: ${transaction['type']} ₹${transaction['amount']}',
+          message: 'Transaction: ${transaction['type']} $_currentCurrency ${transaction['amount']}',
           type: transaction['type'] == 'credit' ? SnackBarType.success : SnackBarType.error,
           behavior: SnackBarBehavior.floating,
         );
@@ -982,7 +936,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       title: Text(wallet.name),
-                      subtitle: Text('₹${wallet.balance.toStringAsFixed(2)} • ${wallet.type.toUpperCase()}'),
+                      subtitle: Text('$_currentCurrency ${wallet.balance.toStringAsFixed(2)} • ${wallet.type.toUpperCase()}'),
                       trailing: PopupMenuButton<String>(
                         onSelected: (value) {
                           if (value == 'edit') {
@@ -1110,10 +1064,10 @@ class _BottomNavBarState extends State<BottomNavBar> {
               const SizedBox(height: 16),
               TextField(
                 controller: balanceController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Balance',
                   border: OutlineInputBorder(),
-                  prefixText: '₹',
+                  prefixText: '$_currentCurrency ',
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
@@ -1214,10 +1168,10 @@ class _BottomNavBarState extends State<BottomNavBar> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: amountController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Amount',
                     border: OutlineInputBorder(),
-                    prefixText: '₹',
+                    prefixText: '$_currentCurrency ',
                   ),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
@@ -1567,7 +1521,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('₹${recurring.amount.toStringAsFixed(2)} • ${recurring.interval}'),
+                          Text('$_currentCurrency ${recurring.amount.toStringAsFixed(2)} • ${recurring.interval}'),
                           if (nextDeduction != null)
                             Text(
                               'Next: ${_formatDate(nextDeduction)}',
@@ -1696,10 +1650,10 @@ class _BottomNavBarState extends State<BottomNavBar> {
               const SizedBox(height: 16),
               TextField(
                 controller: amountController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: "Amount",
                   border: OutlineInputBorder(),
-                  prefixText: "₹",
+                  prefixText: "$_currentCurrency ",
                 ),
                 keyboardType: TextInputType.number,
               ),
@@ -1710,7 +1664,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
                   labelText: "Payment Method",
                   border: OutlineInputBorder(),
                 ),
-                items: ["UPI", "Cash", "NEFT", "IMPS", "RTGS", "Card", "Online"]
+                items: Helpers().getPaymentMethods()
                     .map((type) => DropdownMenuItem(value: type, child: Text(type)))
                     .toList(),
                 onChanged: (value) {
@@ -1723,11 +1677,14 @@ class _BottomNavBarState extends State<BottomNavBar> {
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
-                children: categories.map((category) {
+                children: categories
+                    .where((category) => category.type.toString().toLowerCase() == 'expense')
+                    .map((category) {
                   final key = categoryBox.keyAt(categories.indexOf(category)) as int;
                   final isSelected = selectedCategoryKeys.contains(key);
                   return ChoiceChip(
                     label: Text(category.name),
+                    backgroundColor: (Helpers().hexToColor(category.color)).withValues(alpha: .5),
                     selected: isSelected,
                     onSelected: (selected) {
                       setState(() {
@@ -1803,10 +1760,10 @@ class _BottomNavBarState extends State<BottomNavBar> {
               const SizedBox(height: 16),
               TextField(
                 controller: amountController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: "Amount",
                   border: OutlineInputBorder(),
-                  prefixText: "₹",
+                  prefixText: "$_currentCurrency ",
                 ),
                 keyboardType: TextInputType.number,
               ),
@@ -1817,7 +1774,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
                   labelText: "Payment Method",
                   border: OutlineInputBorder(),
                 ),
-                items: ["UPI", "Cash", "NEFT", "IMPS", "RTGS", "Card", "Online"]
+                items: Helpers().getPaymentMethods()
                     .map((type) => DropdownMenuItem(value: type, child: Text(type)))
                     .toList(),
                 onChanged: (value) {
@@ -1830,11 +1787,14 @@ class _BottomNavBarState extends State<BottomNavBar> {
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
-                children: categories.map((category) {
+                children: categories
+                    .where((category) => category.type.toString().toLowerCase() == 'income')
+                    .map((category) {
                   final key = categoryBox.keyAt(categories.indexOf(category)) as int;
                   final isSelected = selectedCategoryKeys.contains(key);
                   return ChoiceChip(
                     label: Text(category.name),
+                    backgroundColor: (Helpers().hexToColor(category.color)).withValues(alpha: .5),
                     selected: isSelected,
                     onSelected: (selected) {
                       setState(() {

@@ -28,12 +28,22 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
   DateTimeRange? _dateRange;
   double? _minAmount;
   double? _maxAmount;
-
+  String _currentCurrency = 'INR';
+  
   @override
   void initState() {
     super.initState();
     if (widget.initialFilter == 'category') {
       _showCategoryFilter();
+    }
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    _currentCurrency = await Helpers().getCurrentCurrency() ?? 'INR';
+    debugPrint("_currentCurrency: $_currentCurrency");
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -156,7 +166,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
   }
 
   void _showSourceFilter() {
-    final sources = ['UPI', 'Cash', 'Card', 'NEFT', 'IMPS', 'RTGS', 'Online'];
+    final sources = Helpers().getPaymentMethods();
 
     showModalBottomSheet(
       context: context,
@@ -218,20 +228,20 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
         children: [
           TextField(
             controller: minController,
-            decoration: const InputDecoration(
+            decoration:  InputDecoration(
               labelText: 'Minimum Amount',
               border: OutlineInputBorder(),
-              prefixText: '₹',
+              prefixText: '$_currentCurrency ',
             ),
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 16),
           TextField(
             controller: maxController,
-            decoration: const InputDecoration(
+            decoration:  InputDecoration(
               labelText: 'Maximum Amount',
               border: OutlineInputBorder(),
-              prefixText: '₹',
+              prefixText: '$_currentCurrency ',
             ),
             keyboardType: TextInputType.number,
           ),
@@ -435,7 +445,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                           const SizedBox(width: 8),
                           FilterChip(
                             label: Text(_minAmount != null || _maxAmount != null
-                                ? '₹${_minAmount?.toStringAsFixed(0) ?? '0'} - ₹${_maxAmount?.toStringAsFixed(0) ?? '∞'}'
+                                ? '$_currentCurrency ${_minAmount?.toStringAsFixed(0) ?? '0'} - $_currentCurrency ${_maxAmount?.toStringAsFixed(0) ?? '∞'}'
                                 : 'Amount'),
                             selected: _minAmount != null || _maxAmount != null,
                             onSelected: (_) => _showAmountFilter(),
@@ -485,7 +495,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                               ],
                             ),
                             Text(
-                              '₹${total.toStringAsFixed(2)}',
+                              '$_currentCurrency ${total.toStringAsFixed(2)}',
                               style: theme.textTheme.headlineMedium?.copyWith(
                                 color: colorScheme.onPrimaryContainer,
                                 fontWeight: FontWeight.bold,
@@ -676,7 +686,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
             ],
           ),
           trailing: Text(
-            '₹${income.amount.toStringAsFixed(2)}',
+            '$_currentCurrency ${income.amount.toStringAsFixed(2)}',
             style: theme.textTheme.titleMedium?.copyWith(
               color: colorScheme.primary,
               fontWeight: FontWeight.bold,
@@ -708,6 +718,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
     final amountController = TextEditingController(text: income.amount.toString());
     final descController = TextEditingController(text: income.description);
     String selectedMethod = income.method ?? 'UPI';
+    final List<int> selectedCategoryKeys = income.categoryKeys.isNotEmpty ? income.categoryKeys : [];
     int? selectedCategoryKey = income.categoryKeys.isNotEmpty ? income.categoryKeys.first : null;
 
     BottomSheetUtil.show(
@@ -724,10 +735,10 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
               TextField(
                 controller: amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
+                decoration:  InputDecoration(
                   labelText: 'Amount',
                   border: OutlineInputBorder(),
-                  prefixText: '₹',
+                  prefixText: '$_currentCurrency ',
                 ),
               ),
               const SizedBox(height: 16),
@@ -745,7 +756,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                   labelText: 'Source',
                   border: OutlineInputBorder(),
                 ),
-                items: ["UPI", "Cash", "NEFT", "IMPS", "RTGS", "Card", "Online"]
+                items: Helpers().getPaymentMethods()
                     .map((type) => DropdownMenuItem(value: type, child: Text(type)))
                     .toList(),
                 onChanged: (value) {
@@ -754,25 +765,55 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                   });
                 },
               ),
+              // const SizedBox(height: 16),
+              // DropdownButtonFormField<int>(
+              //   initialValue: selectedCategoryKey,
+              //   decoration: const InputDecoration(
+              //     labelText: 'Category',
+              //     border: OutlineInputBorder(),
+              //   ),
+              //   items: categories.map((cat) {
+              //     final key = categoryBox.keyAt(categories.indexOf(cat));
+              //     return DropdownMenuItem<int>(
+              //       value: key,
+              //       child: Text(cat.name),
+              //     );
+              //   }).toList(),
+              //   onChanged: (value) {
+              //     setModalState(() {
+              //       selectedCategoryKey = value;
+              //     });
+              //   },
+              // ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<int>(
-                initialValue: selectedCategoryKey,
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
-                ),
-                items: categories.map((cat) {
-                  final key = categoryBox.keyAt(categories.indexOf(cat));
-                  return DropdownMenuItem<int>(
-                    value: key,
-                    child: Text(cat.name),
+              const Text(
+                "Selected Categories:",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: categories
+                    .where((category) => category.type.toString().toLowerCase() == 'income')
+                    .map((category) {
+                  final catKey = categoryBox.keyAt(categories.indexOf(category)) as int;
+                  final isSelected = selectedCategoryKeys.contains(catKey);
+                  return ChoiceChip(
+                    label: Text(category.name),
+                    backgroundColor: (Helpers().hexToColor(category.color)).withValues(alpha: .5),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setModalState(() {
+                        if (selected) {
+                          selectedCategoryKeys.add(catKey);
+                        } else {
+                          selectedCategoryKeys.remove(catKey);
+                        }
+                      });
+                    },
                   );
                 }).toList(),
-                onChanged: (value) {
-                  setModalState(() {
-                    selectedCategoryKey = value;
-                  });
-                },
               ),
               const SizedBox(height: 24),
               FilledButton(

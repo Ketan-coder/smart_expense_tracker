@@ -7,6 +7,7 @@ import '../data/model/wallet.dart';
 
 const recurringTask = "checkRecurringPayments";
 
+@pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     if (task == recurringTask) {

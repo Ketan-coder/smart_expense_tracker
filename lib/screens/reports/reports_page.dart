@@ -5,6 +5,7 @@ import 'package:expense_tracker/core/app_constants.dart';
 import 'package:expense_tracker/core/helpers.dart';
 import 'package:expense_tracker/screens/widgets/custom_app_bar.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
 import '../../data/model/income.dart';
@@ -88,6 +89,21 @@ class _ReportsPageState extends State<ReportsPage> {
       }
     }
     return total;
+  }
+
+  String _currentCurrency = 'INR';
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    _currentCurrency = await Helpers().getCurrentCurrency() ?? 'INR';
+    debugPrint("_currentCurrency: $_currentCurrency");
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -248,7 +264,7 @@ class _ReportsPageState extends State<ReportsPage> {
                                           ],
                                         ),
                                         trailing: Text(
-                                          '${isIncome ? '+' : '-'} ₹${transaction.amount.toStringAsFixed(2)}',
+                                          '${isIncome ? '+' : '-'} $_currentCurrency ${transaction.amount.toStringAsFixed(2)}',
                                           style: theme.textTheme.titleMedium?.copyWith(
                                             color: isIncome ? colorScheme.primary : colorScheme.error,
                                             fontWeight: FontWeight.bold,
@@ -301,7 +317,7 @@ class _ReportsPageState extends State<ReportsPage> {
               ),
               const SizedBox(height: 12),
               Text(
-                '₹${totalBalance.toStringAsFixed(2)}',
+                '$_currentCurrency ${totalBalance.toStringAsFixed(2)}',
                 style: theme.textTheme.displaySmall?.copyWith(
                   color: colorScheme.primary,
                   fontWeight: FontWeight.bold,
@@ -342,7 +358,7 @@ class _ReportsPageState extends State<ReportsPage> {
                     )),
                     const SizedBox(height: 4),
                     Text(
-                      '₹${totalIncome.toStringAsFixed(2)}',
+                      '$_currentCurrency ${totalIncome.toStringAsFixed(2)}',
                       style: theme.textTheme.titleLarge?.copyWith(
                         color: colorScheme.primary,
                         fontWeight: FontWeight.bold,
@@ -358,7 +374,7 @@ class _ReportsPageState extends State<ReportsPage> {
                     )),
                     const SizedBox(height: 4),
                     Text(
-                      '₹${totalExpense.toStringAsFixed(2)}',
+                      '$_currentCurrency ${totalExpense.toStringAsFixed(2)}',
                       style: theme.textTheme.titleLarge?.copyWith(
                         color: colorScheme.error,
                         fontWeight: FontWeight.bold,
@@ -374,7 +390,7 @@ class _ReportsPageState extends State<ReportsPage> {
               children: [
                 Text('Net', style: theme.textTheme.titleMedium),
                 Text(
-                  '₹${net.toStringAsFixed(2)}',
+                  '$_currentCurrency ${net.toStringAsFixed(2)}',
                   style: theme.textTheme.titleLarge?.copyWith(
                     color: net >= 0 ? colorScheme.primary : colorScheme.error,
                     fontWeight: FontWeight.bold,
@@ -408,7 +424,7 @@ class _ReportsPageState extends State<ReportsPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              '₹${monthlyTotal.toStringAsFixed(2)}',
+              '$_currentCurrency ${monthlyTotal.toStringAsFixed(2)}',
               style: theme.textTheme.headlineMedium?.copyWith(
                 color: colorScheme.error,
                 fontWeight: FontWeight.bold,
@@ -441,7 +457,7 @@ class _ReportsPageState extends State<ReportsPage> {
                       Icon(Icons.arrow_downward_rounded, color: colorScheme.primary, size: 32),
                       const SizedBox(height: 8),
                       Text('Income', style: theme.textTheme.labelLarge),
-                      Text('₹${income.toStringAsFixed(0)}',
+                      Text('$_currentCurrency ${income.toStringAsFixed(0)}',
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -461,7 +477,7 @@ class _ReportsPageState extends State<ReportsPage> {
                       Icon(Icons.arrow_upward_rounded, color: colorScheme.error, size: 32),
                       const SizedBox(height: 8),
                       Text('Expenses', style: theme.textTheme.labelLarge),
-                      Text('₹${expense.toStringAsFixed(0)}',
+                      Text('$_currentCurrency ${expense.toStringAsFixed(0)}',
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: colorScheme.error,
                           fontWeight: FontWeight.bold,
@@ -516,7 +532,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '₹${wallet.balance.toStringAsFixed(2)}',
+                      '$_currentCurrency ${wallet.balance.toStringAsFixed(2)}',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -590,7 +606,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   title: Text(recurring.description),
                   subtitle: Text('$categoryName • ${recurring.interval}'),
                   trailing: Text(
-                    '₹${recurring.amount.toStringAsFixed(2)}',
+                    '$_currentCurrency ${recurring.amount.toStringAsFixed(2)}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -627,10 +643,10 @@ class _ReportsPageState extends State<ReportsPage> {
               const SizedBox(height: 16),
               TextField(
                 controller: balanceController,
-                decoration: const InputDecoration(
+                decoration:  InputDecoration(
                   labelText: 'Balance',
                   border: OutlineInputBorder(),
-                  prefixText: '₹',
+                  prefixText: _currentCurrency,
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),

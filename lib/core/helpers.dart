@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Helpers {
   /// Format currency (₹, $, etc.)
@@ -111,5 +112,70 @@ class Helpers {
       debugPrint('Invalid hex color: $hex, error: $e');
       return Colors.grey;
     }
+  }
+
+  List<String> getPaymentMethods() {
+    return ["UPI", "Cash", "NEFT", "IMPS", "RTGS", "Card", "Online"];
+  }
+  
+  Future<String?> getCurrentCurrency() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('selectedCurrency') ?? '₹';
+  }
+
+  Future<void> setCurrentCurrency(String currency) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selectedCurrency', currency);
+  }
+
+  Future<String?> getCurrentLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('selectedLanguage') ?? 'English';
+  }
+
+  Future<void> setCurrentLanguage(String language) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selectedLanguage', language);
+  }
+
+  Future<bool?> getCurrentNotificationState() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('notificationState') ?? false;
+  }
+
+  Future<void> setCurrentNotificationState(bool state) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notificationState', state);
+  }
+
+  Future<bool?> getCurrentDarkThemeState() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('darkThemeState') ?? false;
+  }
+
+  Future<void> setCurrentDarkThemeState(bool state) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('darkThemeState', state);
+  }
+
+  Future<bool?> getCurrentAutoThemeState() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('autoThemeState') ?? false;
+  }
+
+  Future<void> setCurrentAutoThemeState(bool state) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('autoThemeState', state);
+  }
+
+  // In Helpers class
+  Future<bool?> getCurrentBiometricState() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('biometric_state');
+  }
+
+  Future<void> setCurrentBiometricState(bool state) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('biometric_state', state);
   }
 }

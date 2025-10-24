@@ -23,14 +23,30 @@ class UniversalHiveFunctions {
 
       await expenseBox.add(expense);
 
-      final wallet = walletBox.values.firstWhere(
-            (w) => w.type.toLowerCase() == type.toLowerCase(),
-        orElse: () => Wallet(name: type, balance: 0, updatedAt: DateTime.now(), type: 'UPI', createdAt: DateTime.now()),
-      );
+      Wallet wallet;
+      try {
+        wallet = walletBox.values.firstWhere(
+              (w) => w.type.toLowerCase() == type.toLowerCase(),
+        );
 
-      wallet.balance -= amount;
-      wallet.updatedAt = DateTime.now();
-      await wallet.save();
+        // Update existing wallet
+        wallet.balance -= amount;
+        wallet.updatedAt = DateTime.now();
+        await wallet.save();
+
+      } catch (e) {
+        // Wallet doesn't exist, create new one
+        wallet = Wallet(
+          name: type,
+          balance: -amount, // Starting with negative balance for expense
+          updatedAt: DateTime.now(),
+          type: type,
+          createdAt: DateTime.now(),
+        );
+
+        // Add the new wallet to the box
+        await walletBox.add(wallet);
+      }
 
       debugPrint("✅ Expense added successfully");
       return true;
@@ -251,6 +267,53 @@ class UniversalHiveFunctions {
         color: '#${color.value.toRadixString(16).substring(2, 8)}',
       );
       await categoryBox.add(category);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> updateCategory(int key, Category newCategory) async {
+    try {
+      final categoryBox = Hive.box<Category>(AppConstants.categories);
+      await categoryBox.put(key, newCategory);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> deleteCategory(int key) async {
+    try {
+      final categoryBox = Hive.box<Category>(AppConstants.categories);
+      await categoryBox.delete(key);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<List<Category>> getCategories() async {
+    try {
+      final categoryBox = Hive.box<Category>(AppConstants.categories);
+      return categoryBox.values.toList();
+      } catch (e) {
+      return [];
+    }
+  }
+
+//   Initialize category on first run
+  Future<bool> initCategories() async {
+    try {
+      final categoryBox = Hive.box<Category>(AppConstants.categories);
+      if (categoryBox.isEmpty) {
+        await addCategory('Groceries', 'Expense', Color(0xFFF44336));
+        await addCategory('Salary', 'Income', Color(0xFF4CAF50));
+        await addCategory('Rent', 'Expense', Color(0xFF2196F3));
+        await addCategory('Savings', 'Income', Color(0xFFE91E63));
+        await addCategory('Utilities', 'Expense', Color(0xFF673AB7));
+        await addCategory('Other', 'Expense', Color(0xFF3F51B5));
+      }
       return true;
     } catch (e) {
       return false;

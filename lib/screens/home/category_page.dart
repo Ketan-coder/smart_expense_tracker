@@ -76,10 +76,10 @@ class _CategoryPageState extends State<CategoryPage> {
         body: SimpleCustomAppBar(
           title: "Category",
           hasContent: true,
-          expandedHeight: 270.0,
+          expandedHeight: MediaQuery.of(context).size.height * 0.35,
           centerTitle: true,
           actions: [
-            IconButton(icon: const Icon(Icons.refresh), onPressed: () => initCall),
+            // IconButton(icon: const Icon(Icons.refresh), onPressed: () => initCall),
             // IconButton(icon: const Icon(Icons.logout), onPressed: () {}),
           ],
           child: Container(
@@ -97,7 +97,7 @@ class _CategoryPageState extends State<CategoryPage> {
                 valueListenable: Hive.box<Category>(AppConstants.categories).listenable(),
                 builder: (context, box, _) {
                   final categories = box.values.toList();
-      
+
                   if (categories.isEmpty) {
                     return const Center(child: Text("No Categories yet."));
                   }
@@ -238,119 +238,11 @@ class _CategoryPageState extends State<CategoryPage> {
                             child: ListTile(
                               title: Text(category.name),
                               subtitle: Text(category.type),
-                              // trailing: Row(
-                              //   mainAxisSize: MainAxisSize.min,
-                              //   children: [
-                              //     IconButton(
-                              //       icon: const Icon(Icons.edit),
-                              //       onPressed: () async {
-                              //         final editController = TextEditingController(text: category.name);
-                              //         String selectedType = category.type;
-                              //         Color selectedColor = Helpers().hexToColor(category.color);
-                              //
-                              //         await BottomSheetUtil.show(
-                              //           context: context,
-                              //           title: "Edit Category",
-                              //           child: StatefulBuilder(
-                              //             builder: (context, setState) {
-                              //               void showColorPickerDialog() {
-                              //                 showDialog(
-                              //                   context: context,
-                              //                   builder: (context) => AlertDialog(
-                              //                     title: const Text('Pick a color!'),
-                              //                     content: SingleChildScrollView(
-                              //                       child: ColorPicker(
-                              //                         pickerColor: selectedColor,
-                              //                         onColorChanged: (color) {
-                              //                           setState(() {
-                              //                             selectedColor = color;
-                              //                           });
-                              //                         },
-                              //                       ),
-                              //                     ),
-                              //                     actions: <Widget>[
-                              //                       ElevatedButton(
-                              //                         child: const Text('Got it'),
-                              //                         onPressed: () {
-                              //                           Navigator.of(context).pop();
-                              //                         },
-                              //                       ),
-                              //                     ],
-                              //                   ),
-                              //                 );
-                              //               }
-                              //
-                              //               return Column(
-                              //                 mainAxisSize: MainAxisSize.min,
-                              //                 children: [
-                              //                   TextField(
-                              //                     controller: editController,
-                              //                     decoration: const InputDecoration(labelText: "Category Name"),
-                              //                   ),
-                              //                   const SizedBox(height: 10),
-                              //                   Row(
-                              //                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              //                     children: [
-                              //                       const Text("Category Color", style: TextStyle(fontSize: 16)),
-                              //                       GestureDetector(
-                              //                         onTap: showColorPickerDialog,
-                              //                         child: Container(
-                              //                           width: 100,
-                              //                           height: 40,
-                              //                           decoration: BoxDecoration(
-                              //                             color: selectedColor,
-                              //                             borderRadius: BorderRadius.circular(8),
-                              //                             border: Border.all(color: Colors.grey.shade400),
-                              //                           ),
-                              //                           alignment: Alignment.center,
-                              //                           child: const Text(
-                              //                             "Change",
-                              //                             style: TextStyle(
-                              //                               color: Colors.white,
-                              //                               fontWeight: FontWeight.bold,
-                              //                               shadows: [Shadow(blurRadius: 2, color: Colors.black54)],
-                              //                             ),
-                              //                           ),
-                              //                         ),
-                              //                       ),
-                              //                     ],
-                              //                   ),
-                              //                   const SizedBox(height: 10),
-                              //                   FilledButton(
-                              //                     onPressed: () async {
-                              //                       final updatedCategory = Category(
-                              //                         name: editController.text.trim(),
-                              //                         type: selectedType,
-                              //                         color: colorToHex(selectedColor),
-                              //                       );
-                              //                       await updateCategory(key, updatedCategory);
-                              //                       if (context.mounted) {
-                              //                         Navigator.of(context).pop();
-                              //                         Helpers().createRoute(const BottomNavBar(currentIndex: 3));
-                              //                       }
-                              //                     },
-                              //                     child: const Text("Save"),
-                              //                   ),
-                              //                 ],
-                              //               );
-                              //             },
-                              //           ),
-                              //         );
-                              //       },
-                              //     ),
-                              //     IconButton(
-                              //       icon: const Icon(Icons.delete),
-                              //       onPressed: () async {
-                              //         final bool? confirmed = await Dialogs.showConfirmation(context: context);
-                              //         if (confirmed == true) {
-                              //           await deleteCategory(key);
-                              //         } else {
-                              //           Helpers().createRoute(const BottomNavBar(currentIndex: 3));
-                              //         }
-                              //       },
-                              //     ),
-                              //   ],
-                              // ),
+                                style: ListTileStyle.list,
+                              leading: CircleAvatar(
+                                backgroundColor: Helpers().hexToColor(category.color),
+                                child: Text(category.name[0].toUpperCase()),
+                              ),
                             ),
                           ),
                         );
