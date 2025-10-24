@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:collection/collection.dart';
-import 'package:intl/intl.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
-import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../data/model/income.dart';
-import '../widgets/bottom_sheet.dart';
 import '../widgets/custom_app_bar.dart';
-import '../widgets/snack_bar.dart';
 import 'income_listing_page.dart';
 
 enum IncomeFilter { today, week, month, year }
@@ -322,7 +317,7 @@ class _IncomePageState extends State<IncomePage> {
   }
 
   Widget _buildIncomeTrendBarChart(List<double> dailyIncomes, ColorScheme colorScheme) {
-    final now = DateTime.now();
+    // final now = DateTime.now();
     final maxY = dailyIncomes.reduce((a, b) => a > b ? a : b);
 
     // Calculate dynamic height based on max value

@@ -1,7 +1,6 @@
 import 'package:workmanager/workmanager.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import '../core/app_constants.dart';
-import '../data/local/db_helper.dart';
 import '../data/model/expense.dart';
 import '../data/model/recurring.dart';
 import '../data/model/wallet.dart';

@@ -1,11 +1,8 @@
-import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:collection/collection.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
-import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
 import '../widgets/custom_app_bar.dart';
@@ -320,7 +317,7 @@ class _ExpensePageState extends State<ExpensePage> {
   }
 
   Widget _buildExpenseTrendBarChart(List<double> dailyIncomes, ColorScheme colorScheme) {
-    final now = DateTime.now();
+    // final now = DateTime.now();
     final maxY = dailyIncomes.reduce((a, b) => a > b ? a : b);
 
     // Calculate dynamic height based on max value
@@ -467,196 +464,196 @@ class _ExpensePageState extends State<ExpensePage> {
     );
   }
 
-  Widget _buildSpendingTrendChart(List<double> dailyExpenses, ColorScheme colorScheme) {
-    final spots = dailyExpenses.asMap().entries.map((entry) {
-      return FlSpot(entry.key.toDouble(), entry.value);
-    }).toList();
-
-    final maxY = dailyExpenses.reduce((a, b) => a > b ? a : b);
-    final now = DateTime.now();
-
-    return SizedBox(
-      height: 220,
-      child: LineChart(
-        LineChartData(
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: maxY > 0 ? maxY / 4 : 25,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: colorScheme.outlineVariant.withOpacity(0.2),
-                strokeWidth: 1,
-              );
-            },
-          ),
-          titlesData: FlTitlesData(
-            leftTitles: AxisTitles(
-              axisNameWidget: Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'Amount',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 50,
-                interval: maxY > 0 ? maxY / 4 : 25,
-                getTitlesWidget: (value, meta) {
-                  if (value == 0) {
-                    return Text(
-                      '₹0',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    );
-                  }
-                  return Text(
-                    '₹${Helpers().formatCompactCurrency(value)}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  );
-                },
-              ),
-            ),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              axisNameWidget: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Days Ago',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              sideTitles: SideTitles(
-                showTitles: true,
-                interval: 5,
-                getTitlesWidget: (value, meta) {
-                  final daysAgo = 29 - value.toInt();
-                  if (value.toInt() % 5 == 0 || value == 0 || value == 29) {
-                    String label;
-                    if (daysAgo == 0) {
-                      label = 'Today';
-                    } else if (daysAgo <= 7) {
-                      final date = now.subtract(Duration(days: daysAgo));
-                      label = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.weekday % 7];
-                    } else {
-                      label = '${daysAgo}d';
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: daysAgo == 0 ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-            ),
-          ),
-          borderData: FlBorderData(
-            show: true,
-            border: Border(
-              left: BorderSide(color: colorScheme.outline.withOpacity(0.3)),
-              bottom: BorderSide(color: colorScheme.outline.withOpacity(0.3)),
-            ),
-          ),
-          minY: 0,
-          maxY: maxY > 0 ? maxY * 1.15 : 100,
-          lineTouchData: LineTouchData(
-            enabled: true,
-            touchTooltipData: LineTouchTooltipData(
-              getTooltipItems: (touchedSpots) {
-                return touchedSpots.map((spot) {
-                  final daysAgo = 29 - spot.x.toInt();
-                  final date = now.subtract(Duration(days: daysAgo));
-                  return LineTooltipItem(
-                    '₹${spot.y.toStringAsFixed(2)}\n',
-                    TextStyle(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: daysAgo == 0
-                            ? 'Today'
-                            : '${daysAgo} day${daysAgo > 1 ? 's' : ''} ago',
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.normal,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList();
-              },
-            ),
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              curveSmoothness: 0.3,
-              color: colorScheme.error,
-              barWidth: 3,
-              isStrokeCapRound: true,
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, barData, index) {
-                  // Highlight today's dot
-                  if (index == spots.length - 1) {
-                    return FlDotCirclePainter(
-                      radius: 5,
-                      color: colorScheme.error,
-                      strokeWidth: 2,
-                      strokeColor: colorScheme.surface,
-                    );
-                  }
-                  return FlDotCirclePainter(
-                    radius: 2,
-                    color: colorScheme.error,
-                    strokeWidth: 0,
-                  );
-                },
-              ),
-              belowBarData: BarAreaData(
-                show: true,
-                gradient: LinearGradient(
-                  colors: [
-                    colorScheme.error.withOpacity(0.3),
-                    colorScheme.error.withOpacity(0.05),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // Widget _buildSpendingTrendChart(List<double> dailyExpenses, ColorScheme colorScheme) {
+  //   final spots = dailyExpenses.asMap().entries.map((entry) {
+  //     return FlSpot(entry.key.toDouble(), entry.value);
+  //   }).toList();
+  //
+  //   final maxY = dailyExpenses.reduce((a, b) => a > b ? a : b);
+  //   final now = DateTime.now();
+  //
+  //   return SizedBox(
+  //     height: 220,
+  //     child: LineChart(
+  //       LineChartData(
+  //         gridData: FlGridData(
+  //           show: true,
+  //           drawVerticalLine: false,
+  //           horizontalInterval: maxY > 0 ? maxY / 4 : 25,
+  //           getDrawingHorizontalLine: (value) {
+  //             return FlLine(
+  //               color: colorScheme.outlineVariant.withOpacity(0.2),
+  //               strokeWidth: 1,
+  //             );
+  //           },
+  //         ),
+  //         titlesData: FlTitlesData(
+  //           leftTitles: AxisTitles(
+  //             axisNameWidget: Padding(
+  //               padding: const EdgeInsets.only(bottom: 8),
+  //               child: Text(
+  //                 'Amount',
+  //                 style: TextStyle(
+  //                   fontSize: 12,
+  //                   fontWeight: FontWeight.w600,
+  //                   color: colorScheme.onSurfaceVariant,
+  //                 ),
+  //               ),
+  //             ),
+  //             sideTitles: SideTitles(
+  //               showTitles: true,
+  //               reservedSize: 50,
+  //               interval: maxY > 0 ? maxY / 4 : 25,
+  //               getTitlesWidget: (value, meta) {
+  //                 if (value == 0) {
+  //                   return Text(
+  //                     '₹0',
+  //                     style: TextStyle(
+  //                       fontSize: 10,
+  //                       color: colorScheme.onSurfaceVariant,
+  //                     ),
+  //                   );
+  //                 }
+  //                 return Text(
+  //                   '₹${Helpers().formatCompactCurrency(value)}',
+  //                   style: TextStyle(
+  //                     fontSize: 10,
+  //                     color: colorScheme.onSurfaceVariant,
+  //                   ),
+  //                 );
+  //               },
+  //             ),
+  //           ),
+  //           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+  //           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+  //           bottomTitles: AxisTitles(
+  //             axisNameWidget: Padding(
+  //               padding: const EdgeInsets.only(top: 8),
+  //               child: Text(
+  //                 'Days Ago',
+  //                 style: TextStyle(
+  //                   fontSize: 12,
+  //                   fontWeight: FontWeight.w600,
+  //                   color: colorScheme.onSurfaceVariant,
+  //                 ),
+  //               ),
+  //             ),
+  //             sideTitles: SideTitles(
+  //               showTitles: true,
+  //               interval: 5,
+  //               getTitlesWidget: (value, meta) {
+  //                 final daysAgo = 29 - value.toInt();
+  //                 if (value.toInt() % 5 == 0 || value == 0 || value == 29) {
+  //                   String label;
+  //                   if (daysAgo == 0) {
+  //                     label = 'Today';
+  //                   } else if (daysAgo <= 7) {
+  //                     final date = now.subtract(Duration(days: daysAgo));
+  //                     label = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.weekday % 7];
+  //                   } else {
+  //                     label = '${daysAgo}d';
+  //                   }
+  //                   return Padding(
+  //                     padding: const EdgeInsets.only(top: 8.0),
+  //                     child: Text(
+  //                       label,
+  //                       style: TextStyle(
+  //                         fontSize: 10,
+  //                         color: colorScheme.onSurfaceVariant,
+  //                         fontWeight: daysAgo == 0 ? FontWeight.bold : FontWeight.normal,
+  //                       ),
+  //                     ),
+  //                   );
+  //                 }
+  //                 return const SizedBox.shrink();
+  //               },
+  //             ),
+  //           ),
+  //         ),
+  //         borderData: FlBorderData(
+  //           show: true,
+  //           border: Border(
+  //             left: BorderSide(color: colorScheme.outline.withOpacity(0.3)),
+  //             bottom: BorderSide(color: colorScheme.outline.withOpacity(0.3)),
+  //           ),
+  //         ),
+  //         minY: 0,
+  //         maxY: maxY > 0 ? maxY * 1.15 : 100,
+  //         lineTouchData: LineTouchData(
+  //           enabled: true,
+  //           touchTooltipData: LineTouchTooltipData(
+  //             getTooltipItems: (touchedSpots) {
+  //               return touchedSpots.map((spot) {
+  //                 final daysAgo = 29 - spot.x.toInt();
+  //                 final date = now.subtract(Duration(days: daysAgo));
+  //                 return LineTooltipItem(
+  //                   '₹${spot.y.toStringAsFixed(2)}\n',
+  //                   TextStyle(
+  //                     color: colorScheme.onSurface,
+  //                     fontWeight: FontWeight.bold,
+  //                     fontSize: 12,
+  //                   ),
+  //                   children: [
+  //                     TextSpan(
+  //                       text: daysAgo == 0
+  //                           ? 'Today'
+  //                           : '$daysAgo day${daysAgo > 1 ? 's' : ''} ago',
+  //                       style: TextStyle(
+  //                         color: colorScheme.onSurfaceVariant,
+  //                         fontWeight: FontWeight.normal,
+  //                         fontSize: 10,
+  //                       ),
+  //                     ),
+  //                   ],
+  //                 );
+  //               }).toList();
+  //             },
+  //           ),
+  //         ),
+  //         lineBarsData: [
+  //           LineChartBarData(
+  //             spots: spots,
+  //             isCurved: true,
+  //             curveSmoothness: 0.3,
+  //             color: colorScheme.error,
+  //             barWidth: 3,
+  //             isStrokeCapRound: true,
+  //             dotData: FlDotData(
+  //               show: true,
+  //               getDotPainter: (spot, percent, barData, index) {
+  //                 // Highlight today's dot
+  //                 if (index == spots.length - 1) {
+  //                   return FlDotCirclePainter(
+  //                     radius: 5,
+  //                     color: colorScheme.error,
+  //                     strokeWidth: 2,
+  //                     strokeColor: colorScheme.surface,
+  //                   );
+  //                 }
+  //                 return FlDotCirclePainter(
+  //                   radius: 2,
+  //                   color: colorScheme.error,
+  //                   strokeWidth: 0,
+  //                 );
+  //               },
+  //             ),
+  //             belowBarData: BarAreaData(
+  //               show: true,
+  //               gradient: LinearGradient(
+  //                 colors: [
+  //                   colorScheme.error.withOpacity(0.3),
+  //                   colorScheme.error.withOpacity(0.05),
+  //                 ],
+  //                 begin: Alignment.topCenter,
+  //                 end: Alignment.bottomCenter,
+  //               ),
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _buildCategoryBreakdown(
       Map<String, double> breakdown,

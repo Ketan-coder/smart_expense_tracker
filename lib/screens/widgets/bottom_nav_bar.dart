@@ -641,6 +641,8 @@
 // }
 
 
+import 'dart:io';
+
 import 'package:expense_tracker/core/app_constants.dart';
 import 'package:expense_tracker/data/model/wallet.dart';
 import 'package:expense_tracker/data/model/recurring.dart';
@@ -649,16 +651,14 @@ import 'package:expense_tracker/screens/reports/reports_page.dart';
 import 'package:expense_tracker/screens/settings/settings_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
 import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
-import '../../data/model/expense.dart';
-import '../../data/model/income.dart';
 import '../../services/sms_service.dart';
 import '../expenses/expense_page.dart';
 import '../home/category_page.dart';
-import 'dialog.dart';
 import 'floating_toolbar.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
@@ -673,6 +673,8 @@ class BottomNavBar extends StatefulWidget {
 
 class _BottomNavBarState extends State<BottomNavBar> {
   int _currentIndex = 0;
+  bool _canActivateSMSFeature = false;
+
 
   final List<Widget> _tabs = const [
     ReportsPage(),
@@ -819,6 +821,9 @@ class _BottomNavBarState extends State<BottomNavBar> {
 
   Future<void> _initializeDebugMode() async {
     try {
+      if (kIsWeb || !Platform.isAndroid || !Platform.isIOS) {
+        _canActivateSMSFeature = true;
+      }
       bool hasPermissions = await SmsListener.initialize();
 
       if (mounted) {
@@ -826,9 +831,12 @@ class _BottomNavBarState extends State<BottomNavBar> {
           permissionsGranted = hasPermissions;
         });
 
-        if (hasPermissions) {
+        if (hasPermissions && _canActivateSMSFeature) {
           _startListening();
-        } else {
+        } else if (!hasPermissions && !_canActivateSMSFeature) {
+          SnackBars.show(context, message: "SMS Feature isn't Supported on this Platform", type: SnackBarType.error, behavior: SnackBarBehavior.floating);
+        }
+        else {
           SnackBars.show(context, message: 'Please grant SMS permissions', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
         }
       }
@@ -849,13 +857,15 @@ class _BottomNavBarState extends State<BottomNavBar> {
     }
   }
 
+  bool results = false;
+
   Future<void> _onSmsReceived(String sender, String message, int timestamp) async {
     Map<String, dynamic>? transaction = SmsListener.parseTransactionSms(sender, message, timestamp);
 
     if (transaction != null) {
       final double amount = double.tryParse(transaction['amount'].toString()) ?? 0.0;
       final String description = (transaction['description'] ?? '').toString();
-      bool results = false;
+
 
       if (transaction['type'] == 'debit') {
         results = await UniversalHiveFunctions().addExpense(amount, description, transaction['method'], [1, 2]);
@@ -1109,7 +1119,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: selectedType,
+                initialValue: selectedType,
                 decoration: const InputDecoration(
                   labelText: 'Type',
                   border: OutlineInputBorder(),
@@ -1276,7 +1286,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
                 const SizedBox(height: 16),
 
                 DropdownButtonFormField<String>(
-                  value: selectedInterval,
+                  initialValue: selectedInterval,
                   decoration: const InputDecoration(
                     labelText: 'Frequency',
                     border: OutlineInputBorder(),
@@ -1304,7 +1314,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
                     final catKey = categoryBox.keyAt(categories.indexOf(category)) as int;
                     final isSelected = selectedCategoryKeys.contains(catKey);
                     return ChoiceChip(
-                      label: Text(category.name),
+                      label: Text(category.name ?? ''),
                       selected: isSelected,
                       onSelected: (selected) {
                         setModalState(() {
@@ -1695,7 +1705,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: selectedType,
+                initialValue: selectedType,
                 decoration: const InputDecoration(
                   labelText: "Payment Method",
                   border: OutlineInputBorder(),
@@ -1802,7 +1812,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: selectedType,
+                initialValue: selectedType,
                 decoration: const InputDecoration(
                   labelText: "Payment Method",
                   border: OutlineInputBorder(),

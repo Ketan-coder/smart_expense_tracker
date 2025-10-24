@@ -3,7 +3,6 @@ import 'package:expense_tracker/screens/widgets/bottom_nav_bar.dart';
 import 'package:expense_tracker/services/recurring_scheduler.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
-import 'core/theme.dart';
 import 'data/model/category.dart';
 import 'data/model/expense.dart';
 import 'data/model/habit.dart';

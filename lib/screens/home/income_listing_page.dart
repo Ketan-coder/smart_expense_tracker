@@ -740,7 +740,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: selectedMethod,
+                initialValue: selectedMethod,
                 decoration: const InputDecoration(
                   labelText: 'Source',
                   border: OutlineInputBorder(),
@@ -756,7 +756,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
-                value: selectedCategoryKey,
+                initialValue: selectedCategoryKey,
                 decoration: const InputDecoration(
                   labelText: 'Category',
                   border: OutlineInputBorder(),
