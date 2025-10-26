@@ -105,7 +105,7 @@ class BiometricAuth {
       );
 
       if (authenticated) {
-        debugPrint("✅ Authentication successful");
+        debugPrint(" Authentication successful");
         return BiometricAuthResponse(
           BiometricAuthResult.success,
           "Authentication successful",
