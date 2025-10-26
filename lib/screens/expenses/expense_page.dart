@@ -145,8 +145,8 @@ class _ExpensePageState extends State<ExpensePage> {
           ),
         ],
         child: Container(
-          margin: const EdgeInsets.all(0),
-          padding: const EdgeInsets.all(2),
+          margin: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(25),
             color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
@@ -207,23 +207,27 @@ class _ExpensePageState extends State<ExpensePage> {
                         // The custom chart has its own internal padding,
                         // so we can reduce the padding on the card.
                         padding: const EdgeInsets.fromLTRB(0, 8, 8, 0),
-                        child: CustomBarChart<MapEntry<DateTime, double>>.simple(
-                          // Pass the 30-day data
-                          data: last30Days.entries.toList(),
-                          // Tell the chart how to get date and value
-                          getDate: (entry) => entry.key,
-                          getValue: (entry) => entry.value,
-                          // Configure the chart's appearance and behavior
-                          config: ChartConfig(
-                            chartTitle: "Expense Trend (Last 30 Days)",
-                            primaryColor: colorScheme.error, // Red for expenses
-                            hoverColor: colorScheme.errorContainer,
-                            yAxisLabel: "Amount",
-                            valueUnit: "$_currentCurrency ",
-                            highlightHighest: true,
-                            highlightMode: HighlightMode.lowest,
-                            isAscending: true, // Data is pre-sorted ascending
-                            showToggleSwitch: true, // Show bar/line toggle
+                        child: ScrollConfiguration(
+                          behavior: const ScrollBehavior()
+                              .copyWith(overscroll: false),
+                          child: CustomBarChart<MapEntry<DateTime, double>>.simple(
+                            // Pass the 30-day data
+                            data: last30Days.entries.toList(),
+                            // Tell the chart how to get date and value
+                            getDate: (entry) => entry.key,
+                            getValue: (entry) => entry.value,
+                            // Configure the chart's appearance and behavior
+                            config: ChartConfig(
+                              chartTitle: "Expense Trend (Last 30 Days)",
+                              primaryColor: colorScheme.error, // Red for expenses
+                              hoverColor: colorScheme.errorContainer,
+                              yAxisLabel: "Amount",
+                              valueUnit: "$_currentCurrency ",
+                              highlightHighest: true,
+                              highlightMode: HighlightMode.lowest,
+                              isAscending: true, // Data is pre-sorted ascending
+                              showToggleSwitch: true, // Show bar/line toggle
+                            ),
                           ),
                         ),
                       ),

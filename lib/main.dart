@@ -60,34 +60,6 @@ void main() async {
   //   }
   // }
 
-  // Continue with app initialization
-  final bool notificationState = await Helpers().getCurrentNotificationState() ?? false;
-  debugPrint('Notification state: $notificationState');
-
-  if (notificationState == true) {
-    await NotificationService.initialize();
-
-    // 🔥 Test notification immediately
-    // await NotificationService.testImmediateNotification();
-    // debugPrint('🔥 Test notification scheduling..........');
-    // await NotificationService.scheduleUsingShow(
-    //     id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-    //     title: '🔥 Emulator Notification',
-    //     body: 'You should see this in 20 seconds!',
-    //     scheduledDate: DateTime.now().add(Duration(seconds: 20)),
-    //     channelId: 'test_channel',
-    //     channelName: 'Test Channel',
-    //     channelDescription: 'A channel for testing notifications'
-    // );
-    // NotificationService.scheduleNotification(
-    //   id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-    //   title: '🔔 Reminder',
-    //   body: 'This is a manually checked notification!',
-    //   scheduledDate: DateTime.now().add(Duration(seconds: 10)),
-    // );
-    // debugPrint('🔥 Test notification scheduled!');
-  }
-
   await Hive.initFlutter();
   // Register adapters
   Hive.registerAdapter(ExpenseAdapter());

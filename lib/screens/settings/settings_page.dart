@@ -4,7 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/helpers.dart';
+import '../../services/notification_service.dart';
+import '../../services/biometric_auth.dart';
 import '../widgets/custom_app_bar.dart';
+import '../widgets/dialog.dart';
+import '../widgets/snack_bar.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -20,6 +24,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _darkThemeState = false;
   bool _autoThemeState = true;
   bool _biometricState = false;
+  bool _smsParsingState = true;
 
   final List<Map<String, String>> _currencies = [
     {"code": "USD", "name": "US Dollar", "symbol": "\$"},
@@ -94,6 +99,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final darkThemeState = await Helpers().getCurrentDarkThemeState() ?? false;
     final autoThemeState = await Helpers().getCurrentAutoThemeState() ?? true;
     final biometricState = await Helpers().getCurrentBiometricState() ?? false;
+    final smsParsingState = await Helpers().getCurrentSmsParsingState() ?? true;
     final currency = await Helpers().getCurrentCurrency() ?? '₹';
     final language = await Helpers().getCurrentLanguage() ?? 'English';
 
@@ -102,102 +108,241 @@ class _SettingsPageState extends State<SettingsPage> {
       _darkThemeState = darkThemeState;
       _autoThemeState = autoThemeState;
       _biometricState = biometricState;
+      _smsParsingState = smsParsingState;
       _selectedCurrency = currency;
       _selectedLanguage = language;
     });
   }
 
-  void _updateNotificationState(bool value) async {
+  Future<void> _updateNotificationState(bool value) async {
+    if (!value) {
+      final confirmed = await Dialogs.showConfirmation(
+        context: context,
+        title: "Disable Notifications?",
+        message: "You will not receive any notifications after this. The app needs to restart to apply this change.",
+        yesText: "Disable",
+        noText: "Cancel",
+      );
+
+      if (confirmed != true) {
+        setState(() {
+          _notificationState = true;
+        });
+        return;
+      }
+    }
+
     setState(() {
       _notificationState = value;
     });
     await Helpers().setCurrentNotificationState(value);
 
-    // You can add notification enable/disable logic here
     if (value) {
-      // Enable notifications
-      // await NotificationService.initialize();
+      await NotificationService.initialize();
+      SnackBars.show(
+        context,
+        message: "Notifications enabled successfully",
+        type: SnackBarType.success,
+      );
     } else {
-      // Disable notifications
-      // await NotificationService.cancelAll();
+      await NotificationService.cancelAllNotifications();
+      SnackBars.show(
+        context,
+        message: "Notifications disabled. Restarting app...",
+        type: SnackBarType.warning,
+      );
+
+      // Restart the app
+      _restartApp();
     }
   }
 
-  void _updateDarkThemeState(bool value) async {
+  Future<void> _updateDarkThemeState(bool value) async {
+    final confirmed = await Dialogs.showConfirmation(
+      context: context,
+      title: value ? "Enable Dark Theme?" : "Disable Dark Theme?",
+      message: "The app needs to restart to apply theme changes.",
+      yesText: value ? "Enable" : "Disable",
+      noText: "Cancel",
+    );
+
+    if (confirmed != true) {
+      setState(() {
+        _darkThemeState = !value;
+      });
+      return;
+    }
+
     setState(() {
       _darkThemeState = value;
     });
     await Helpers().setCurrentDarkThemeState(value);
-    await Helpers().setCurrentAutoThemeState(false); // Disable auto theme when manually setting
+    await Helpers().setCurrentAutoThemeState(false);
 
-    // Show restart dialog for theme changes
-    _showThemeRestartDialog();
+    SnackBars.show(
+      context,
+      message: value ? "Dark theme enabled. Restarting app..." : "Dark theme disabled. Restarting app...",
+      type: SnackBarType.success,
+    );
+
+    _restartApp();
   }
 
-  void _updateAutoThemeState(bool value) async {
+  Future<void> _updateAutoThemeState(bool value) async {
+    final confirmed = await Dialogs.showConfirmation(
+      context: context,
+      title: value ? "Enable Auto Theme?" : "Disable Auto Theme?",
+      message: "The app needs to restart to apply theme changes.",
+      yesText: value ? "Enable" : "Disable",
+      noText: "Cancel",
+    );
+
+    if (confirmed != true) {
+      setState(() {
+        _autoThemeState = !value;
+      });
+      return;
+    }
+
     setState(() {
       _autoThemeState = value;
     });
     await Helpers().setCurrentAutoThemeState(value);
 
-    if (value) {
-      // Show restart dialog when enabling auto theme
-      _showThemeRestartDialog();
-    }
+    SnackBars.show(
+      context,
+      message: value ? "Auto theme enabled. Restarting app..." : "Auto theme disabled. Restarting app...",
+      type: SnackBarType.success,
+    );
+
+    _restartApp();
   }
 
-  void _updateBiometricState(bool value) async {
+  Future<void> _updateBiometricState(bool value) async {
+    if (value) {
+      // Authenticate before enabling biometric
+      final biometricAuth = BiometricAuth();
+      final isAvailable = await biometricAuth.isBiometricAvailable();
+      final hasEnrolled = await biometricAuth.hasEnrolledBiometrics();
+
+      if (!isAvailable || !hasEnrolled) {
+        SnackBars.show(
+          context,
+          message: "Biometric authentication is not available on this device",
+          type: SnackBarType.error,
+        );
+        setState(() {
+          _biometricState = false;
+        });
+        return;
+      }
+
+      try {
+        final authenticated = await biometricAuth.biometricAuthenticate(
+            reason: 'Authenticate to enable biometric login'
+        );
+
+        if (!authenticated) {
+          SnackBars.show(
+            context,
+            message: "Biometric authentication failed",
+            type: SnackBarType.error,
+          );
+          setState(() {
+            _biometricState = false;
+          });
+          return;
+        }
+      } catch (e) {
+        SnackBars.show(
+          context,
+          message: "Biometric authentication cancelled",
+          type: SnackBarType.info,
+        );
+        setState(() {
+          _biometricState = false;
+        });
+        return;
+      }
+    } else {
+      final confirmed = await Dialogs.showConfirmation(
+        context: context,
+        title: "Disable Biometric Authentication?",
+        message: "You will no longer need biometric authentication to access the app.",
+        yesText: "Disable",
+        noText: "Cancel",
+      );
+
+      if (confirmed != true) {
+        setState(() {
+          _biometricState = true;
+        });
+        return;
+      }
+    }
+
     setState(() {
       _biometricState = value;
     });
     await Helpers().setCurrentBiometricState(value);
 
-    if (value) {
-      // Show success message when enabling biometrics
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Biometric authentication enabled"),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } else {
-      // Show info message when disabling biometrics
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Biometric authentication disabled"),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
+    SnackBars.show(
+      context,
+      message: value ? "Biometric authentication enabled" : "Biometric authentication disabled",
+      type: value ? SnackBarType.success : SnackBarType.info,
+    );
+
+    if (!value) {
+      // Restart app when disabling biometric to clear the lock screen
+      _restartApp();
     }
   }
 
-  void _showThemeRestartDialog() {
-    showDialog(
+  Future<void> _updateSmsParsingState(bool value) async {
+    final confirmed = await Dialogs.showConfirmation(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Theme Changed"),
-          content: const Text("Please restart the app to see the theme changes applied."),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Later"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                SystemNavigator.pop(); // Restart the app
-              },
-              child: const Text("Restart Now"),
-            ),
-          ],
-        );
-      },
+      title: value ? "Enable SMS Parsing?" : "Disable SMS Parsing?",
+      message: "The app needs to restart to apply SMS parsing changes.",
+      yesText: value ? "Enable" : "Disable",
+      noText: "Cancel",
     );
+
+    if (confirmed != true) {
+      setState(() {
+        _smsParsingState = !value;
+      });
+      return;
+    }
+
+    setState(() {
+      _smsParsingState = value;
+    });
+    await Helpers().setCurrentSmsParsingState(value);
+
+    SnackBars.show(
+      context,
+      message: value ? "SMS parsing enabled. Restarting app..." : "SMS parsing disabled. Restarting app...",
+      type: SnackBarType.success,
+    );
+
+    _restartApp();
+  }
+
+  void _restartApp() {
+    // Use a delayed restart to allow snackbar to show
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      _performAppRestart();
+    });
+  }
+
+  void _performAppRestart() {
+    // Method 1: Use SystemNavigator.pop() and let the OS restart the app
+    // This works better than trying to restart from within Flutter
+    SystemNavigator.pop();
+
+    // Note: For a true hot restart in development, you might need to use:
+    // WidgetsBinding.instance.reassembleApplication();
+    // But this only works in debug mode and doesn't work well in production
   }
 
   void _showCurrencySearchSheet() {
@@ -208,12 +353,30 @@ class _SettingsPageState extends State<SettingsPage> {
       child: CurrencySearchSheet(
         currencies: _currencies,
         selectedCurrency: _selectedCurrency,
-        onCurrencySelected: (currencyCode, currencySymbol) {
-          setState(() {
-            _selectedCurrency = currencyCode;
-          });
-          Helpers().setCurrentCurrency(currencyCode);
-          Navigator.pop(context);
+        onCurrencySelected: (currencyCode, currencySymbol) async {
+          final confirmed = await Dialogs.showConfirmation(
+            context: context,
+            title: "Change Currency?",
+            message: "Changing currency to $currencyCode. The app needs to restart to apply this change.",
+            yesText: "Change",
+            noText: "Cancel",
+          );
+
+          if (confirmed == true) {
+            setState(() {
+              _selectedCurrency = currencyCode;
+            });
+            await Helpers().setCurrentCurrency(currencySymbol);
+            Navigator.pop(context);
+
+            SnackBars.show(
+              context,
+              message: "Currency changed to $currencyCode. Restarting app...",
+              type: SnackBarType.success,
+            );
+
+            _restartApp();
+          }
         },
       ),
     );
@@ -228,63 +391,45 @@ class _SettingsPageState extends State<SettingsPage> {
         languages: _languages,
         selectedLanguage: _selectedLanguage,
         onLanguageSelected: (languageName) async {
-          setState(() {
-            _selectedLanguage = languageName;
-          });
+          final confirmed = await Dialogs.showConfirmation(
+            context: context,
+            title: "Change Language?",
+            message: "Changing language to $languageName. The app needs to restart to apply this change.",
+            yesText: "Change",
+            noText: "Cancel",
+          );
 
-          await Helpers().setCurrentLanguage(_selectedLanguage);
-          _showRestartDialog();
+          if (confirmed == true) {
+            setState(() {
+              _selectedLanguage = languageName;
+            });
+            await Helpers().setCurrentLanguage(_selectedLanguage);
+
+            SnackBars.show(
+              context,
+              message: "Language changed to $languageName. Restarting app...",
+              type: SnackBarType.success,
+            );
+
+            _restartApp();
+          }
         },
       ),
     );
   }
 
-  void _showRestartDialog() {
-    showDialog(
+  Future<void> _showClearDataDialog() async {
+    final confirmed = await Dialogs.showConfirmation(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Language Changed"),
-          content: const Text("Please restart the app to see all text in the selected language."),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Later"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                SystemNavigator.pop();
-              },
-              child: const Text("Restart Now"),
-            ),
-          ],
-        );
-      },
+      title: "Clear All Data?",
+      message: "This will delete all your expenses, incomes, wallets, and settings. This action cannot be undone.",
+      yesText: "Clear All",
+      noText: "Cancel",
     );
-  }
 
-  void _showClearDataDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Clear All Data"),
-        content: const Text("This will delete all your expenses, incomes, wallets, and settings. This action cannot be undone."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () async {
-              await _clearAllData();
-              Navigator.pop(context);
-            },
-            child: const Text("Clear", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
+    if (confirmed == true) {
+      await _clearAllData();
+    }
   }
 
   Future<void> _clearAllData() async {
@@ -302,12 +447,13 @@ class _SettingsPageState extends State<SettingsPage> {
     await _loadAllPreferences();
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("All data cleared successfully"),
-          backgroundColor: Colors.green,
-        ),
+      SnackBars.show(
+        context,
+        message: "All data cleared successfully. Restarting app...",
+        type: SnackBarType.success,
       );
+
+      _restartApp();
     }
   }
 
@@ -353,16 +499,27 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
 
+                // SMS Parsing
+                ListTile(
+                  leading: const Icon(Icons.sms),
+                  title: const Text("SMS Parsing"),
+                  subtitle: const Text("Automatically parse transaction SMS"),
+                  trailing: Switch(
+                    value: _smsParsingState,
+                    onChanged: _updateSmsParsingState,
+                  ),
+                ),
+
                 // Biometric Authentication
-                // ListTile(
-                //   leading: const Icon(Icons.fingerprint),
-                //   title: const Text("Biometric Authentication"),
-                //   subtitle: const Text("Use fingerprint or face ID to unlock app"),
-                //   trailing: Switch(
-                //     value: _biometricState,
-                //     onChanged: _updateBiometricState,
-                //   ),
-                // ),
+                ListTile(
+                  leading: const Icon(Icons.fingerprint),
+                  title: const Text("Biometric Authentication"),
+                  subtitle: const Text("Use fingerprint or face ID to unlock app"),
+                  trailing: Switch(
+                    value: _biometricState,
+                    onChanged: _updateBiometricState,
+                  ),
+                ),
 
                 // Auto Theme
                 ListTile(
@@ -423,9 +580,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 }
-
-// Keep your existing LanguageSearchSheet and CurrencySearchSheet classes unchanged
-// They are already correct in your provided code
 
 class LanguageSearchSheet extends StatefulWidget {
   final List<Map<String, String>> languages;

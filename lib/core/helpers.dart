@@ -178,4 +178,14 @@ class Helpers {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('biometric_state', state);
   }
+
+  Future<bool?> getCurrentSmsParsingState() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('sms_parsing_enabled') ?? true; // Default true
+  }
+
+  Future<void> setCurrentSmsParsingState(bool state) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('sms_parsing_enabled', state);
+  }
 }

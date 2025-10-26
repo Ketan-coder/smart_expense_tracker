@@ -379,216 +379,208 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
           ),
         ],
         child: Container(
-          margin: const EdgeInsets.all(0),
-          padding: const EdgeInsets.all(2),
+          margin: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(25),
             color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
           ),
-          child: Container(
-            margin: const EdgeInsets.all(0),
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(25),
-              color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
-            ),
-            child: ValueListenableBuilder<Box<Expense>>(
-              valueListenable: Hive.box<Expense>(AppConstants.expenses).listenable(),
-              builder: (context, box, _) {
-                final filteredExpenses = _getFilteredExpenses(box);
-                final total = filteredExpenses.fold(0.0, (sum, e) => sum + e.value.amount);
-                final activeFilters = _getActiveFilterCount();
+          child: ValueListenableBuilder<Box<Expense>>(
+            valueListenable: Hive.box<Expense>(AppConstants.expenses).listenable(),
+            builder: (context, box, _) {
+              final filteredExpenses = _getFilteredExpenses(box);
+              final total = filteredExpenses.fold(0.0, (sum, e) => sum + e.value.amount);
+              final activeFilters = _getActiveFilterCount();
 
-                // Group by date
-                final groupedExpenses = groupBy<MapEntry<dynamic, Expense>, DateTime>(
-                  filteredExpenses,
-                      (item) => DateTime(item.value.date.year, item.value.date.month, item.value.date.day),
-                );
+              // Group by date
+              final groupedExpenses = groupBy<MapEntry<dynamic, Expense>, DateTime>(
+                filteredExpenses,
+                    (item) => DateTime(item.value.date.year, item.value.date.month, item.value.date.day),
+              );
 
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Filter Chips Row
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            FilterChip(
-                              label: Text('Category${_filterCategory != null ? ': $_filterCategory' : ''}'),
-                              selected: _filterCategory != null,
-                              onSelected: (_) => _showCategoryFilter(),
-                              avatar: Icon(
-                                Icons.category_rounded,
-                                size: 18,
-                                color: _filterCategory != null ? colorScheme.primary : null,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            FilterChip(
-                              label: Text('Method${_filterMethod != null ? ': $_filterMethod' : ''}'),
-                              selected: _filterMethod != null,
-                              onSelected: (_) => _showMethodFilter(),
-                              avatar: Icon(
-                                Icons.payment_rounded,
-                                size: 18,
-                                color: _filterMethod != null ? colorScheme.primary : null,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            FilterChip(
-                              label: Text(_dateRange != null
-                                  ? '${DateFormat('d MMM').format(_dateRange!.start)} - ${DateFormat('d MMM').format(_dateRange!.end)}'
-                                  : 'Date Range'),
-                              selected: _dateRange != null,
-                              onSelected: (_) => _showDateRangePicker(),
-                              avatar: Icon(
-                                Icons.date_range_rounded,
-                                size: 18,
-                                color: _dateRange != null ? colorScheme.primary : null,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            FilterChip(
-                              label: Text(_minAmount != null || _maxAmount != null
-                                  ? '$_currentCurrency ${_minAmount?.toStringAsFixed(0) ?? '0'} - $_currentCurrency ${_maxAmount?.toStringAsFixed(0) ?? '∞'}'
-                                  : 'Amount'),
-                              selected: _minAmount != null || _maxAmount != null,
-                              onSelected: (_) => _showAmountFilter(),
-                              avatar: Icon(
-                                Icons.currency_rupee_rounded,
-                                size: 18,
-                                color: _minAmount != null || _maxAmount != null ? colorScheme.primary : null,
-                              ),
-                            ),
-                            if (activeFilters > 0) ...[
-                              const SizedBox(width: 8),
-                              ActionChip(
-                                label: const Text('Clear All'),
-                                onPressed: _clearAllFilters,
-                                avatar: const Icon(Icons.clear_rounded, size: 18),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Summary Card
-                      Card(
-                        color: colorScheme.errorContainer,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${filteredExpenses.length} Transaction${filteredExpenses.length != 1 ? 's' : ''}',
-                                    style: theme.textTheme.bodyLarge?.copyWith(
-                                      color: colorScheme.onErrorContainer,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Total Spent',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onErrorContainer.withOpacity(0.7),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                '$_currentCurrency ${total.toStringAsFixed(2)}',
-                                style: theme.textTheme.headlineMedium?.copyWith(
-                                  color: colorScheme.onErrorContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Sort indicator
-                      Row(
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Filter Chips Row
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
                         children: [
-                          Icon(
-                            _ascending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                            size: 16,
-                            color: colorScheme.primary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Sorted by ${_sortBy.capitalize()} (${_ascending ? 'Ascending' : 'Descending'})',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                          FilterChip(
+                            label: Text('Category${_filterCategory != null ? ': $_filterCategory' : ''}'),
+                            selected: _filterCategory != null,
+                            onSelected: (_) => _showCategoryFilter(),
+                            avatar: Icon(
+                              Icons.category_rounded,
+                              size: 18,
+                              color: _filterCategory != null ? colorScheme.primary : null,
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            label: Text('Method${_filterMethod != null ? ': $_filterMethod' : ''}'),
+                            selected: _filterMethod != null,
+                            onSelected: (_) => _showMethodFilter(),
+                            avatar: Icon(
+                              Icons.payment_rounded,
+                              size: 18,
+                              color: _filterMethod != null ? colorScheme.primary : null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            label: Text(_dateRange != null
+                                ? '${DateFormat('d MMM').format(_dateRange!.start)} - ${DateFormat('d MMM').format(_dateRange!.end)}'
+                                : 'Date Range'),
+                            selected: _dateRange != null,
+                            onSelected: (_) => _showDateRangePicker(),
+                            avatar: Icon(
+                              Icons.date_range_rounded,
+                              size: 18,
+                              color: _dateRange != null ? colorScheme.primary : null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            label: Text(_minAmount != null || _maxAmount != null
+                                ? '$_currentCurrency ${_minAmount?.toStringAsFixed(0) ?? '0'} - $_currentCurrency ${_maxAmount?.toStringAsFixed(0) ?? '∞'}'
+                                : 'Amount'),
+                            selected: _minAmount != null || _maxAmount != null,
+                            onSelected: (_) => _showAmountFilter(),
+                            avatar: Icon(
+                              Icons.currency_rupee_rounded,
+                              size: 18,
+                              color: _minAmount != null || _maxAmount != null ? colorScheme.primary : null,
+                            ),
+                          ),
+                          if (activeFilters > 0) ...[
+                            const SizedBox(width: 8),
+                            ActionChip(
+                              label: const Text('Clear All'),
+                              onPressed: _clearAllFilters,
+                              avatar: const Icon(Icons.clear_rounded, size: 18),
+                            ),
+                          ],
                         ],
                       ),
-                      const SizedBox(height: 12),
+                    ),
+                    const SizedBox(height: 16),
 
-                      // Expense List
-                      if (filteredExpenses.isEmpty)
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(40.0),
-                            child: Column(
+                    // Summary Card
+                    Card(
+                      color: colorScheme.errorContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.filter_list_off_rounded,
-                                  size: 64,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(height: 16),
                                 Text(
-                                  'No expenses found',
-                                  style: theme.textTheme.titleMedium,
+                                  '${filteredExpenses.length} Transaction${filteredExpenses.length != 1 ? 's' : ''}',
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: colorScheme.onErrorContainer,
+                                  ),
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 4),
                                 Text(
-                                  'Try adjusting your filters',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
+                                  'Total Spent',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onErrorContainer.withOpacity(0.7),
                                   ),
                                 ),
                               ],
                             ),
+                            Text(
+                              '$_currentCurrency ${total.toStringAsFixed(2)}',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                color: colorScheme.onErrorContainer,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Sort indicator
+                    Row(
+                      children: [
+                        Icon(
+                          _ascending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                          size: 16,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Sorted by ${_sortBy.capitalize()} (${_ascending ? 'Ascending' : 'Descending'})',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
                           ),
-                        )
-                      else
-                        ...groupedExpenses.entries.map((entry) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Expense List
+                    if (filteredExpenses.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(40.0),
+                          child: Column(
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8),
-                                child: Text(
-                                  _formatDateHeader(entry.key),
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              Icon(
+                                Icons.filter_list_off_rounded,
+                                size: 64,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No expenses found',
+                                style: theme.textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Try adjusting your filters',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
                                 ),
                               ),
-                              ...entry.value.map((expenseEntry) {
-                                return _buildExpenseTile(expenseEntry, colorScheme, theme);
-                              }),
-                              const SizedBox(height: 8),
                             ],
-                          );
-                        }),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                );
-              },
-            ),
+                          ),
+                        ),
+                      )
+                    else
+                      ...groupedExpenses.entries.map((entry) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8),
+                              child: Text(
+                                _formatDateHeader(entry.key),
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            ...entry.value.map((expenseEntry) {
+                              return _buildExpenseTile(expenseEntry, colorScheme, theme);
+                            }),
+                            const SizedBox(height: 8),
+                          ],
+                        );
+                      }),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),

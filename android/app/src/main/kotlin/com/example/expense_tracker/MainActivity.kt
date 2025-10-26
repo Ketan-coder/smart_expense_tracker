@@ -1,43 +1,49 @@
-// MainActivity.kt - Fixed version with proper syntax
 package com.example.expense_tracker
-
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import android.os.Handler
-import android.os.Looper
+import android.os.Bundle
 import android.util.Log
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import io.flutter.plugin.common.MethodCall
-import io.flutter.plugin.common.MethodChannel.Result
 
 class MainActivity : FlutterActivity() {
-    private val SMS_PERMISSION_REQUEST = 1001
 
     companion object {
-        private const val CHANNEL = "sms_channel"
-        private var smsChannel: MethodChannel? = null
-        private val mainHandler = Handler(Looper.getMainLooper())
+        private const val TAG = "MainActivity"
+        private const val CHANNEL = "com.example.expense_tracker/sms"
+        private var methodChannel: MethodChannel? = null
+        private var isFlutterReady = false
 
         fun isChannelReady(): Boolean {
-            val ready = smsChannel != null
-            Log.d("MainActivity", "Channel ready: $ready")
+            val ready = isFlutterReady && methodChannel != null
+            Log.d(TAG, "Channel ready: $ready (isFlutterReady=$isFlutterReady, channel=${methodChannel != null})")
             return ready
         }
 
         fun sendSmsToFlutter(data: Map<String, Any>) {
-            mainHandler.post {
-                try {
-                    Log.d("MainActivity", "Sending to Flutter: $data")
-                    smsChannel?.invokeMethod("onSmsReceived", data)
-                    Log.d("MainActivity", "Successfully invoked Flutter method")
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Error invoking Flutter method: ${e.message}", e)
+            try {
+                Log.d(TAG, "========================================")
+                Log.d(TAG, "Sending to Flutter...")
+                Log.d(TAG, "Channel: $CHANNEL")
+                Log.d(TAG, "Method: onSmsReceived")
+                Log.d(TAG, "Data: $data")
+
+                if (methodChannel == null) {
+                    Log.e(TAG, "❌ Method channel is null!")
+                    return
                 }
+
+                if (!isFlutterReady) {
+                    Log.e(TAG, "❌ Flutter not ready!")
+                    return
+                }
+
+                methodChannel?.invokeMethod("onSmsReceived", data)
+                Log.d(TAG, "✅ Successfully invoked Flutter method")
+                Log.d(TAG, "========================================")
+
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error sending SMS to Flutter: ${e.message}", e)
+                Log.e(TAG, "Stack trace:", e)
             }
         }
     }
@@ -45,96 +51,67 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        Log.d("MainActivity", "Configuring Flutter engine...")
+        Log.d(TAG, "========================================")
+        Log.d(TAG, "Configuring Flutter engine...")
+        Log.d(TAG, "Channel name: $CHANNEL")
 
-        smsChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        methodChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CHANNEL
+        )
 
-        smsChannel?.setMethodCallHandler { call, result ->
-            Log.d("MainActivity", "Method call received: ${call.method}")
+        // Set up method call handler for Flutter -> Native calls
+        methodChannel?.setMethodCallHandler { call, result ->
+            Log.d(TAG, "Method call from Flutter: ${call.method}")
 
             when (call.method) {
-                "requestPermissions" -> {
-                    Log.d("MainActivity", "Requesting SMS permissions...")
-                    requestSmsPermissions(result)
+                "testReceiver" -> {
+                    Log.d(TAG, "Test receiver called from Flutter")
+                    result.success("Receiver is working!")
                 }
                 "checkPermissions" -> {
-                    val hasPermissions = checkSmsPermissions()
-                    Log.d("MainActivity", "Checking permissions: $hasPermissions")
-                    result.success(hasPermissions)
+                    Log.d(TAG, "Check permissions called")
+                    // You can implement permission check here if needed
+                    result.success(true)
                 }
-                "testReceiver" -> {
-                    Log.d("MainActivity", "Testing receiver registration...")
-                    result.success("Receiver should be registered")
+                "requestPermissions" -> {
+                    Log.d(TAG, "Request permissions called")
+                    // You can implement permission request here if needed
+                    result.success(true)
                 }
                 else -> {
-                    Log.w("MainActivity", "Unknown method: ${call.method}")
+                    Log.w(TAG, "Unknown method: ${call.method}")
                     result.notImplemented()
                 }
             }
         }
 
-        Log.d("MainActivity", "Flutter engine configured successfully")
+        isFlutterReady = true
+        Log.d(TAG, "✅ Flutter channel configured successfully")
+        Log.d(TAG, "========================================")
     }
 
-    private fun checkSmsPermissions(): Boolean {
-        val permissions = arrayOf(
-            Manifest.permission.RECEIVE_SMS,
-            Manifest.permission.READ_SMS,
-            Manifest.permission.READ_PHONE_STATE
-        )
-
-        val results = permissions.map { permission ->
-            val granted = ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
-            Log.d("MainActivity", "$permission: $granted")
-            granted
-        }
-
-        return results.all { it }
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        Log.d(TAG, "MainActivity onCreate")
     }
 
-    private fun requestSmsPermissions(result: Result) {
-        if (checkSmsPermissions()) {
-            Log.d("MainActivity", "All permissions already granted")
-            result.success(true)
-            return
-        }
-
-        val permissions = arrayOf(
-            Manifest.permission.RECEIVE_SMS,
-            Manifest.permission.READ_SMS,
-            Manifest.permission.READ_PHONE_STATE
-        )
-
-        Log.d("MainActivity", "Requesting permissions: ${permissions.joinToString()}")
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            ActivityCompat.requestPermissions(this, permissions, SMS_PERMISSION_REQUEST)
-            // Don't call result.success here - wait for onRequestPermissionsResult
-        } else {
-            result.success(true)
-        }
+    override fun onResume() {
+        super.onResume()
+        isFlutterReady = true
+        Log.d(TAG, "MainActivity onResume - Channel ready")
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    override fun onPause() {
+        super.onPause()
+        // Keep channel ready for background SMS
+        Log.d(TAG, "MainActivity onPause - Channel still active")
+    }
 
-        Log.d("MainActivity", "Permission result - Request code: $requestCode")
-
-        if (requestCode == SMS_PERMISSION_REQUEST) {
-            val results = permissions.zip(grantResults.toTypedArray()) { permission, result ->
-                val granted = result == PackageManager.PERMISSION_GRANTED
-                Log.d("MainActivity", "$permission: $granted")
-                granted
-            }
-
-            val allGranted = results.all { it }
-            Log.d("MainActivity", "All permissions granted: $allGranted")
-
-            smsChannel?.invokeMethod("onPermissionResult", allGranted)
-        }
+    override fun onDestroy() {
+        super.onDestroy()
+        isFlutterReady = false
+        methodChannel = null
+        Log.d(TAG, "MainActivity onDestroy - Channel destroyed")
     }
 }

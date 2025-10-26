@@ -743,8 +743,8 @@ class _IncomePageState extends State<IncomePage> {
           ),
         ],
         child: Container(
-          margin: const EdgeInsets.all(0),
-          padding: const EdgeInsets.all(2),
+          margin: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(25),
             color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
@@ -785,23 +785,27 @@ class _IncomePageState extends State<IncomePage> {
                           // The custom chart has its own internal padding,
                           // so we can reduce the padding on the card.
                           padding: const EdgeInsets.fromLTRB(0, 8, 8, 0),
-                          child: CustomBarChart<MapEntry<DateTime, double>>.simple(
-                            // Pass the 7-day data, which is already sorted ascending
-                            data: last7Days.entries.toList(),
-                            // Tell the chart how to get date and value
-                            getDate: (entry) => entry.key,
-                            getValue: (entry) => entry.value,
-                            // Configure the chart's appearance and behavior
-                            config: ChartConfig(
-                              chartTitle: "Income Trend (Last 7 Days)",
-                              primaryColor: colorScheme.primary, // Green for income
-                              hoverColor: colorScheme.primaryContainer,
-                              yAxisLabel: "Amount",
-                              valueUnit: "$_currentCurrency ",
-                              highlightHighest: true,
-                              highlightMode: HighlightMode.highest,
-                              isAscending: true, // Data is pre-sorted ascending
-                              showToggleSwitch: true, // Show bar/line toggle
+                          child: ScrollConfiguration(
+                            behavior: const ScrollBehavior()
+                                .copyWith(overscroll: false),
+                            child: CustomBarChart<MapEntry<DateTime, double>>.simple(
+                              // Pass the 7-day data, which is already sorted ascending
+                              data: last7Days.entries.toList(),
+                              // Tell the chart how to get date and value
+                              getDate: (entry) => entry.key,
+                              getValue: (entry) => entry.value,
+                              // Configure the chart's appearance and behavior
+                              config: ChartConfig(
+                                chartTitle: "Income Trend (Last 7 Days)",
+                                primaryColor: colorScheme.primary, // Green for income
+                                hoverColor: colorScheme.primaryContainer,
+                                yAxisLabel: "Amount",
+                                valueUnit: "$_currentCurrency ",
+                                highlightHighest: true,
+                                highlightMode: HighlightMode.highest,
+                                isAscending: true, // Data is pre-sorted ascending
+                                showToggleSwitch: true, // Show bar/line toggle
+                              ),
                             ),
                           ),
                         ),

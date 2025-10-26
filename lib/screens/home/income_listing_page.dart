@@ -380,8 +380,8 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
           ),
         ],
         child: Container(
-          margin: const EdgeInsets.all(0),
-          padding: const EdgeInsets.all(2),
+          margin: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(25),
             color: Helpers().isLightMode(context) ? Colors.white : Colors.black,

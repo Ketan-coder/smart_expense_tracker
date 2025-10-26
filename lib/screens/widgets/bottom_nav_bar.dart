@@ -1,645 +1,3 @@
-// import 'package:expense_tracker/core/app_constants.dart';
-// import 'package:expense_tracker/screens/home/income_page.dart';
-// import 'package:expense_tracker/screens/reports/reports_page.dart';
-// import 'package:expense_tracker/screens/settings/settings_page.dart';
-// import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
-// import 'package:expense_tracker/screens/widgets/snack_bar.dart';
-// import 'package:flutter/material.dart';
-// import 'package:hive_ce/hive.dart';
-// import '../../data/model/category.dart';
-// import '../../data/model/expense.dart';
-// import '../../data/model/income.dart';
-// import '../../services/sms_service.dart';
-// import '../expenses/expense_page.dart';
-// import '../home/category_page.dart';
-// import 'dialog.dart';
-// import 'floating_toolbar.dart';
-// import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-//
-// class BottomNavBar extends StatefulWidget {
-//   final int currentIndex;
-//
-//   const BottomNavBar({super.key, required this.currentIndex});
-//
-//   @override
-//   State<BottomNavBar> createState() => _BottomNavBarState();
-// }
-//
-// class _BottomNavBarState extends State<BottomNavBar> {
-//   int _currentIndex = 0;
-//
-//   final List<Widget> _tabs = const [
-//     ReportsPage(),
-//     ExpensePage(),
-//     IncomePage(),
-//     CategoryPage(),
-//     SettingsPage(),
-//   ];
-//
-//   List<Map<String, dynamic>> allMessages = [];
-//   List<Map<String, dynamic>> transactions = [];
-//   bool isListening = false;
-//   bool permissionsGranted = false;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _currentIndex = widget.currentIndex;
-//     _initializeDebugMode();
-//   }
-//
-//   Future<bool> addExpense(double amount, String desc, String type, List<int> categoryKeys) async {
-//     try{
-//       final expenseBox = Hive.box<Expense>(AppConstants.expenses);
-//       final expense = Expense(
-//         amount: amount,
-//         date: DateTime.now(),
-//         description: desc,
-//         method: type,
-//         categoryKeys: categoryKeys,
-//       );
-//       await expenseBox.add(expense); // Auto increments key
-//       return true;
-//     } catch (e) {
-//      debugPrint('Error in Adding Expense ==> ${e.toString()}');
-//      SnackBars.show(context, message: 'Error in Adding Expense ==> ${e.toString()}', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
-//      return false;
-//     }
-//   }
-//
-//   Future<bool> addIncome(double amount, String desc, String type, List<int> categoryKeys) async {
-//     try{
-//       final incomeBox = Hive.box<Income>(AppConstants.incomes);
-//       final income = Income(
-//         amount: amount,
-//         date: DateTime.now(),
-//         description: type != '' ? 'Payment via $type' : desc,
-//         categoryKeys: categoryKeys,
-//       );
-//       await incomeBox.add(income); // Auto increments key
-//       return true;
-//     } catch (e) {
-//       debugPrint('Error in Adding Income ==> ${e.toString()}');
-//       SnackBars.show(context, message: 'Error in Adding Income ==> ${e.toString()}', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
-//       return false;
-//     }
-//   }
-//
-//
-//   void _onTabTapped(int index) {
-//     setState(() {
-//       _currentIndex = index;
-//     });
-//   }
-//
-//   Future<void> _initializeDebugMode() async {
-//     print("🚀 Starting SMS debug initialization...");
-//
-//     try {
-//       bool hasPermissions = await SmsListener.initialize();
-//
-//       setState(() {
-//         permissionsGranted = hasPermissions;
-//       });
-//
-//       if (hasPermissions) {
-//         _startListening();
-//       } else {
-//         print("⚠️ Permissions not granted, waiting for user action...");
-//         // _showSnackBar('Please grant SMS permissions', Colors.orange);
-//         SnackBars.show(context, message: 'Please grant SMS permissions', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
-//       }
-//     } catch (e) {
-//       print('❌ Error initializing: $e');
-//       // _showSnackBar('Error initializing SMS listener', Colors.red);
-//       SnackBars.show(context, message: 'Error initializing SMS listener', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
-//     }
-//   }
-//
-//   void _startListening() {
-//     print("🎧 Starting SMS listener...");
-//
-//     SmsListener.startListening(_onSmsReceived);
-//
-//     setState(() {
-//       isListening = true;
-//     });
-//     SnackBars.show(context, message: 'SMS listener started - Send yourself a test SMS!', type: SnackBarType.success, behavior: SnackBarBehavior.floating);
-//     // _showSnackBar('SMS listener started - Send yourself a test SMS!', Colors.green);
-//     print("✅ SMS listener is now active");
-//   }
-//
-//   Future<void> _onSmsReceived(String sender, String message, int timestamp) async {
-//     print("📨 === NEW SMS RECEIVED ===");
-//     print("📨 Sender: $sender");
-//     print("📨 Message: $message");
-//     print("📨 Timestamp: $timestamp");
-//
-//     // Add to all messages list (for debugging)
-//     // Map<String, dynamic> rawMessage = {
-//     //   'sender': sender,
-//     //   'message': message,
-//     //   'timestamp': DateTime.fromMillisecondsSinceEpoch(timestamp),
-//     //   'rawTimestamp': timestamp,
-//     // };
-//
-//     // setState(() {
-//     //   allMessages.insert(0, rawMessage);
-//     // });
-//
-//     // Try to parse as transaction
-//     Map<String, dynamic>? transaction = SmsListener.parseTransactionSms(sender, message, timestamp);
-//
-//     if (transaction != null) {
-//       print("💰 Transaction detected!");
-//       final double amount = double.tryParse(transaction['amount'].toString()) ?? 0.0;
-//       final String description = (transaction['description'] ?? '').toString();
-//       bool results = false;
-//       if (transaction['type'] == 'debit'){
-//          results = await addExpense(amount, description, transaction['method'], [1, 2]);
-//       } else if (transaction['type'] == 'credit'){
-//         results = await addIncome(amount, description, transaction['method'], [3, 4]);
-//       }
-//
-//       print('${results ? '✅ Added Expense' : '❌'} Transaction: ${transaction['type']} $_currentCurrency ${transaction['amount']}');
-//
-//
-//       // if (results) {
-//       //
-//       // }
-//       // setState(() {
-//       //   transactions.insert(0, transaction);
-//       // });
-//
-//       SnackBars.show(context, message:  'Transaction: ${transaction['type']} $_currentCurrency ${transaction['amount']}', type: transaction['type'] == 'credit' ?  SnackBarType.success : SnackBarType.error, behavior: SnackBarBehavior.floating);
-//       // _showSnackBar(
-//       //   'Transaction: ${transaction['type']} $_currentCurrency ${transaction['amount']}',
-//       //   transaction['type'] == 'credit' ? Colors.green : Colors.red,
-//       // );
-//     } else {
-//       print("📝 Regular SMS (not a transaction)");
-//       SnackBars.show(context, message: 'New SMS from $sender', type: SnackBarType.info, behavior: SnackBarBehavior.floating);
-//       // _showSnackBar('New SMS from $sender', Colors.blue);
-//     }
-//   }
-//
-//   @override
-//   void dispose() {
-//     SmsListener.stopListening();
-//     super.dispose();
-//   }
-//
-//   /// Add new expense to Hive
-//   Future<bool> addCategory(
-//       String name,
-//       String type,
-//       Color color,
-//       ) async {
-//     try{
-//       final categoryBox = Hive.box<Category>(AppConstants.categories);
-//       final category = Category(
-//         name: name,
-//         type: type,
-//         color: color.toString(),
-//       );
-//       await categoryBox.add(category);
-//       return true;
-//     } catch (e) {
-//       return false;
-//     }
-//
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final scheme = Theme.of(context).colorScheme;
-//
-//     return Scaffold(
-//       backgroundColor: scheme.surface,
-//       body: _tabs[_currentIndex],
-//       floatingActionButton: FloatingToolbar(
-//         items: [
-//           FloatingToolbarItem(icon: Icons.home, label: 'Home'),
-//           FloatingToolbarItem(icon: Icons.money_off, label: 'Expenses'),
-//           FloatingToolbarItem(icon: Icons.monetization_on, label: 'Incomes'),
-//           FloatingToolbarItem(icon: Icons.category, label: 'Categories'),
-//           FloatingToolbarItem(icon: Icons.settings, label: 'Settings'),
-//         ],
-//         primaryButton: Icon(Icons.add),
-//         onPrimaryPressed: () {
-//           switch (_currentIndex) {
-//             case 0:
-//               break;
-//
-//             case 1: // Expenses
-//               final addController = TextEditingController();
-//               final amountController = TextEditingController();
-//               double amount = 0.0;
-//               List<int> selectedCategoryKeys = [];
-//               String selectedType = 'UPI'; // default payment type
-//
-//               BottomSheetUtil.show(
-//                 context: context,
-//                 title: "Add Expense",
-//                 child: StatefulBuilder(
-//                   builder: (context, setState) {
-//                     final categoryBox = Hive.box<Category>(AppConstants.categories);
-//                     final categories = categoryBox.values.toList();
-//
-//                     return SingleChildScrollView(
-//                       child: Column(
-//                         mainAxisSize: MainAxisSize.min,
-//                         children: [
-//                           // Description input
-//                           TextField(
-//                             controller: addController,
-//                             decoration: const InputDecoration(labelText: "Description"),
-//                           ),
-//                           const SizedBox(height: 10),
-//
-//                           // Amount input
-//                           TextField(
-//                             controller: amountController,
-//                             decoration: const InputDecoration(labelText: "Amount"),
-//                             keyboardType: TextInputType.number,
-//                             onChanged: (value) {
-//                               setState(() {
-//                                 amount = double.tryParse(value) ?? 0.0;
-//                               });
-//                             },
-//                           ),
-//                           const SizedBox(height: 10),
-//
-//                           // Payment type selector
-//                           DropdownButton<String>(
-//                             value: selectedType,
-//                             items: ["UPI", "Cash", "NEFT", "IMPS", "RTGS", "Card", "Online"]
-//                                 .map((type) => DropdownMenuItem(
-//                               value: type,
-//                               child: Text(type),
-//                             ))
-//                                 .toList(),
-//                             onChanged: (value) {
-//                               if (value != null) setState(() => selectedType = value);
-//                             },
-//                           ),
-//                           const SizedBox(height: 10),
-//
-//                           // Category multiple selection
-//                           Wrap(
-//                             spacing: 10,
-//                             children: categories.map((category) {
-//                               final key = categoryBox.keyAt(categories.indexOf(category)) as int;
-//                               final isSelected = selectedCategoryKeys.contains(key);
-//
-//                               return ChoiceChip(
-//                                 label: Text(category.name),
-//                                 selected: isSelected,
-//                                 onSelected: (selected) {
-//                                   setState(() {
-//                                     if (selected) {
-//                                       selectedCategoryKeys.add(key);
-//                                     } else {
-//                                       selectedCategoryKeys.remove(key);
-//                                     }
-//                                   });
-//                                 },
-//                               );
-//                             }).toList(),
-//                           ),
-//                           const SizedBox(height: 10),
-//
-//                           // Save button
-//                           FilledButton(
-//                             onPressed: () async {
-//                               if (addController.text.trim().isEmpty ||
-//                                   amount <= 0 ||
-//                                   selectedCategoryKeys.isEmpty) {
-//                                 SnackBars.show(
-//                                   context,
-//                                   message: "Please enter all fields and select at least one category",
-//                                   type: SnackBarType.warning,
-//                                 );
-//                                 return;
-//                               }
-//
-//                               final success = await addExpense(
-//                                 amount,
-//                                 addController.text.trim(),
-//                                 selectedType,
-//                                 selectedCategoryKeys,
-//                               );
-//
-//                               if (success) {
-//                                 Navigator.pop(context);
-//                                 SnackBars.show(
-//                                   context,
-//                                   message: "Expense Added",
-//                                   type: SnackBarType.success,
-//                                 );
-//                               }
-//                             },
-//                             child: const Text("Save"),
-//                           ),
-//                         ],
-//                       ),
-//                     );
-//                   },
-//                 ),
-//               );
-//               break;
-//
-//             case 2: // Incomes
-//               final addController = TextEditingController();
-//               final amountController = TextEditingController();
-//               double amount = 0.0;
-//               List<int> selectedCategoryKeys = [];
-//               String selectedType = 'UPI'; // default payment type
-//
-//               BottomSheetUtil.show(
-//                 context: context,
-//                 title: "Add Income",
-//                 child: StatefulBuilder(
-//                   builder: (context, setState) {
-//                     final categoryBox = Hive.box<Category>(AppConstants.categories);
-//                     final categories = categoryBox.values.toList();
-//
-//                     return SingleChildScrollView(
-//                       child: Column(
-//                         mainAxisSize: MainAxisSize.min,
-//                         children: [
-//                           // Description input
-//                           TextField(
-//                             controller: addController,
-//                             decoration: const InputDecoration(labelText: "Description"),
-//                           ),
-//                           const SizedBox(height: 10),
-//
-//                           // Amount input
-//                           TextField(
-//                             controller: amountController,
-//                             decoration: const InputDecoration(labelText: "Amount"),
-//                             keyboardType: TextInputType.number,
-//                             onChanged: (value) {
-//                               setState(() {
-//                                 amount = double.tryParse(value) ?? 0.0;
-//                               });
-//                             },
-//                           ),
-//                           const SizedBox(height: 10),
-//
-//                           // Payment type selector
-//                           DropdownButton<String>(
-//                             value: selectedType,
-//                             items: ["UPI", "Cash", "NEFT", "IMPS", "RTGS", "Card", "Online"]
-//                                 .map((type) => DropdownMenuItem(
-//                               value: type,
-//                               child: Text(type),
-//                             ))
-//                                 .toList(),
-//                             onChanged: (value) {
-//                               if (value != null) setState(() => selectedType = value);
-//                             },
-//                           ),
-//                           const SizedBox(height: 10),
-//
-//                           // Category multiple selection
-//                           Wrap(
-//                             spacing: 10,
-//                             children: categories.map((category) {
-//                               final key = categoryBox.keyAt(categories.indexOf(category)) as int;
-//                               final isSelected = selectedCategoryKeys.contains(key);
-//
-//                               return ChoiceChip(
-//                                 label: Text(category.name),
-//                                 selected: isSelected,
-//                                 onSelected: (selected) {
-//                                   setState(() {
-//                                     if (selected) {
-//                                       selectedCategoryKeys.add(key);
-//                                     } else {
-//                                       selectedCategoryKeys.remove(key);
-//                                     }
-//                                   });
-//                                 },
-//                               );
-//                             }).toList(),
-//                           ),
-//                           const SizedBox(height: 10),
-//
-//                           // Save button
-//                           FilledButton(
-//                             onPressed: () async {
-//                               if (addController.text.trim().isEmpty ||
-//                                   amount <= 0 ||
-//                                   selectedCategoryKeys.isEmpty) {
-//                                 SnackBars.show(
-//                                   context,
-//                                   message: "Please enter all fields and select at least one category",
-//                                   type: SnackBarType.warning,
-//                                 );
-//                                 return;
-//                               }
-//
-//                               final success = await addIncome(
-//                                 amount,
-//                                 addController.text.trim(),
-//                                 selectedType,
-//                                 selectedCategoryKeys,
-//                               );
-//
-//                               if (success) {
-//                                 Navigator.pop(context);
-//                                 SnackBars.show(
-//                                   context,
-//                                   message: "Income Added",
-//                                   type: SnackBarType.success,
-//                                 );
-//                               }
-//                             },
-//                             child: const Text("Save"),
-//                           ),
-//                         ],
-//                       ),
-//                     );
-//                   },
-//                 ),
-//               );
-//               break;
-//
-//             case 3: // Category
-//               final addController = TextEditingController();
-//               final amountController = TextEditingController();
-//               double amount = 0.0;
-//               List<int> selectedCategoryKeys = [];
-//               String selectedType = 'UPI'; // default payment type
-//               Color selectedColor = Colors.red;
-//
-//               BottomSheetUtil.show(
-//                 context: context,
-//                 title: "Add Category",
-//                 child: StatefulBuilder(
-//                   builder: (context, setState) {
-//                     final categoryBox = Hive.box<Category>(AppConstants.categories);
-//                     final categories = categoryBox.values.toList();
-//
-//                     void showColorPickerDialog() {
-//                       showDialog(
-//                         context: context,
-//                         builder: (context) => AlertDialog(
-//                           title: const Text('Pick a color!'),
-//                           content: SingleChildScrollView(
-//                             child: ColorPicker(
-//                               pickerColor: selectedColor,
-//                               onColorChanged: (color) {
-//                                 // No need for setState here, dialog handles its own state
-//                                 selectedColor = color;
-//                               },
-//                             ),
-//                           ),
-//                           actions: <Widget>[
-//                             ElevatedButton(
-//                               child: const Text('Got it'),
-//                               onPressed: () {
-//                                 // Use setState here to update the UI with the new color
-//                                 setState(() {});
-//                                 Navigator.of(context).pop();
-//                               },
-//                             ),
-//                           ],
-//                         ),
-//                       );
-//                     }
-//
-//                     return SingleChildScrollView(
-//                       child: Column(
-//                         mainAxisSize: MainAxisSize.min,
-//                         children: [
-//                           // Description input
-//                           TextField(
-//                             controller: addController,
-//                             decoration: const InputDecoration(labelText: "Name"),
-//                           ),
-//                           const SizedBox(height: 10),
-//
-//                           // Color input
-//                           Row(
-//                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                             children: [
-//                               const Text("Category Color", style: TextStyle(fontSize: 16)),
-//                               GestureDetector(
-//                                 onTap: showColorPickerDialog,
-//                                 child: Container(
-//                                   width: 100,
-//                                   height: 40,
-//                                   decoration: BoxDecoration(
-//                                     color: selectedColor,
-//                                     borderRadius: BorderRadius.circular(8),
-//                                     border: Border.all(color: Colors.grey.shade400),
-//                                   ),
-//                                   alignment: Alignment.center,
-//                                   child: const Text(
-//                                     "Change",
-//                                     style: TextStyle(
-//                                       color: Colors.white,
-//                                       fontWeight: FontWeight.bold,
-//                                       shadows: [Shadow(blurRadius: 2, color: Colors.black54)],
-//                                     ),
-//                                   ),
-//                                 ),
-//                               ),
-//                             ],
-//                           ),
-//                           const SizedBox(height: 10),
-//
-//                           // Save button
-//                           FilledButton(
-//                             onPressed: () async {
-//                               if (addController.text.trim().isEmpty) {
-//                                 SnackBars.show(
-//                                   context,
-//                                   message: "Please enter all fields and select at least one category",
-//                                   type: SnackBarType.warning,
-//                                 );
-//                                 return;
-//                               }
-//
-//                               final success = await addCategory(
-//                                 addController.text.trim(),
-//                                 addController.text.trim(),
-//                                 Colors.red,
-//                               );
-//
-//                               if (success) {
-//                                 Navigator.pop(context);
-//                                 SnackBars.show(
-//                                   context,
-//                                   message: "Category Added",
-//                                   type: SnackBarType.success,
-//                                 );
-//                               }
-//                             },
-//                             child: const Text("Save"),
-//                           ),
-//                         ],
-//                       ),
-//                     );
-//                   },
-//                 ),
-//               );
-//               break;
-//
-//             case 4: // Profile
-//               SnackBars.show(context, message: "Under Development", type: SnackBarType.info);
-//               break;
-//           }
-//         },
-//         selectedIndex: _currentIndex,
-//         onItemTapped: _onTabTapped,
-//       ),
-//       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-//
-//
-//       /// OLDER BOTTOM NAVIGATION BAR
-//       // bottomNavigationBar: NavigationBar(
-//       //   backgroundColor: scheme.surface,
-//       //   indicatorColor: scheme.secondaryContainer, // expressive highlight
-//       //   labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-//       //   elevation: 2,
-//       //   selectedIndex: _currentIndex,
-//       //   onDestinationSelected: _onTabTapped,
-//       //   destinations: const [
-//       //     NavigationDestination(
-//       //       icon: Icon(Icons.home_outlined),
-//       //       selectedIcon: Icon(Icons.home_rounded),
-//       //       label: 'Home',
-//       //     ),
-//       //     NavigationDestination(
-//       //       icon: Icon(Icons.task_outlined),
-//       //       selectedIcon: Icon(Icons.task_alt_sharp),
-//       //       label: 'Todos',
-//       //     ),
-//       //     NavigationDestination(
-//       //       icon: Icon(Icons.notifications_outlined),
-//       //       selectedIcon: Icon(Icons.notifications),
-//       //       label: 'Reminders',
-//       //     ),
-//       //     NavigationDestination(
-//       //       icon: Icon(Icons.share_outlined),
-//       //       selectedIcon: Icon(Icons.share),
-//       //       label: 'Shared',
-//       //     ),
-//       //     NavigationDestination(
-//       //       icon: Icon(Icons.person_outline),
-//       //       selectedIcon: Icon(Icons.person),
-//       //       label: 'Profile',
-//       //     ),
-//       //   ],
-//       // ),
-//     );
-//   }
-// }
-
 
 import 'dart:io';
 
@@ -658,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/helpers.dart';
 import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
+import '../../services/notification_service.dart';
 import '../../services/sms_service.dart';
 import '../expenses/expense_page.dart';
 import '../home/category_page.dart';
@@ -675,7 +34,6 @@ class BottomNavBar extends StatefulWidget {
 
 class _BottomNavBarState extends State<BottomNavBar> {
   int _currentIndex = 0;
-  bool _canActivateSMSFeature = false;
   String _currentCurrency = 'INR';
 
   final List<Widget> _tabs = const [
@@ -712,40 +70,6 @@ class _BottomNavBarState extends State<BottomNavBar> {
       setState(() {});
     }
   }
-  // Future<void> _initializeDebugMode() async {
-  //   try {
-  //     if (kIsWeb || !Platform.isAndroid || !Platform.isIOS) {
-  //       _canActivateSMSFeature = true;
-  //     }
-  //     bool hasPermissions = await SmsListener.initialize();
-  //
-  //     if (mounted) {
-  //       setState(() {
-  //         permissionsGranted = hasPermissions;
-  //       });
-  //
-  //       if (hasPermissions && _canActivateSMSFeature) {
-  //         _startListening();
-  //       } else if (!hasPermissions && !_canActivateSMSFeature) {
-  //         SnackBars.show(context, message: "SMS Feature isn't Supported on this Platform", type: SnackBarType.error, behavior: SnackBarBehavior.floating);
-  //       }
-  //       else {
-  //         SnackBars.show(context, message: 'Please grant SMS permissions', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
-  //       }
-  //     }
-  //     // Check if it is first time
-  //     // final prefs = await SharedPreferences.getInstance();
-  //     // bool isFirstTime = prefs.getBool('isFirstTime') ?? true;
-  //     // if (isFirstTime) {
-  //     //   UniversalHiveFunctions().initCategories();
-  //     //   await prefs.setBool('isFirstTime', false);
-  //     // }
-  //   } catch (e) {
-  //     if (mounted) {
-  //       SnackBars.show(context, message: 'Error initializing SMS listener', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
-  //     }
-  //   }
-  // }
 
   Future<void> _initializeDebugMode() async {
     try {
@@ -757,14 +81,30 @@ class _BottomNavBarState extends State<BottomNavBar> {
 
     } catch (e) {
       if (mounted) {
-        SnackBars.show(context, message: 'Error initializing SMS listener', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
+        SnackBars.show(context, message: 'Error initializing app', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
       }
     }
   }
 
   Future<void> _initializePlatformFeatures() async {
-    if (kIsWeb || !Platform.isAndroid || !Platform.isIOS) {
-      _canActivateSMSFeature = true;
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
+      if (mounted) {
+        SnackBars.show(
+          context,
+          message: "SMS parsing isn't supported on this platform.",
+          type: SnackBarType.info,
+          behavior: SnackBarBehavior.floating,
+        );
+      }
+      return; // Exit if not on a supported platform
+    }
+
+    // From here, we are on Android or iOS
+    bool canActivateSmsParsing = await Helpers().getCurrentSmsParsingState() ?? true;
+
+    if (!canActivateSmsParsing) {
+      // User has disabled the feature in settings.
+      return;
     }
 
     bool hasPermissions = await SmsListener.initialize();
@@ -775,14 +115,18 @@ class _BottomNavBarState extends State<BottomNavBar> {
       permissionsGranted = hasPermissions;
     });
 
-    if (hasPermissions && _canActivateSMSFeature) {
+    if (hasPermissions) {
       _startListening();
-    } else if (!hasPermissions && !_canActivateSMSFeature) {
-      SnackBars.show(context, message: "SMS Feature isn't Supported on this Platform", type: SnackBarType.error, behavior: SnackBarBehavior.floating);
     } else {
-      SnackBars.show(context, message: 'Please grant SMS permissions', type: SnackBarType.error, behavior: SnackBarBehavior.floating);
+      SnackBars.show(
+        context,
+        message: 'Please grant SMS permissions to use the SMS parsing feature.',
+        type: SnackBarType.warning,
+        behavior: SnackBarBehavior.floating,
+      );
     }
   }
+
 
   Future<void> _initializeFirstTimeSetup() async {
     try {
@@ -818,7 +162,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
 
     if (transaction != null) {
       final double amount = double.tryParse(transaction['amount'].toString()) ?? 0.0;
-      final String description = (transaction['description'] ?? '').toString();
+      final String description = 'From -${transaction['bankName'] ?? ''}';
 
 
       if (transaction['type'] == 'debit') {
@@ -1134,7 +478,6 @@ class _BottomNavBarState extends State<BottomNavBar> {
     );
   }
 
-  // Add/Edit Recurring Payment Bottom Sheet
   // Add/Edit Recurring Payment Bottom Sheet
   void _showAddEditRecurringSheet({int? key, Recurring? recurring}) {
     final isEditing = key != null && recurring != null;
@@ -1684,7 +1027,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
                   final isSelected = selectedCategoryKeys.contains(key);
                   return ChoiceChip(
                     label: Text(category.name),
-                    backgroundColor: (Helpers().hexToColor(category.color)).withValues(alpha: .5),
+                    backgroundColor: (Helpers().hexToColor(category.color)).withAlpha(128),
                     selected: isSelected,
                     onSelected: (selected) {
                       setState(() {
@@ -1794,7 +1137,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
                   final isSelected = selectedCategoryKeys.contains(key);
                   return ChoiceChip(
                     label: Text(category.name),
-                    backgroundColor: (Helpers().hexToColor(category.color)).withValues(alpha: .5),
+                    backgroundColor: (Helpers().hexToColor(category.color)).withAlpha(128),
                     selected: isSelected,
                     onSelected: (selected) {
                       setState(() {
@@ -1846,6 +1189,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
   void _showAddCategorySheet() {
     final addController = TextEditingController();
     Color selectedColor = Colors.red;
+    String selectedCategoryType = 'expense'; // Default value
 
     BottomSheetUtil.show(
       context: context,
@@ -1889,6 +1233,27 @@ class _BottomNavBarState extends State<BottomNavBar> {
                 ),
               ),
               const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: selectedCategoryType,
+                decoration: const InputDecoration(
+                  labelText: "Category Type",
+                  border: OutlineInputBorder(),
+                ),
+                items: ['expense', 'income']
+                    .map((type) => DropdownMenuItem(
+                  value: type,
+                  child: Text(type.replaceFirst(type[0], type[0].toUpperCase())),
+                ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      selectedCategoryType = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -1917,7 +1282,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
 
                   final success = await UniversalHiveFunctions().addCategory(
                     addController.text.trim(),
-                    'expense', // You might want to make this selectable
+                    selectedCategoryType, // Use the selected type
                     selectedColor,
                   );
 
