@@ -1701,10 +1701,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                       border: Border.all(color: selectedColor.withOpacity(0.5)),
                     ),
                     child: Icon(
-                      IconData(
-                        _getIconCode(selectedIcon),
-                        fontFamily: 'MaterialIcons',
-                      ),
+                      _getIconData(selectedIcon),
                       color: selectedColor,
                       size: 30,
                     ),
@@ -1749,10 +1746,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                               ),
                             ),
                             child: Icon(
-                              IconData(
-                                _getIconCode(icon),
-                                fontFamily: 'MaterialIcons',
-                              ),
+                              _getIconData(icon),
                               color: selectedIcon == icon ? selectedColor : Colors.grey.shade600,
                               size: 20,
                             ),
@@ -1782,10 +1776,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
-                        IconData(
-                          _getIconCode(selectedIcon),
-                          fontFamily: 'MaterialIcons',
-                        ),
+                        _getIconData(selectedIcon),
                         color: Colors.white,
                         size: 20,
                       ),
@@ -1847,37 +1838,70 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     );
   }
 
-// Helper function to convert icon string to code
-  int _getIconCode(String iconName) {
-    // This is a simplified mapping. In a real app, you might want a complete mapping
-    final iconMap = {
-      'shopping_cart': 0xe8cc,
-      'restaurant': 0xe56c,
-      'local_cafe': 0xe541,
-      'home': 0xe88a,
-      'local_gas_station': 0xe565,
-      'directions_bus': 0xe530,
-      'checkroom': 0xe11b,
-      'devices': 0xe337,
-      'movie': 0xe02c,
-      'local_hospital': 0xe548,
-      'school': 0xe80c,
-      'flight': 0xe539,
-      'credit_card': 0xe8a1,
-      'pets': 0xe91d,
-      'category': 0xe574,
-      'work': 0xe8f9,
-      'computer': 0xe30a,
-      'business_center': 0xeb3f,
-      'trending_up': 0xe8e5,
-      'account_balance': 0xe84f,
-      'house': 0xea44,
-      'celebration': 0xea65,
-      'card_giftcard': 0xe8f6,
-      'assignment_return': 0xe8b7,
-      'directions_run': 0xe566,
-    };
+// Helper function to convert icon string to IconData using Flutter's Icons
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+    // Income Icons
+      case 'work': return Icons.work;
+      case 'computer': return Icons.computer;
+      case 'business_center': return Icons.business_center;
+      case 'trending_up': return Icons.trending_up;
+      case 'account_balance': return Icons.account_balance;
+      case 'house': return Icons.house;
+      case 'celebration': return Icons.celebration;
+      case 'card_giftcard': return Icons.card_giftcard;
+      case 'assignment_return': return Icons.assignment_return;
+      case 'directions_run': return Icons.directions_run;
 
-    return iconMap[iconName] ?? 0xe574; // Default to 'category' icon if not found
+    // Expense Icons
+      case 'shopping_cart': return Icons.shopping_cart;
+      case 'restaurant': return Icons.restaurant;
+      case 'local_cafe': return Icons.local_cafe;
+      case 'home': return Icons.home;
+      case 'local_gas_station': return Icons.local_gas_station;
+      case 'directions_bus': return Icons.directions_bus;
+      case 'checkroom': return Icons.checkroom;
+      case 'devices': return Icons.devices;
+      case 'movie': return Icons.movie;
+      case 'local_hospital': return Icons.local_hospital;
+      case 'school': return Icons.school;
+      case 'flight': return Icons.flight;
+      case 'credit_card': return Icons.credit_card;
+      case 'pets': return Icons.pets;
+      case 'flash_on': return Icons.flash_on;
+      case 'water_drop': return Icons.water_drop;
+      case 'wifi': return Icons.wifi;
+      case 'smartphone': return Icons.smartphone;
+      case 'handyman': return Icons.handyman;
+      case 'build': return Icons.build;
+      case 'local_parking': return Icons.local_parking;
+      case 'spa': return Icons.spa;
+      case 'chair': return Icons.chair;
+      case 'live_tv': return Icons.live_tv;
+      case 'palette': return Icons.palette;
+      case 'sports_soccer': return Icons.sports_soccer;
+      case 'sports_esports': return Icons.sports_esports;
+      case 'menu_book': return Icons.menu_book;
+      case 'medication': return Icons.medication;
+      case 'fitness_center': return Icons.fitness_center;
+      case 'health_and_safety': return Icons.health_and_safety;
+      case 'medical_services': return Icons.medical_services;
+      case 'book': return Icons.book;
+      case 'cast_for_education': return Icons.cast_for_education;
+      case 'hotel': return Icons.hotel;
+      case 'beach_access': return Icons.beach_access;
+      case 'travel_explore': return Icons.travel_explore;
+      case 'receipt_long': return Icons.receipt_long;
+      case 'payments': return Icons.payments;
+      case 'volunteer_activism': return Icons.volunteer_activism;
+      case 'child_friendly': return Icons.child_friendly;
+      case 'subscriptions': return Icons.subscriptions;
+      case 'construction': return Icons.construction;
+      case 'more_horiz': return Icons.more_horiz;
+      case 'warning': return Icons.warning;
+
+    // Default
+      default: return Icons.category;
+    }
   }
 }
