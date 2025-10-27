@@ -118,13 +118,16 @@
 
 package com.example.expense_tracker
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-// CRITICAL: Must extend FlutterFragmentActivity (not FlutterActivity) for biometric authentication
 class MainActivity : FlutterFragmentActivity() {
 
     companion object {
@@ -133,6 +136,9 @@ class MainActivity : FlutterFragmentActivity() {
         private var methodChannel: MethodChannel? = null
         private var isFlutterReady = false
 
+        // Add this for permission request
+        private const val SMS_PERMISSION_REQUEST_CODE = 101
+
         fun isChannelReady(): Boolean {
             val ready = isFlutterReady && methodChannel != null
             Log.d(TAG, "Channel ready: $ready (isFlutterReady=$isFlutterReady, channel=${methodChannel != null})")
@@ -140,6 +146,7 @@ class MainActivity : FlutterFragmentActivity() {
         }
 
         fun sendSmsToFlutter(data: Map<String, Any>) {
+            // ... (this function is fine, no changes needed)
             try {
                 Log.d(TAG, "========================================")
                 Log.d(TAG, "Sending to Flutter...")
@@ -180,7 +187,6 @@ class MainActivity : FlutterFragmentActivity() {
             CHANNEL
         )
 
-        // Set up method call handler for Flutter -> Native calls
         methodChannel?.setMethodCallHandler { call, result ->
             Log.d(TAG, "Method call from Flutter: ${call.method}")
 
@@ -189,14 +195,29 @@ class MainActivity : FlutterFragmentActivity() {
                     Log.d(TAG, "Test receiver called from Flutter")
                     result.success("Receiver is working!")
                 }
+
+                // --- START PERMISSION FIX ---
                 "checkPermissions" -> {
                     Log.d(TAG, "Check permissions called")
-                    result.success(true)
+                    val hasPermission = ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.RECEIVE_SMS
+                    ) == PackageManager.PERMISSION_GRANTED
+                    Log.d(TAG, "Has SMS permission: $hasPermission")
+                    result.success(hasPermission)
                 }
                 "requestPermissions" -> {
                     Log.d(TAG, "Request permissions called")
-                    result.success(true)
+                    ActivityCompat.requestPermissions(
+                        this,
+                        arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS),
+                        SMS_PERMISSION_REQUEST_CODE
+                    )
+                    // Result is sent back via onRequestPermissionsResult
+                    result.success(null) // Acknowledge the call
                 }
+                // --- END PERMISSION FIX ---
+
                 else -> {
                     Log.w(TAG, "Unknown method: ${call.method}")
                     result.notImplemented()
@@ -210,6 +231,29 @@ class MainActivity : FlutterFragmentActivity() {
         Log.d(TAG, "========================================")
     }
 
+    // --- ADD THIS ENTIRE FUNCTION ---
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        Log.d(TAG, "onRequestPermissionsResult: $requestCode")
+
+        if (requestCode == SMS_PERMISSION_REQUEST_CODE) {
+            val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+            Log.d(TAG, "SMS Permission granted: $granted")
+            try {
+                // Send the result back to Flutter
+                methodChannel?.invokeMethod("onPermissionResult", granted)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error invoking onPermissionResult", e)
+            }
+        }
+    }
+    // --- END OF NEW FUNCTION ---
+
+    // ... (onCreate, onResume, onPause, onDestroy are fine, no changes needed)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "MainActivity onCreate - FlutterFragmentActivity")

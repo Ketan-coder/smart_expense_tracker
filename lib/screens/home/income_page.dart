@@ -1134,10 +1134,10 @@ class _IncomePageState extends State<IncomePage> {
                           }
                         } else {
                           final success = await UniversalHiveFunctions().addIncome(
-                            amount,
-                            description,
-                            selectedType!, // Add payment method
-                            selectedCategoryKeys,
+                            amount:amount,
+                            description: description,
+                            method:selectedType!, // Add payment method
+                            categoryKeys: selectedCategoryKeys,
                           );
                           if (success && context.mounted) {
                             Navigator.pop(context);

@@ -67,8 +67,8 @@ class NotificationService {
       // Create notification channel FIRST
       await createNotificationChannel();
 
-      // Request permissions
-      await requestExactAlarmsPermission();
+      // Request notification permissions (not exact alarms)
+      await requestNotificationPermission();
 
       _isInitialized = true;
       debugPrint('[INIT] Notification Service initialized successfully');
@@ -89,7 +89,6 @@ class NotificationService {
           'Reminders',
           description: 'Channel for reminder notifications',
           importance: Importance.max,
-          // priority: Priority.high,
           enableVibration: true,
           playSound: true,
         ),
@@ -102,7 +101,6 @@ class NotificationService {
           'Test',
           description: 'Test notification channel',
           importance: Importance.max,
-          // priority: Priority.high,
         ),
       );
 
@@ -112,15 +110,35 @@ class NotificationService {
     }
   }
 
-  static Future<void> requestExactAlarmsPermission() async {
+  // NEW: Request notification permission instead of exact alarms
+  static Future<bool> requestNotificationPermission() async {
+    try {
+      final androidImplementation = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+      // For Android 13+ (API 33+), we need to request notification permission
+      final bool? permissionGranted = await androidImplementation?.requestNotificationsPermission();
+
+      debugPrint('[PERMISSION] Notification permission granted: $permissionGranted');
+      return permissionGranted ?? false;
+    } catch (e) {
+      debugPrint('[ERROR] Failed to request notification permission: $e');
+      return false;
+    }
+  }
+
+  // Keep this method but don't call it automatically
+  static Future<bool> requestExactAlarmsPermission() async {
     try {
       final androidImplementation = _notificationsPlugin
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
       final bool? granted = await androidImplementation?.requestExactAlarmsPermission();
       debugPrint('[PERMISSION] Exact alarms permission granted: $granted');
+      return granted ?? false;
     } catch (e) {
       debugPrint('[ERROR] Failed to request exact alarms permission: $e');
+      return false;
     }
   }
 
@@ -165,7 +183,6 @@ class NotificationService {
             playSound: true,
           ),
         ),
-        // uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         payload: 'reminder_$id',
       );
@@ -286,6 +303,20 @@ class NotificationService {
       debugPrint('[CANCEL] All notifications cancelled.');
     } catch (e) {
       debugPrint('[ERROR] Failed to cancel all notifications: $e');
+    }
+  }
+
+  // Check if notifications are enabled
+  static Future<bool> areNotificationsEnabled() async {
+    try {
+      final androidImplementation = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+      final bool? enabled = await androidImplementation?.areNotificationsEnabled();
+      return enabled ?? false;
+    } catch (e) {
+      debugPrint('[ERROR] Failed to check notification status: $e');
+      return false;
     }
   }
 

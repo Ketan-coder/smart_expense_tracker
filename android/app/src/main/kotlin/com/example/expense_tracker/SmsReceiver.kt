@@ -124,37 +124,31 @@ class SmsReceiver : BroadcastReceiver() {
         }
     }
 
-    /**
-     * Battery optimization: Filter SMS to process only relevant transaction messages
-     */
     private fun shouldProcess(sender: String, message: String): Boolean {
-        // Quick check 1: Is sender known?
-        val senderUpper = sender.uppercase()
-        val isKnownSender = KNOWN_SENDERS.any { senderUpper.contains(it) }
-
-        if (!isKnownSender) {
-            // Allow numeric senders (6-digit short codes like banks use)
-            val isShortCode = sender.matches(Regex("""^\d{4,6}$"""))
-            if (!isShortCode) {
-                return false
-            }
-        }
-
-        // Quick check 2: Does message contain transaction keywords?
+        // Quick check 1: Does message contain transaction keywords?
         val messageLower = message.lowercase()
         val hasTransactionKeyword = TRANSACTION_KEYWORDS.any {
             messageLower.contains(it)
         }
 
         if (!hasTransactionKeyword) {
+            Log.d(TAG, "SMS filtered out: No transaction keywords (sender: $sender)")
             return false
         }
 
-        // Quick check 3: Does it have amount pattern?
+        // Quick check 2: Does it have amount pattern?
         val hasAmount = message.contains(Regex("""(?:rs\.?|inr|₹)\s*\d""", RegexOption.IGNORE_CASE)) ||
                 message.contains(Regex("""\d+(?:\.\d{2})?\s*(?:rs\.?|inr|₹)""", RegexOption.IGNORE_CASE))
 
-        return hasAmount
+        if (!hasAmount) {
+            Log.d(TAG, "SMS filtered out: No amount pattern (sender: $sender)")
+            return false
+        }
+
+        // If it has keywords AND an amount, it's very likely a transaction.
+        // Let Flutter's more advanced parser handle the rest.
+        Log.d(TAG, "SMS passed filters (keywords and amount) (sender: $sender)")
+        return true
     }
 
     private suspend fun sendToFlutter(sender: String, message: String, timestamp: Long) = withContext(Dispatchers.Main) {

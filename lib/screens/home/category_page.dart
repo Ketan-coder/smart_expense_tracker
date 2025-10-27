@@ -1,281 +1,3 @@
-// import 'package:expense_tracker/data/model/category.dart';
-// import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
-// import 'package:flutter/material.dart';
-// import 'package:hive_ce_flutter/hive_flutter.dart';
-// import '../../core/app_constants.dart';
-// import '../../core/helpers.dart';
-// import '../widgets/bottom_nav_bar.dart';
-// import '../widgets/custom_app_bar.dart';
-// import '../widgets/dialog.dart';
-// import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-//
-// class CategoryPage extends StatefulWidget {
-//   const CategoryPage({super.key});
-//
-//   @override
-//   State<CategoryPage> createState() => _CategoryPageState();
-// }
-//
-// class _CategoryPageState extends State<CategoryPage> {
-//   final _textController = TextEditingController();
-//
-//   /// Add new expense to Hive
-//   Future<void> addCategory(
-//       String name,
-//       String type,
-//       Color color,
-//       ) async {
-//     final categoryBox = Hive.box<Category>(AppConstants.categories);
-//     final category = Category(
-//       name: name,
-//       type: type,
-//       color: colorToHex(color), // Convert Color to hex string
-//     );
-//     await categoryBox.add(category);
-//   }
-//
-//   /// Update a single category in Hive
-//   Future<void> updateCategory(int key, Category newCategory) async {
-//     final categoryBox = Hive.box<Category>(AppConstants.categories);
-//     await categoryBox.put(key, newCategory);
-//   }
-//
-//   /// Delete a single category
-//   Future<void> deleteCategory(int key) async {
-//     final categoryBox = Hive.box<Category>(AppConstants.categories);
-//     await categoryBox.delete(key);
-//   }
-//
-//   List<Category> categories = [];
-//   List<Category> getAllCategories() {
-//     return Hive.box<Category>(AppConstants.categories).values.toList();
-//   }
-//
-//   @override
-//   void initState() {
-//     initCall();
-//     super.initState();
-//   }
-//
-//   void initCall() {
-//     categories = getAllCategories();
-//   }
-//
-//   @override
-//   void dispose() {
-//     _textController.dispose();
-//     super.dispose();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final isLight = Helpers().isLightMode(context);
-//
-//     return SafeArea(
-//       child: Scaffold(
-//         body: SimpleCustomAppBar(
-//           title: "Category",
-//           hasContent: true,
-//           expandedHeight: MediaQuery.of(context).size.height * 0.35,
-//           centerTitle: true,
-//           actions: [
-//             // IconButton(icon: const Icon(Icons.refresh), onPressed: () => initCall),
-//             // IconButton(icon: const Icon(Icons.logout), onPressed: () {}),
-//           ],
-//           child: Container(
-//             margin: const EdgeInsets.all(10),
-//             padding: const EdgeInsets.all(10),
-//             decoration: BoxDecoration(
-//               borderRadius: BorderRadius.circular(25),
-//               color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
-//             ),
-//             child: SizedBox(
-//               height:
-//               MediaQuery.of(context).size.height -
-//                   300, // fit in expanded area
-//               child: ValueListenableBuilder<Box<Category>>(
-//                 valueListenable: Hive.box<Category>(AppConstants.categories).listenable(),
-//                 builder: (context, box, _) {
-//                   final categories = box.values.toList();
-//
-//                   if (categories.isEmpty) {
-//                     return const Center(child: Text("No Categories yet."));
-//                   }
-//
-//                   return Padding(
-//                     padding: const EdgeInsets.all(8.0),
-//                     child: ListView.separated(
-//                       itemCount: categories.length,
-//                       separatorBuilder: (_, __) => const Divider(),
-//                       itemBuilder: (context, index) {
-//                         final key = box.keyAt(index) as int;
-//                         final category = box.get(key)!;
-//
-//                         return Dismissible(
-//                           key: ValueKey(key), // Unique per Hive object
-//                           background: _buildDismissibleBackground(
-//                             color: Colors.blue,
-//                             icon: Icons.edit,
-//                             alignment: Alignment.centerLeft,
-//                           ),
-//                           secondaryBackground: _buildDismissibleBackground(
-//                             color: Colors.red,
-//                             icon: Icons.delete,
-//                             alignment: Alignment.centerRight,
-//                           ),
-//                           confirmDismiss: (direction) async {
-//                             if (direction == DismissDirection.startToEnd) {
-//                               // Edit: Show bottom sheet
-//                               final editController = TextEditingController(text: category.name);
-//                               String selectedType = category.type;
-//                               Color selectedColor = Helpers().hexToColor(category.color); // Parse stored color
-//
-//                               await BottomSheetUtil.show(
-//                                 context: context,
-//                                 title: "Edit Category",
-//                                 child: StatefulBuilder(
-//                                   builder: (context, setState) {
-//                                     void showColorPickerDialog() {
-//                                       showDialog(
-//                                         context: context,
-//                                         builder: (context) => AlertDialog(
-//                                           title: const Text('Pick a color!'),
-//                                           content: SingleChildScrollView(
-//                                             child: ColorPicker(
-//                                               pickerColor: selectedColor,
-//                                               onColorChanged: (color) {
-//                                                 setState(() {
-//                                                   selectedColor = color;
-//                                                 });
-//                                               },
-//                                             ),
-//                                           ),
-//                                           actions: <Widget>[
-//                                             ElevatedButton(
-//                                               child: const Text('Got it'),
-//                                               onPressed: () {
-//                                                 Navigator.of(context).pop();
-//                                               },
-//                                             ),
-//                                           ],
-//                                         ),
-//                                       );
-//                                     }
-//
-//                                     return Column(
-//                                       mainAxisSize: MainAxisSize.min,
-//                                       children: [
-//                                         TextField(
-//                                           controller: editController,
-//                                           decoration: const InputDecoration(labelText: "Category Name"),
-//                                         ),
-//                                         const SizedBox(height: 10),
-//                                         Row(
-//                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                                           children: [
-//                                             const Text("Category Color", style: TextStyle(fontSize: 16)),
-//                                             GestureDetector(
-//                                               onTap: showColorPickerDialog,
-//                                               child: Container(
-//                                                 width: 100,
-//                                                 height: 40,
-//                                                 decoration: BoxDecoration(
-//                                                   color: selectedColor,
-//                                                   borderRadius: BorderRadius.circular(8),
-//                                                   border: Border.all(color: Colors.grey.shade400),
-//                                                 ),
-//                                                 alignment: Alignment.center,
-//                                                 child: const Text(
-//                                                   "Change",
-//                                                   style: TextStyle(
-//                                                     color: Colors.white,
-//                                                     fontWeight: FontWeight.bold,
-//                                                     shadows: [Shadow(blurRadius: 2, color: Colors.black54)],
-//                                                   ),
-//                                                 ),
-//                                               ),
-//                                             ),
-//                                           ],
-//                                         ),
-//                                         const SizedBox(height: 10),
-//                                         FilledButton(
-//                                           onPressed: () async {
-//                                             final updatedCategory = Category(
-//                                               name: editController.text.trim(),
-//                                               type: selectedType,
-//                                               color: colorToHex(selectedColor), // Store as hex
-//                                             );
-//                                             await updateCategory(key, updatedCategory);
-//                                             if (context.mounted) {
-//                                               Navigator.of(context).pop(); // Close bottom sheet
-//                                               Helpers().createRoute(const BottomNavBar(currentIndex: 3));
-//                                             }
-//                                           },
-//                                           child: const Text("Save"),
-//                                         ),
-//                                       ],
-//                                     );
-//                                   },
-//                                 ),
-//                               );
-//                               return false; // Don't dismiss the tile
-//                             } else {
-//                               // Delete: Show confirmation dialog
-//                               final bool? confirmed = await Dialogs.showConfirmation(context: context);
-//                               if (confirmed == true) {
-//                                 await deleteCategory(key);
-//                                 return true; // Dismiss the tile
-//                               }
-//                               return false; // Don't dismiss the tile
-//                             }
-//                           },
-//                           child: Container(
-//                             padding: const EdgeInsets.all(8),
-//                             decoration: BoxDecoration(
-//                               color: isLight ? Colors.grey[200] : Colors.grey[900],
-//                               borderRadius: BorderRadius.circular(20),
-//                             ),
-//                             child: ListTile(
-//                               title: Text(category.name),
-//                               subtitle: Text(category.type),
-//                                 style: ListTileStyle.list,
-//                               leading: CircleAvatar(
-//                                 backgroundColor: Helpers().hexToColor(category.color),
-//                                 child: Text(category.name[0].toUpperCase()),
-//                               ),
-//                             ),
-//                           ),
-//                         );
-//                       },
-//                     ),
-//                   );
-//                 },
-//               ),
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-//
-// Container _buildDismissibleBackground({
-//   required Color color,
-//   required IconData icon,
-//   required Alignment alignment,
-// }) {
-//   return Container(
-//     decoration: BoxDecoration(
-//       color: color,
-//       borderRadius: BorderRadius.circular(12),
-//     ),
-//     alignment: alignment,
-//     padding: const EdgeInsets.symmetric(horizontal: 20),
-//     margin: const EdgeInsets.only(bottom: 8),
-//     child: Icon(icon, color: Colors.white),
-//   );
-// }
-
 import 'package:expense_tracker/data/model/category.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:flutter/material.dart';
@@ -283,9 +5,12 @@ import 'package:hive_ce_flutter/hive_flutter.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 // import '../widgets/bottom_nav_bar.dart'; // Not used in this file
+import '../../data/local/universal_functions.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/dialog.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+
+import '../widgets/snack_bar.dart';
 
 /// Converts a Color object to its hex string representation (e.g., "FF0000").
 String colorToHex(Color color) {
@@ -301,19 +26,19 @@ class CategoryPage extends StatefulWidget {
 
 class _CategoryPageState extends State<CategoryPage> {
   /// Add new category to Hive
-  Future<void> addCategory(
-      String name,
-      String type,
-      Color color,
-      ) async {
-    final categoryBox = Hive.box<Category>(AppConstants.categories);
-    final category = Category(
-      name: name,
-      type: type,
-      color: colorToHex(color), // Convert Color to hex string
-    );
-    await categoryBox.add(category);
-  }
+  // Future<void> addCategory(
+  //     String name,
+  //     String type,
+  //     Color color,
+  //     ) async {
+  //   final categoryBox = Hive.box<Category>(AppConstants.categories);
+  //   final category = Category(
+  //     name: name,
+  //     type: type,
+  //     color: colorToHex(color), // Convert Color to hex string
+  //   );
+  //   await categoryBox.add(category);
+  // }
 
   /// Update a single category in Hive
   Future<void> updateCategory(int key, Category newCategory) async {
@@ -336,6 +61,19 @@ class _CategoryPageState extends State<CategoryPage> {
     String selectedType = isEditing ? category.type : 'Expense';
     Color selectedColor =
     isEditing ? Helpers().hexToColor(category.color) : Colors.blue;
+    String selectedIcon = isEditing ? category.icon : 'category'; // Default icon
+
+    // Common icons for different category types
+    final expenseIcons = [
+      'shopping_cart', 'restaurant', 'local_cafe', 'home', 'local_gas_station',
+      'directions_bus', 'checkroom', 'devices', 'movie', 'local_hospital',
+      'school', 'flight', 'credit_card', 'pets', 'category'
+    ];
+
+    final incomeIcons = [
+      'work', 'computer', 'business_center', 'trending_up', 'account_balance',
+      'house', 'celebration', 'card_giftcard', 'assignment_return', 'directions_run'
+    ];
 
     await showModalBottomSheet(
       context: context,
@@ -350,10 +88,9 @@ class _CategoryPageState extends State<CategoryPage> {
                 builder: (context) => AlertDialog(
                   title: const Text('Pick a color'),
                   content: SingleChildScrollView(
-                    child: ColorPicker(
+                    child: BlockPicker(
                       pickerColor: selectedColor,
                       onColorChanged: (color) {
-                        // This setState is for the dialog
                         setModalState(() {
                           selectedColor = color;
                         });
@@ -361,7 +98,11 @@ class _CategoryPageState extends State<CategoryPage> {
                     ),
                   ),
                   actions: <Widget>[
-                    ElevatedButton(
+                    TextButton(
+                      child: const Text('Cancel'),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    FilledButton(
                       child: const Text('Select'),
                       onPressed: () {
                         Navigator.of(context).pop();
@@ -372,16 +113,19 @@ class _CategoryPageState extends State<CategoryPage> {
               );
             }
 
+            /// Get current icons based on selected category type
+            List<String> getCurrentIcons() {
+              return selectedType.toLowerCase() == 'expense' ? expenseIcons : incomeIcons;
+            }
+
             /// Handles the save logic for both add and edit
             Future<void> onSave() async {
               final name = nameController.text.trim();
               if (name.isEmpty) {
-                // Optional: Show a snackbar for error
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please enter a category name.'),
-                    backgroundColor: Colors.red,
-                  ),
+                SnackBars.show(
+                  context,
+                  message: 'Please enter a category name',
+                  type: SnackBarType.error,
                 );
                 return;
               }
@@ -390,16 +134,36 @@ class _CategoryPageState extends State<CategoryPage> {
                 name: name,
                 type: selectedType,
                 color: colorToHex(selectedColor),
+                icon: selectedIcon,
               );
 
+              bool success;
               if (isEditing) {
-                await updateCategory(key, newCategory);
+                success = await UniversalHiveFunctions().updateCategory(key, newCategory);
               } else {
-                await addCategory(name, selectedType, selectedColor);
+                success = await UniversalHiveFunctions().addCategory(
+                    name,
+                    selectedType,
+                    selectedColor,
+                    selectedIcon
+                );
               }
 
               if (context.mounted) {
-                Navigator.of(context).pop(); // Close bottom sheet
+                if (success) {
+                  Navigator.of(context).pop(); // Close bottom sheet
+                  SnackBars.show(
+                    context,
+                    message: isEditing ? 'Category updated' : 'Category added',
+                    type: SnackBarType.success,
+                  );
+                } else {
+                  SnackBars.show(
+                    context,
+                    message: 'Error saving category',
+                    type: SnackBarType.error,
+                  );
+                }
               }
             }
 
@@ -421,15 +185,20 @@ class _CategoryPageState extends State<CategoryPage> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
+
+                    // Category Name
                     TextField(
                       controller: nameController,
                       decoration: const InputDecoration(
                         labelText: "Category Name",
                         border: OutlineInputBorder(),
+                        hintText: "e.g., Groceries, Salary, etc.",
                       ),
                       textCapitalization: TextCapitalization.words,
                     ),
                     const SizedBox(height: 16),
+
+                    // Category Type
                     DropdownButtonFormField<String>(
                       value: selectedType,
                       decoration: const InputDecoration(
@@ -442,11 +211,19 @@ class _CategoryPageState extends State<CategoryPage> {
                           .toList(),
                       onChanged: (value) {
                         if (value != null) {
-                          setModalState(() => selectedType = value);
+                          setModalState(() {
+                            selectedType = value;
+                            // Reset to appropriate default icon when type changes
+                            selectedIcon = value.toLowerCase() == 'expense'
+                                ? 'shopping_cart'
+                                : 'work';
+                          });
                         }
                       },
                     ),
                     const SizedBox(height: 16),
+
+                    // Color Selection
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       shape: RoundedRectangleBorder(
@@ -454,19 +231,169 @@ class _CategoryPageState extends State<CategoryPage> {
                           side: BorderSide(
                               color: Theme.of(context).colorScheme.outline)),
                       title: const Text('Category Color'),
-                      trailing: CircleAvatar(
-                        backgroundColor: selectedColor,
-                        radius: 16,
+                      trailing: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: selectedColor,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade400),
+                        ),
+                        child: Center(
+                          child: Text(
+                            "Color",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
                       ),
                       onTap: showColorPickerDialog,
                     ),
+                    const SizedBox(height: 16),
+
+                    // Icon Selection Section
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Category Icon',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Selected Icon Preview
+                        Container(
+                          width: 60,
+                          height: 60,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: selectedColor.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: selectedColor.withOpacity(0.5)),
+                          ),
+                          child: Icon(
+                            IconData(
+                              _getIconCode(selectedIcon),
+                              fontFamily: 'MaterialIcons',
+                            ),
+                            color: selectedColor,
+                            size: 30,
+                          ),
+                        ),
+
+                        // Icon Grid
+                        Container(
+                          height: 120,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: GridView.builder(
+                            padding: const EdgeInsets.all(8),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 5,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                              childAspectRatio: 1,
+                            ),
+                            itemCount: getCurrentIcons().length,
+                            itemBuilder: (context, index) {
+                              final icon = getCurrentIcons()[index];
+                              return GestureDetector(
+                                onTap: () {
+                                  setModalState(() {
+                                    selectedIcon = icon;
+                                  });
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: selectedIcon == icon
+                                        ? selectedColor.withOpacity(0.3)
+                                        : Colors.grey.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: selectedIcon == icon
+                                          ? selectedColor
+                                          : Colors.transparent,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    IconData(
+                                      _getIconCode(icon),
+                                      fontFamily: 'MaterialIcons',
+                                    ),
+                                    color: selectedIcon == icon ? selectedColor : Colors.grey.shade600,
+                                    size: 20,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 24),
+
+                    // Preview Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: selectedColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              IconData(
+                                _getIconCode(selectedIcon),
+                                fontFamily: 'MaterialIcons',
+                              ),
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  nameController.text.isNotEmpty ? nameController.text : "Category Name",
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                Text(
+                                  selectedType.toUpperCase(),
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.outline,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Save Button
                     FilledButton(
                       onPressed: onSave,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: Text(isEditing ? "Save Changes" : "Save Category"),
+                      child: Text(isEditing ? "Save Changes" : "Create Category"),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -477,6 +404,43 @@ class _CategoryPageState extends State<CategoryPage> {
         );
       },
     );
+  }
+
+// Helper function to convert icon string to code
+  int _getIconCode(String iconName) {
+    final iconMap = {
+      'shopping_cart': 0xe8cc,
+      'restaurant': 0xe56c,
+      'local_cafe': 0xe541,
+      'home': 0xe88a,
+      'local_gas_station': 0xe565,
+      'directions_bus': 0xe530,
+      'checkroom': 0xe11b,
+      'devices': 0xe337,
+      'movie': 0xe02c,
+      'local_hospital': 0xe548,
+      'school': 0xe80c,
+      'flight': 0xe539,
+      'credit_card': 0xe8a1,
+      'pets': 0xe91d,
+      'category': 0xe574,
+      'work': 0xe8f9,
+      'computer': 0xe30a,
+      'business_center': 0xeb3f,
+      'trending_up': 0xe8e5,
+      'account_balance': 0xe84f,
+      'house': 0xea44,
+      'celebration': 0xea65,
+      'card_giftcard': 0xe8f6,
+      'assignment_return': 0xe8b7,
+      'directions_run': 0xe566,
+    };
+
+    return iconMap[iconName] ?? 0xe574; // Default to 'category' icon if not found
+  }
+
+  String colorToHex(Color color) {
+    return '#${color.value.toRadixString(16).padLeft(8, '0').substring(2)}';
   }
 
   @override
@@ -671,13 +635,13 @@ class _CategoryPageState extends State<CategoryPage> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
-              child: Text(
-                category.name.isNotEmpty ? category.name[0].toUpperCase() : '?',
-                style: TextStyle(
-                  color: textColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+              child: Icon(
+                IconData(
+                  _getIconCode(category.icon), // Convert string to IconData
+                  fontFamily: 'MaterialIcons',
                 ),
+                color: textColor,
+                size: 20, // Adjusted size for better fit
               ),
             ),
           ),

@@ -19,47 +19,6 @@ import 'services/biometric_auth.dart'; // Import your biometric service
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Check biometric preference
-  // final bool biometricEnabled = await Helpers().getCurrentBiometricState() ?? false;
-  //
-  // if (biometricEnabled) {
-  //   bool authenticated = false;
-  //
-  //   // Check if biometrics available and enrolled
-  //   final biometricAuth = BiometricAuth();
-  //   final isBiometricAvailable = await biometricAuth.isBiometricAvailable();
-  //   final hasEnrolledBiometrics = await biometricAuth.hasEnrolledBiometrics();
-  //
-  //   if (isBiometricAvailable && hasEnrolledBiometrics) {
-  //     try {
-  //       authenticated = await biometricAuth.biometricAuthenticate(
-  //           reason: 'Authenticate to access your expense tracker'
-  //       );
-  //     } catch (e) {
-  //       if (e.toString().contains("CANCELLED_BY_USER") ||
-  //           e.toString().contains("cancelled")) {
-  //         // User cancelled authentication, exit app
-  //         debugPrint('Biometric authentication cancelled by user');
-  //         SystemNavigator.pop();
-  //         return;
-  //       } else {
-  //         debugPrint('Biometric auth failed: $e');
-  //         authenticated = false;
-  //       }
-  //     }
-  //   } else {
-  //     // Biometric not available or not enrolled, continue without authentication
-  //     debugPrint('Biometric not available or not enrolled');
-  //     authenticated = true;
-  //   }
-  //
-  //   if (!authenticated) {
-  //     // Authentication failed, exit app
-  //     SystemNavigator.pop();
-  //     return;
-  //   }
-  // }
-
   await Hive.initFlutter();
   // Register adapters
   Hive.registerAdapter(ExpenseAdapter());

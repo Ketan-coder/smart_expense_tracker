@@ -23,13 +23,14 @@ class RecurringAdapter extends TypeAdapter<Recurring> {
       categoryKeys: (fields[3] as List).cast<int>(),
       interval: fields[4] as String,
       endDate: fields[5] as DateTime?,
+      deductionDate: fields[6] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Recurring obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.amount)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class RecurringAdapter extends TypeAdapter<Recurring> {
       ..writeByte(4)
       ..write(obj.interval)
       ..writeByte(5)
-      ..write(obj.endDate);
+      ..write(obj.endDate)
+      ..writeByte(6)
+      ..write(obj.deductionDate);
   }
 
   @override

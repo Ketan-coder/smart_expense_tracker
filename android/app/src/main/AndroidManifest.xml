@@ -1,18 +1,19 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- SMS Permissions - Only request what you actively use -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <!-- Remove READ_PHONE_STATE if not needed -->
-     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+     <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove" />
 
     <!-- Remove RECEIVE_BOOT_COMPLETED if not needed for critical startup -->
     <!-- <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/> -->
 
     <!-- Notifications and Alarms -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" tools:node="remove" />
+    <uses-permission android:name="android.permission.VIBRATE" tools:node="remove" />
 
     <!-- Remove FOREGROUND_SERVICE if not using foreground services -->
     <!-- <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> -->
@@ -66,9 +67,9 @@
         <!-- Only register if you're actively parsing SMS for expenses -->
         <receiver
             android:name=".SmsReceiver"
+            android:enabled="true"
             android:exported="true"
-            android:enabled="true">
-            <!-- Use normal priority - high priority drains battery -->
+            android:permission="android.permission.BROADCAST_SMS">
             <intent-filter android:priority="999">
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>

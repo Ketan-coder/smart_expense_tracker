@@ -360,17 +360,17 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
       if (transaction['type'] == 'debit') {
         success = await UniversalHiveFunctions().addExpense(
-          amount,
-          description,
-          method,
-          [1, 2], // Default expense category keys
+          amount: amount,
+          description:description,
+          method:method,
+          categoryKeys :[1, 2], // Default expense category keys
         );
       } else if (transaction['type'] == 'credit') {
         success = await UniversalHiveFunctions().addIncome(
-          amount,
-          description,
-          method,
-          [3, 4], // Default income category keys
+          amount:  amount,
+          description :description,
+          method :method,
+          categoryKeys:[3, 4], // Default income category keys
         );
       }
 
@@ -396,6 +396,100 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
   void _onTabTapped(int index) {
     setState(() => _currentIndex = index);
   }
+
+  // @override
+  // Widget build(BuildContext context) {
+  //   // Show biometric lock screen if required and not authenticated
+  //   if (_biometricRequired && !_isAuthenticated) {
+  //     return Scaffold(
+  //       body: Center(
+  //         child: Column(
+  //           mainAxisAlignment: MainAxisAlignment.center,
+  //           children: [
+  //             Icon(
+  //               Icons.fingerprint,
+  //               size: 80,
+  //               color: Theme.of(context).colorScheme.primary,
+  //             ),
+  //             const SizedBox(height: 24),
+  //             Text(
+  //               "Authentication Required",
+  //               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+  //                 fontWeight: FontWeight.bold,
+  //               ),
+  //             ),
+  //             const SizedBox(height: 12),
+  //             Text(
+  //               "Please authenticate to continue",
+  //               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+  //                 color: Colors.grey,
+  //               ),
+  //             ),
+  //             const SizedBox(height: 32),
+  //             if (_isAuthenticating)
+  //               const CircularProgressIndicator()
+  //             else
+  //               ElevatedButton.icon(
+  //                 onPressed: _checkAndRequestBiometric,
+  //                 icon: const Icon(Icons.fingerprint),
+  //                 label: const Text("Authenticate"),
+  //                 style: ElevatedButton.styleFrom(
+  //                   padding: const EdgeInsets.symmetric(
+  //                     horizontal: 32,
+  //                     vertical: 16,
+  //                   ),
+  //                 ),
+  //               ),
+  //           ],
+  //         ),
+  //       ),
+  //     );
+  //   }
+  //
+  //   // Main app UI
+  //   final scheme = Theme.of(context).colorScheme;
+  //
+  //   return Scaffold(
+  //     backgroundColor: scheme.surface,
+  //     body: _tabs[_currentIndex],
+  //     floatingActionButton: FloatingToolbar(
+  //       items: [
+  //         FloatingToolbarItem(icon: Icons.home, label: 'Home'),
+  //         FloatingToolbarItem(icon: Icons.money_off, label: 'Expenses'),
+  //         FloatingToolbarItem(icon: Icons.monetization_on, label: 'Incomes'),
+  //         FloatingToolbarItem(icon: Icons.category, label: 'Categories'),
+  //         FloatingToolbarItem(icon: Icons.settings, label: 'Settings'),
+  //       ],
+  //       primaryButton: const Icon(Icons.add),
+  //       onPrimaryPressed: () {
+  //         switch (_currentIndex) {
+  //           case 0:
+  //             _showReportsAddMenu(context);
+  //             break;
+  //           case 1:
+  //             _showAddExpenseSheet();
+  //             break;
+  //           case 2:
+  //             _showAddIncomeSheet();
+  //             break;
+  //           case 3:
+  //             _showAddCategorySheet();
+  //             break;
+  //           case 4:
+  //             SnackBars.show(
+  //               context,
+  //               message: "Under Development",
+  //               type: SnackBarType.info,
+  //             );
+  //             break;
+  //         }
+  //       },
+  //       selectedIndex: _currentIndex,
+  //       onItemTapped: _onTabTapped,
+  //     ),
+  //     floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -451,7 +545,38 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
     return Scaffold(
       backgroundColor: scheme.surface,
-      body: _tabs[_currentIndex],
+
+      // --- START OF CHANGES ---
+      body: Stack(
+        children: [
+          // Your main content
+          _tabs[_currentIndex],
+
+          // SMS Status Dot Overlay
+          // SafeArea(
+          //   child: Padding(
+          //     padding: const EdgeInsets.only(left: 35.0, top: 870.0),
+          //     child: Container(
+          //       width: 10,
+          //       height: 10,
+          //       decoration: BoxDecoration(
+          //         color: isListening ? Colors.green.shade400 : Colors.red.shade400,
+          //         shape: BoxShape.circle,
+          //         border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.5),
+          //         boxShadow: [
+          //           BoxShadow(
+          //             color: Colors.black.withOpacity(0.3),
+          //             blurRadius: 4,
+          //           )
+          //         ],
+          //       ),
+          //     ),
+          //   ),
+          // )
+        ],
+      ),
+      // --- END OF CHANGES ---
+
       floatingActionButton: FloatingToolbar(
         items: [
           FloatingToolbarItem(icon: Icons.home, label: 'Home'),
@@ -1204,14 +1329,6 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextField(
-                controller: addController,
-                decoration: const InputDecoration(
-                  labelText: "Description",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
                 controller: amountController,
                 decoration: InputDecoration(
                   labelText: "Amount",
@@ -1219,6 +1336,14 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                   prefixText: "$_currentCurrency ",
                 ),
                 keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: addController,
+                decoration: const InputDecoration(
+                  labelText: "Description",
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
@@ -1276,10 +1401,10 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                   }
 
                   final success = await UniversalHiveFunctions().addExpense(
-                    amount,
-                    addController.text.trim(),
-                    selectedType,
-                    selectedCategoryKeys,
+                    amount: amount,
+                    description: addController.text.trim(),
+                    method: selectedType,
+                    categoryKeys : selectedCategoryKeys,
                   );
 
                   if (success && context.mounted) {
@@ -1318,14 +1443,6 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextField(
-                controller: addController,
-                decoration: const InputDecoration(
-                  labelText: "Description",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
                 controller: amountController,
                 decoration: InputDecoration(
                   labelText: "Amount",
@@ -1333,6 +1450,14 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                   prefixText: "$_currentCurrency ",
                 ),
                 keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: addController,
+                decoration: const InputDecoration(
+                  labelText: "Description",
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
@@ -1389,10 +1514,10 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                   }
 
                   final success = await UniversalHiveFunctions().addIncome(
-                    amount,
-                    addController.text.trim(),
-                    selectedType,
-                    selectedCategoryKeys,
+                    amount:  amount,
+                    description: addController.text.trim(),
+                    method: selectedType,
+                    categoryKeys :selectedCategoryKeys,
                   );
 
                   if (success && context.mounted) {
@@ -1417,10 +1542,24 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     final addController = TextEditingController();
     Color selectedColor = Colors.red;
     String selectedCategoryType = 'expense';
+    String selectedIcon = 'category'; // Default icon
+
+    // Common icons for different category types
+    final expenseIcons = [
+      'shopping_cart', 'restaurant', 'local_cafe', 'home', 'local_gas_station',
+      'directions_bus', 'checkroom', 'devices', 'movie', 'local_hospital',
+      'school', 'flight', 'credit_card', 'pets', 'category'
+    ];
+
+    final incomeIcons = [
+      'work', 'computer', 'business_center', 'trending_up', 'account_balance',
+      'house', 'celebration', 'card_giftcard', 'assignment_return', 'directions_run'
+    ];
 
     BottomSheetUtil.show(
       context: context,
       title: "Add Category",
+      height: MediaQuery.of(context).size.height * 0.7, // Increased height for icons
       child: StatefulBuilder(
         builder: (context, setState) {
           void showColorPickerDialog() {
@@ -1429,18 +1568,23 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               builder: (context) => AlertDialog(
                 title: const Text('Pick a color!'),
                 content: SingleChildScrollView(
-                  child: ColorPicker(
+                  child: BlockPicker(
                     pickerColor: selectedColor,
                     onColorChanged: (color) {
-                      selectedColor = color;
+                      setState(() {
+                        selectedColor = color;
+                      });
                     },
                   ),
                 ),
                 actions: [
-                  ElevatedButton(
-                    child: const Text('Got it'),
+                  TextButton(
+                    child: const Text('Cancel'),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  FilledButton(
+                    child: const Text('Select'),
                     onPressed: () {
-                      setState(() {});
                       Navigator.of(context).pop();
                     },
                   ),
@@ -1449,17 +1593,25 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
             );
           }
 
+          // Get current icons based on selected category type
+          List<String> getCurrentIcons() {
+            return selectedCategoryType == 'expense' ? expenseIcons : incomeIcons;
+          }
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextField(
                 controller: addController,
                 decoration: const InputDecoration(
-                  labelText: "Name",
+                  labelText: "Category Name",
                   border: OutlineInputBorder(),
+                  hintText: "e.g., Groceries, Salary, etc.",
                 ),
               ),
               const SizedBox(height: 16),
+
+              // Category Type Selection
               DropdownButtonFormField<String>(
                 value: selectedCategoryType,
                 decoration: const InputDecoration(
@@ -1474,15 +1626,21 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                     .toList(),
                 onChanged: (value) {
                   if (value != null) {
-                    setState(() => selectedCategoryType = value);
+                    setState(() {
+                      selectedCategoryType = value;
+                      // Reset to default icon when type changes
+                      selectedIcon = value == 'expense' ? 'shopping_cart' : 'work';
+                    });
                   }
                 },
               ),
               const SizedBox(height: 16),
+
+              // Color Selection
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text("Category Color", style: TextStyle(fontSize: 16)),
+                  const Text("Category Color", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                   GestureDetector(
                     onTap: showColorPickerDialog,
                     child: Container(
@@ -1490,14 +1648,172 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                       height: 40,
                       decoration: BoxDecoration(
                         color: selectedColor,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade400),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        "Change Color",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          shadows: [Shadow(blurRadius: 2, color: Colors.black54)],
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+
+              // Icon Selection
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Category Icon",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Selected:",
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Selected Icon Preview
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: selectedColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: selectedColor.withOpacity(0.5)),
+                    ),
+                    child: Icon(
+                      IconData(
+                        _getIconCode(selectedIcon),
+                        fontFamily: 'MaterialIcons',
+                      ),
+                      color: selectedColor,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Icon Grid
+                  Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: GridView.builder(
+                      padding: const EdgeInsets.all(8),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                        childAspectRatio: 1,
+                      ),
+                      itemCount: getCurrentIcons().length,
+                      itemBuilder: (context, index) {
+                        final icon = getCurrentIcons()[index];
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              selectedIcon = icon;
+                            });
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: selectedIcon == icon
+                                  ? selectedColor.withOpacity(0.3)
+                                  : Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: selectedIcon == icon
+                                    ? selectedColor
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: Icon(
+                              IconData(
+                                _getIconCode(icon),
+                                fontFamily: 'MaterialIcons',
+                              ),
+                              color: selectedIcon == icon ? selectedColor : Colors.grey.shade600,
+                              size: 20,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 24),
+
+              // Preview Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: selectedColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        IconData(
+                          _getIconCode(selectedIcon),
+                          fontFamily: 'MaterialIcons',
+                        ),
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            addController.text.isNotEmpty ? addController.text : "Category Name",
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            selectedCategoryType.toUpperCase(),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.outline,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
               FilledButton(
                 onPressed: () async {
                   if (addController.text.trim().isEmpty) {
@@ -1509,6 +1825,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                     addController.text.trim(),
                     selectedCategoryType,
                     selectedColor,
+                    selectedIcon, // Add the icon parameter
                   );
 
                   if (success && context.mounted) {
@@ -1518,12 +1835,49 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                     SnackBars.show(context, message: "Error adding category", type: SnackBarType.error);
                   }
                 },
-                child: const Text("Save"),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: const Text("Create Category"),
               ),
             ],
           );
         },
       ),
     );
+  }
+
+// Helper function to convert icon string to code
+  int _getIconCode(String iconName) {
+    // This is a simplified mapping. In a real app, you might want a complete mapping
+    final iconMap = {
+      'shopping_cart': 0xe8cc,
+      'restaurant': 0xe56c,
+      'local_cafe': 0xe541,
+      'home': 0xe88a,
+      'local_gas_station': 0xe565,
+      'directions_bus': 0xe530,
+      'checkroom': 0xe11b,
+      'devices': 0xe337,
+      'movie': 0xe02c,
+      'local_hospital': 0xe548,
+      'school': 0xe80c,
+      'flight': 0xe539,
+      'credit_card': 0xe8a1,
+      'pets': 0xe91d,
+      'category': 0xe574,
+      'work': 0xe8f9,
+      'computer': 0xe30a,
+      'business_center': 0xeb3f,
+      'trending_up': 0xe8e5,
+      'account_balance': 0xe84f,
+      'house': 0xea44,
+      'celebration': 0xea65,
+      'card_giftcard': 0xe8f6,
+      'assignment_return': 0xe8b7,
+      'directions_run': 0xe566,
+    };
+
+    return iconMap[iconName] ?? 0xe574; // Default to 'category' icon if not found
   }
 }

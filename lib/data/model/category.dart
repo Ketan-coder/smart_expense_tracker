@@ -13,12 +13,21 @@ class Category {
   @HiveField(2)
   String type; // "expense", "income", "habit", or "general"
 
+  @HiveField(3)
+  String icon; // Material icon code
+
   Category({
     required this.name,
     required this.color,
     required this.type,
+    required this.icon,
   });
 
+  // Helper method to get icon data
+  String getIconCode() {
+    return icon;
+  }
+
   @override
-  String toString() => "Category(name: $name, type: $type)";
+  String toString() => "Category(name: $name, type: $type, icon: $icon)";
 }
