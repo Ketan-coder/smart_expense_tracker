@@ -1621,7 +1621,8 @@ class _CurrencySearchSheetState extends State<CurrencySearchSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          Flexible(
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.4, // Adjust height as needed
             child: _filteredCurrencies.isEmpty
                 ? const Center(child: Text("No currencies found"))
                 : ListView.builder(
@@ -1744,7 +1745,8 @@ class _LanguageSearchSheetState extends State<LanguageSearchSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          Flexible(
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.4, // Adjust height as needed
             child: _filteredLanguages.isEmpty
                 ? const Center(child: Text("No languages found"))
                 : ListView.builder(
