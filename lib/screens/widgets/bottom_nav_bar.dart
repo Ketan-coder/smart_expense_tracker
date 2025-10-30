@@ -553,26 +553,26 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
           _tabs[_currentIndex],
 
           // SMS Status Dot Overlay
-          // SafeArea(
-          //   child: Padding(
-          //     padding: const EdgeInsets.only(left: 35.0, top: 870.0),
-          //     child: Container(
-          //       width: 10,
-          //       height: 10,
-          //       decoration: BoxDecoration(
-          //         color: isListening ? Colors.green.shade400 : Colors.red.shade400,
-          //         shape: BoxShape.circle,
-          //         border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.5),
-          //         boxShadow: [
-          //           BoxShadow(
-          //             color: Colors.black.withOpacity(0.3),
-          //             blurRadius: 4,
-          //           )
-          //         ],
-          //       ),
-          //     ),
-          //   ),
-          // )
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 35.0, top: 870.0),
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: isListening ? Colors.green.shade400 : Colors.red.shade400,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 4,
+                    )
+                  ],
+                ),
+              ),
+            ),
+          )
         ],
       ),
       // --- END OF CHANGES ---
