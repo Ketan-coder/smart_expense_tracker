@@ -2,6 +2,7 @@ import 'package:expense_tracker/screens/home/category_page.dart';
 import 'package:expense_tracker/screens/home/income_listing_page.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:hive_ce_flutter/adapters.dart';
 import 'package:intl/intl.dart';
@@ -203,26 +204,20 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         body: SimpleCustomAppBar(
           title: "Financial Reports",
           hasContent: true,
-          expandedHeight: MediaQuery.of(context).size.height * 0.28,
+          expandedHeight: MediaQuery.of(context).size.height * 0.35,
           centerTitle: true,
           onRefresh: _loadInitialData,
           actions: [
-            ShowcaseView(
-              showcaseKey: _dateRangeKey,
-              controller: _showcaseController,
-              child: IconButton(
-                icon: const Icon(Icons.calendar_month_rounded),
-                onPressed: _selectDateRange,
-              ),
+            IconButton(
+              key: _dateRangeKey,
+              icon: const Icon(Icons.calendar_month_rounded),
+              onPressed: _selectDateRange,
             ),
             if (!kIsWeb)
-              ShowcaseView(
-                showcaseKey: _exportKey,
-                controller: _showcaseController,
-                child: IconButton(
-                  icon: const Icon(Icons.file_download_outlined),
-                  onPressed: _showExportOptions,
-                ),
+              IconButton(
+                key: _exportKey,
+                icon: const Icon(Icons.file_download_outlined),
+                onPressed: _showExportOptions,
               ),
           ],
           child: Container(
@@ -1226,83 +1221,255 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       final expenses = _getFilteredExpenses(_startDate, _endDate);
       final incomes = _getFilteredIncomes(_startDate, _endDate);
       final categoryBreakdown = _getCategoryBreakdown(expenses);
-
       final totalExpense = expenses.fold(0.0, (sum, e) => sum + e.amount);
       final totalIncome = incomes.fold(0.0, (sum, i) => sum + i.amount);
       final netSavings = totalIncome - totalExpense;
+
+      // Load custom fonts to support various currency symbols (add these to pubspec.yaml under assets)
+      final ByteData baseFontData = await rootBundle.load('assets/fonts/NotoSans.ttf');
+      final ByteData boldFontData = await rootBundle.load('assets/fonts/NotoSans.ttf');
+      final pw.Font baseFont = pw.Font.ttf(baseFontData);
+      final pw.Font boldFont = pw.Font.ttf(boldFontData);
 
       final pdf = pw.Document();
 
       pdf.addPage(
         pw.MultiPage(
-          build: (context) => [
-            // Header
-            pw.Header(
-              level: 0,
-              child: pw.Text(
+          theme: pw.ThemeData.withFont(base: baseFont, bold: boldFont),
+          pageFormat: PdfPageFormat.a4,
+          margin: pw.EdgeInsets.all(32),
+          header: (context) => pw.Column(
+            children: [
+              pw.Text(
                 'Financial Report',
                 style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
               ),
+              pw.SizedBox(height: 8),
+              pw.Text(
+                'Period: ${DateFormat('d MMM yyyy').format(_startDate)} - ${DateFormat('d MMM yyyy').format(_endDate)}',
+                style: pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
+              ),
+              pw.SizedBox(height: 20),
+            ],
+          ),
+          footer: (context) => pw.Container(
+            alignment: pw.Alignment.centerRight,
+            margin: pw.EdgeInsets.only(top: 20),
+            child: pw.Text(
+              'Page ${context.pageNumber} of ${context.pagesCount}',
+              style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
             ),
-            pw.SizedBox(height: 20),
-
-            // Date Range
-            pw.Text(
-              'Period: ${DateFormat('d MMM yyyy').format(_startDate)} - ${DateFormat('d MMM yyyy').format(_endDate)}',
-              style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
-            ),
-            pw.SizedBox(height: 20),
-
+          ),
+          build: (context) => [
             // Summary Section
             pw.Header(level: 1, child: pw.Text('Summary')),
             pw.SizedBox(height: 10),
-            pw.Table.fromTextArray(
-              headers: ['Metric', 'Amount'],
-              data: [
-                ['Total Income', '$_currentCurrency ${totalIncome.toStringAsFixed(2)}'],
-                ['Total Expenses', '$_currentCurrency ${totalExpense.toStringAsFixed(2)}'],
-                ['Net Savings', '$_currentCurrency ${netSavings.toStringAsFixed(2)}'],
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+              columnWidths: {
+                0: pw.FlexColumnWidth(3),
+                1: pw.FlexColumnWidth(2),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: pw.BoxDecoration(color: PdfColors.grey200),
+                  children: [
+                    pw.Padding(
+                      padding: pw.EdgeInsets.all(8),
+                      child: pw.Text(
+                        'Metric',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: pw.EdgeInsets.all(8),
+                      child: pw.Text(
+                        'Amount',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+                pw.TableRow(
+                  children: [
+                    pw.Padding(padding: pw.EdgeInsets.all(8), child: pw.Text('Total Income')),
+                    pw.Padding(
+                      padding: pw.EdgeInsets.all(8),
+                      child: pw.Text(
+                        '$_currentCurrency ${totalIncome.toStringAsFixed(2)}',
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+                pw.TableRow(
+                  children: [
+                    pw.Padding(padding: pw.EdgeInsets.all(8), child: pw.Text('Total Expenses')),
+                    pw.Padding(
+                      padding: pw.EdgeInsets.all(8),
+                      child: pw.Text(
+                        '$_currentCurrency ${totalExpense.toStringAsFixed(2)}',
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+                pw.TableRow(
+                  children: [
+                    pw.Padding(padding: pw.EdgeInsets.all(8), child: pw.Text('Net Savings')),
+                    pw.Padding(
+                      padding: pw.EdgeInsets.all(8),
+                      child: pw.Text(
+                        '$_currentCurrency ${netSavings.toStringAsFixed(2)}',
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
-            pw.SizedBox(height: 20),
+            pw.SizedBox(height: 30),
 
             // Category Breakdown
             pw.Header(level: 1, child: pw.Text('Expense by Category')),
             pw.SizedBox(height: 10),
             if (categoryBreakdown.isNotEmpty)
-              pw.Table.fromTextArray(
-                headers: ['Category', 'Amount', 'Percentage'],
-                data: categoryBreakdown.entries.map((e) {
-                  final percentage = totalExpense > 0 ? (e.value / totalExpense * 100) : 0;
-                  return [
-                    e.key,
-                    '$_currentCurrency ${e.value.toStringAsFixed(2)}',
-                    '${percentage.toStringAsFixed(1)}%',
-                  ];
-                }).toList(),
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+                columnWidths: {
+                  0: pw.FlexColumnWidth(3),
+                  1: pw.FlexColumnWidth(2),
+                  2: pw.FlexColumnWidth(2),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(color: PdfColors.grey200),
+                    children: [
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Category',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Amount',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          textAlign: pw.TextAlign.right,
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Percentage',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          textAlign: pw.TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                  ...categoryBreakdown.entries.map((e) {
+                    final percentage = totalExpense > 0 ? (e.value / totalExpense * 100) : 0;
+                    return pw.TableRow(
+                      children: [
+                        pw.Padding(padding: pw.EdgeInsets.all(8), child: pw.Text(e.key)),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            '$_currentCurrency ${e.value.toStringAsFixed(2)}',
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            '${percentage.toStringAsFixed(1)}%',
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
               ),
-            pw.SizedBox(height: 20),
+            pw.SizedBox(height: 30),
 
             // Recent Transactions
             pw.Header(level: 1, child: pw.Text('Recent Transactions')),
             pw.SizedBox(height: 10),
             if (expenses.isNotEmpty)
-              pw.Table.fromTextArray(
-                headers: ['Date', 'Description', 'Category', 'Amount'],
-                data: expenses.take(20).map((e) {
-                  final categoryBox = Hive.box<Category>(AppConstants.categories);
-                  String categoryName = 'Uncategorized';
-                  if (e.categoryKeys.isNotEmpty) {
-                    final category = categoryBox.get(e.categoryKeys.first);
-                    categoryName = category?.name ?? 'General';
-                  }
-                  return [
-                    DateFormat('d MMM yyyy').format(e.date),
-                    e.description,
-                    categoryName,
-                    '$_currentCurrency ${e.amount.toStringAsFixed(2)}',
-                  ];
-                }).toList(),
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+                columnWidths: {
+                  0: pw.FlexColumnWidth(2),
+                  1: pw.FlexColumnWidth(3),
+                  2: pw.FlexColumnWidth(2),
+                  3: pw.FlexColumnWidth(2),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(color: PdfColors.grey200),
+                    children: [
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Date',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Description',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Category',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Amount',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          textAlign: pw.TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                  ...expenses.take(20).map((e) {
+                    final categoryBox = Hive.box<Category>(AppConstants.categories);
+                    String categoryName = 'Uncategorized';
+                    if (e.categoryKeys.isNotEmpty) {
+                      final category = categoryBox.get(e.categoryKeys.first);
+                      categoryName = category?.name ?? 'General';
+                    }
+                    return pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(DateFormat('d MMM yyyy').format(e.date)),
+                        ),
+                        pw.Padding(padding: pw.EdgeInsets.all(8), child: pw.Text(e.description)),
+                        pw.Padding(padding: pw.EdgeInsets.all(8), child: pw.Text(categoryName)),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            '$_currentCurrency ${e.amount.toStringAsFixed(2)}',
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
               ),
           ],
         ),
@@ -1323,6 +1490,111 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       }
     }
   }
+
+  // Future<void> _exportAsPDF() async {
+  //   try {
+  //     SnackBars.show(context, message: 'Generating PDF report...', type: SnackBarType.info);
+  //
+  //     final expenses = _getFilteredExpenses(_startDate, _endDate);
+  //     final incomes = _getFilteredIncomes(_startDate, _endDate);
+  //     final categoryBreakdown = _getCategoryBreakdown(expenses);
+  //
+  //     final totalExpense = expenses.fold(0.0, (sum, e) => sum + e.amount);
+  //     final totalIncome = incomes.fold(0.0, (sum, i) => sum + i.amount);
+  //     final netSavings = totalIncome - totalExpense;
+  //
+  //     final pdf = pw.Document();
+  //
+  //     pdf.addPage(
+  //       pw.MultiPage(
+  //         build: (context) => [
+  //           // Header
+  //           pw.Header(
+  //             level: 0,
+  //             child: pw.Text(
+  //               'Financial Report',
+  //               style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+  //             ),
+  //           ),
+  //           pw.SizedBox(height: 20),
+  //
+  //           // Date Range
+  //           pw.Text(
+  //             'Period: ${DateFormat('d MMM yyyy').format(_startDate)} - ${DateFormat('d MMM yyyy').format(_endDate)}',
+  //             style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
+  //           ),
+  //           pw.SizedBox(height: 20),
+  //
+  //           // Summary Section
+  //           pw.Header(level: 1, child: pw.Text('Summary')),
+  //           pw.SizedBox(height: 10),
+  //           pw.Table.fromTextArray(
+  //             headers: ['Metric', 'Amount'],
+  //             data: [
+  //               ['Total Income', '$_currentCurrency ${totalIncome.toStringAsFixed(2)}'],
+  //               ['Total Expenses', '$_currentCurrency ${totalExpense.toStringAsFixed(2)}'],
+  //               ['Net Savings', '$_currentCurrency ${netSavings.toStringAsFixed(2)}'],
+  //             ],
+  //           ),
+  //           pw.SizedBox(height: 20),
+  //
+  //           // Category Breakdown
+  //           pw.Header(level: 1, child: pw.Text('Expense by Category')),
+  //           pw.SizedBox(height: 10),
+  //           if (categoryBreakdown.isNotEmpty)
+  //             pw.Table.fromTextArray(
+  //               headers: ['Category', 'Amount', 'Percentage'],
+  //               data: categoryBreakdown.entries.map((e) {
+  //                 final percentage = totalExpense > 0 ? (e.value / totalExpense * 100) : 0;
+  //                 return [
+  //                   e.key,
+  //                   '$_currentCurrency ${e.value.toStringAsFixed(2)}',
+  //                   '${percentage.toStringAsFixed(1)}%',
+  //                 ];
+  //               }).toList(),
+  //             ),
+  //           pw.SizedBox(height: 20),
+  //
+  //           // Recent Transactions
+  //           pw.Header(level: 1, child: pw.Text('Recent Transactions')),
+  //           pw.SizedBox(height: 10),
+  //           if (expenses.isNotEmpty)
+  //             pw.Table.fromTextArray(
+  //               headers: ['Date', 'Description', 'Category', 'Amount'],
+  //               data: expenses.take(20).map((e) {
+  //                 final categoryBox = Hive.box<Category>(AppConstants.categories);
+  //                 String categoryName = 'Uncategorized';
+  //                 if (e.categoryKeys.isNotEmpty) {
+  //                   final category = categoryBox.get(e.categoryKeys.first);
+  //                   categoryName = category?.name ?? 'General';
+  //                 }
+  //                 return [
+  //                   DateFormat('d MMM yyyy').format(e.date),
+  //                   e.description,
+  //                   categoryName,
+  //                   '$_currentCurrency ${e.amount.toStringAsFixed(2)}',
+  //                 ];
+  //               }).toList(),
+  //             ),
+  //         ],
+  //       ),
+  //     );
+  //
+  //     final output = await getTemporaryDirectory();
+  //     final file = File('${output.path}/financial_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf');
+  //     await file.writeAsBytes(await pdf.save());
+  //
+  //     await Share.shareXFiles([XFile(file.path)], text: 'Financial Report');
+  //
+  //     if (mounted) {
+  //       SnackBars.show(context, message: 'PDF report generated successfully!', type: SnackBarType.success);
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       SnackBars.show(context, message: 'Error generating PDF: $e', type: SnackBarType.error);
+  //     }
+  //   }
+  // }
 
   Future<void> _exportAsCSV() async {
     try {
