@@ -874,6 +874,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/helpers.dart';
 import '../../services/notification_service.dart';
 import '../../services/biometric_auth.dart';
+import '../../services/privacy/privacy_manager.dart';
+import '../../services/privacy/secure_window_manager.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/dialog.dart';
 import '../widgets/snack_bar.dart';
@@ -895,6 +897,13 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _smsParsingState = true;
   String _biometricType = "Biometric";
   bool _isLoadingBiometric = false;
+
+  // Privacy Focused
+  bool _privacyModeEnabled = true;
+  bool _screenshotProtectionEnabled = true;
+  bool _shakeToPrivacyEnabled = true;
+  bool _faceDetectionEnabled = false;
+  bool _adaptiveBrightnessEnabled = true;
 
   // Currency and language lists remain the same...
   final List<Map<String, String>> _currencies = [
@@ -934,6 +943,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _loadAllPreferences();
     _checkBiometricType();
+    _loadPrivacyPreferences();
   }
 
   Future<void> _loadAllPreferences() async {
@@ -965,6 +975,107 @@ class _SettingsPageState extends State<SettingsPage> {
       setState(() {
         _biometricType = typeString;
       });
+    }
+  }
+
+  Future<void> _loadPrivacyPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _privacyModeEnabled = prefs.getBool('privacy_mode_enabled') ?? true;
+        _screenshotProtectionEnabled = prefs.getBool('screenshot_protection_enabled') ?? true;
+        _shakeToPrivacyEnabled = prefs.getBool('shake_to_privacy_enabled') ?? true;
+        _faceDetectionEnabled = prefs.getBool('face_detection_enabled') ?? false;
+        _adaptiveBrightnessEnabled = prefs.getBool('adaptive_brightness_enabled') ?? true;
+      });
+    }
+  }
+
+// Add these update methods:
+  Future<void> _updatePrivacyMode(bool value) async {
+    setState(() => _privacyModeEnabled = value);
+    await PrivacyManager().setPrivacyMode(value);
+
+    if (mounted) {
+      SnackBars.show(
+        context,
+        message: value ? "Privacy Mode enabled" : "Privacy Mode disabled",
+        type: SnackBarType.success,
+        behavior: SnackBarBehavior.floating,
+      );
+    }
+  }
+
+  Future<void> _updateScreenshotProtection(bool value) async {
+    setState(() => _screenshotProtectionEnabled = value);
+    await PrivacyManager().setScreenshotProtection(value);
+    await SecureWindowManager.toggleProtection(value);
+
+    if (mounted) {
+      SnackBars.show(
+        context,
+        message: value ? "Screenshot protection enabled" : "Screenshot protection disabled",
+        type: SnackBarType.success,
+        behavior: SnackBarBehavior.floating,
+      );
+    }
+  }
+
+  Future<void> _updateShakeToPrivacy(bool value) async {
+    setState(() => _shakeToPrivacyEnabled = value);
+    await PrivacyManager().setShakeToPrivacy(value);
+
+    if (mounted) {
+      SnackBars.show(
+        context,
+        message: value ? "Shake to activate privacy enabled" : "Shake to activate privacy disabled",
+        type: SnackBarType.info,
+        behavior: SnackBarBehavior.floating,
+      );
+    }
+  }
+
+  Future<void> _updateFaceDetection(bool value) async {
+    if (value) {
+      // Show warning about camera usage
+      final confirmed = await Dialogs.showConfirmation(
+        context: context,
+        title: "Enable Face Detection?",
+        message: "This feature uses the front camera to detect when someone else is looking at your screen. "
+            "The camera is only active when the app is open and uses minimal battery.",
+        yesText: "Enable",
+        noText: "Cancel",
+      );
+
+      if (confirmed != true) {
+        return;
+      }
+    }
+
+    setState(() => _faceDetectionEnabled = value);
+    await PrivacyManager().setFaceDetection(value);
+
+    if (mounted) {
+      SnackBars.show(
+        context,
+        message: value ? "Face detection enabled" : "Face detection disabled",
+        type: SnackBarType.success,
+        behavior: SnackBarBehavior.floating,
+      );
+    }
+  }
+
+  Future<void> _updateAdaptiveBrightness(bool value) async {
+    setState(() => _adaptiveBrightnessEnabled = value);
+    await PrivacyManager().setAdaptiveBrightness(value);
+
+    if (mounted) {
+      SnackBars.show(
+        context,
+        message: value ? "Adaptive brightness enabled" : "Adaptive brightness disabled",
+        type: SnackBarType.info,
+        behavior: SnackBarBehavior.floating,
+      );
     }
   }
 
@@ -1392,6 +1503,27 @@ class _SettingsPageState extends State<SettingsPage> {
           child: SingleChildScrollView(
             child: Column(
               children: [
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
+                      child: Text(
+                        'Integrated Services',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+
                 // Notifications
                 ListTile(
                   leading: const Icon(Icons.notifications),
@@ -1461,6 +1593,28 @@ class _SettingsPageState extends State<SettingsPage> {
 
                 const Divider(),
 
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
+                      child: Text(
+                        'Appearance',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+
+
                 // Auto Theme
                 ListTile(
                   leading: const Icon(Icons.brightness_auto),
@@ -1481,6 +1635,171 @@ class _SettingsPageState extends State<SettingsPage> {
                     trailing: Switch(
                       value: _darkThemeState,
                       onChanged: _updateDarkThemeState,
+                    ),
+                  ),
+
+                const Divider(),
+
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
+                      child: Text(
+                        'Privacy & Security',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Privacy Mode Master Switch
+                ListTile(
+                  leading: Icon(
+                    _privacyModeEnabled ? Icons.shield : Icons.shield_outlined,
+                    color: _privacyModeEnabled ? Colors.green : null,
+                  ),
+                  title: const Text("Privacy Mode"),
+                  subtitle: Text(
+                    _privacyModeEnabled
+                        ? "Hide sensitive data with blur/masks"
+                        : "All data visible",
+                  ),
+                  trailing: Switch(
+                    value: _privacyModeEnabled,
+                    onChanged: _updatePrivacyMode,
+                  ),
+                ),
+
+                // Screenshot Protection
+                ListTile(
+                  leading: Icon(
+                    Icons.screenshot_monitor,
+                    color: _screenshotProtectionEnabled ? Colors.blue : null,
+                  ),
+                  title: const Text("Screenshot Protection"),
+                  subtitle: Text(
+                    _screenshotProtectionEnabled
+                        ? "Screenshots and screen recording blocked"
+                        : "Screenshots allowed",
+                  ),
+                  trailing: Switch(
+                    value: _screenshotProtectionEnabled,
+                    onChanged: _privacyModeEnabled ? _updateScreenshotProtection : null,
+                  ),
+                  enabled: _privacyModeEnabled,
+                ),
+
+                // Shake to Activate Privacy
+                ListTile(
+                  leading: Icon(
+                    Icons.phone_android,
+                    color: _shakeToPrivacyEnabled ? Colors.orange : null,
+                  ),
+                  title: const Text("Shake to Activate"),
+                  subtitle: Text(
+                    _shakeToPrivacyEnabled
+                        ? "Shake device or flip face-down to hide data"
+                        : "Gesture activation disabled",
+                  ),
+                  trailing: Switch(
+                    value: _shakeToPrivacyEnabled,
+                    onChanged: _privacyModeEnabled ? _updateShakeToPrivacy : null,
+                  ),
+                  enabled: _privacyModeEnabled,
+                ),
+
+                // Adaptive Brightness
+                ListTile(
+                  leading: Icon(
+                    Icons.brightness_6,
+                    color: _adaptiveBrightnessEnabled ? Colors.yellow.shade700 : null,
+                  ),
+                  title: const Text("Adaptive Brightness"),
+                  subtitle: Text(
+                    _adaptiveBrightnessEnabled
+                        ? "Dims screen when privacy is active"
+                        : "Normal brightness always",
+                  ),
+                  trailing: Switch(
+                    value: _adaptiveBrightnessEnabled,
+                    onChanged: _privacyModeEnabled ? _updateAdaptiveBrightness : null,
+                  ),
+                  enabled: _privacyModeEnabled,
+                ),
+
+                // Face Detection (Optional)
+                ListTile(
+                  leading: Icon(
+                    Icons.face,
+                    color: _faceDetectionEnabled ? Colors.purple : null,
+                  ),
+                  title: Row(
+                    children: [
+                      const Text("Gaze Detection"),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'BETA',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  subtitle: Text(
+                    _faceDetectionEnabled
+                        ? "Alert when multiple faces detected"
+                        : "No face detection",
+                  ),
+                  trailing: Switch(
+                    value: _faceDetectionEnabled,
+                    onChanged: _privacyModeEnabled ? _updateFaceDetection : null,
+                  ),
+                  enabled: _privacyModeEnabled,
+                ),
+
+// Privacy Info Card
+                if (_privacyModeEnabled)
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            "Toggle privacy anytime from the home screen icon or by shaking your device.",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 

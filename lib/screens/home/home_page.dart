@@ -1,3 +1,4 @@
+import 'package:expense_tracker/screens/widgets/privacy_overlay_widget.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:hive_ce_flutter/adapters.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +10,7 @@ import '../../data/model/expense.dart';
 import '../../data/model/income.dart';
 import '../../data/model/wallet.dart';
 import '../../data/model/recurring.dart';
+import '../../services/privacy/privacy_manager.dart';
 import '../reports/reports_page.dart';
 import '../widgets/bottom_sheet.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +26,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+  // Privacy
+  final PrivacyManager _privacyManager = PrivacyManager();
   // Page controllers
   late PageController _walletPageController;
   Timer? _appBarAnimationTimer;
@@ -234,6 +238,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   /// Builds the main scrollable content area
   Widget _buildMainContent(ThemeData theme, ColorScheme colorScheme) {
+    final isPrivate = _privacyManager.shouldHideSensitiveData();
     return ValueListenableBuilder(
       valueListenable: Hive.box<Wallet>(AppConstants.wallets).listenable(),
       builder: (context, walletBox, _) {
@@ -295,7 +300,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 const SizedBox(height: 16),
 
                                 // Recent Transactions
-                                _buildRecentTransactions(transactions, theme, colorScheme),
+                                _buildRecentTransactions(transactions, theme, colorScheme, isPrivate),
                                 const SizedBox(height: 20),
                               ],
                             ),
@@ -349,61 +354,66 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   /// Builds a single wallet card
   Widget _buildWalletCard(Wallet wallet, dynamic key, ThemeData theme, ColorScheme colorScheme) {
+    final isPrivate = _privacyManager.shouldHideSensitiveData();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
-        ),
-        color: colorScheme.surfaceContainer,
-        child: InkWell(
-          onTap: () => _showWalletDetailsSheet(key: key as int, wallet: wallet),
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            // MODIFIED: Scaled down padding
-            padding: const EdgeInsets.all(16.0),
-            // MODIFIED: Use MainAxisAlignment.spaceBetween
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: colorScheme.primaryContainer,
-                      child: _getWalletIcon(wallet.type, colorScheme.onPrimaryContainer),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        wallet.name,
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
+      child: PrivacyOverlay(
+        isPrivacyActive: isPrivate,
+        useBlur: true,
+        child: Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+          ),
+          color: colorScheme.surfaceContainer,
+          child: InkWell(
+            onTap: () => _showWalletDetailsSheet(key: key as int, wallet: wallet),
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              // MODIFIED: Scaled down padding
+              padding: const EdgeInsets.all(16.0),
+              // MODIFIED: Use MainAxisAlignment.spaceBetween
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: colorScheme.primaryContainer,
+                        child: _getWalletIcon(wallet.type, colorScheme.onPrimaryContainer),
                       ),
-                    ),
-                  ],
-                ),
-                // const Spacer(), // Removed Spacer
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Balance',
-                      style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-                    ),
-                    Text(
-                      '$_currentCurrency ${wallet.balance.toStringAsFixed(2)}',
-                      // MODIFIED: Scaled down text
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.bold,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          wallet.name,
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ],
-                )
-              ],
+                    ],
+                  ),
+                  // const Spacer(), // Removed Spacer
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Balance',
+                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                      Text(
+                        '$_currentCurrency ${wallet.balance.toStringAsFixed(2)}',
+                        // MODIFIED: Scaled down text
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
             ),
           ),
         ),
@@ -491,6 +501,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   /// Builds the "Period Summary" card
   Widget _buildSummaryCard(double totalIncome, double totalExpense, ThemeData theme, ColorScheme colorScheme) {
+    final isPrivate = _privacyManager.shouldHideSensitiveData();
     final net = totalIncome - totalExpense;
     return Card(
       elevation: 0,
@@ -511,14 +522,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 'Income',
                 '$_currentCurrency ${totalIncome.toStringAsFixed(0)}', // Scaled
                 colorScheme.primary,
-                theme
+                theme,
+                isPrivate
             ),
             const SizedBox(height: 12),
             _buildSummaryRow(
                 'Expenses',
                 '$_currentCurrency ${totalExpense.toStringAsFixed(0)}', // Scaled
                 colorScheme.error,
-                theme
+                theme,
+                isPrivate
             ),
             const Divider(height: 24),
             _buildSummaryRow(
@@ -526,6 +539,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 '$_currentCurrency ${net.toStringAsFixed(0)}', // Scaled
                 net >= 0 ? colorScheme.primary : colorScheme.error,
                 theme,
+                isPrivate,
                 isTotal: true
             ),
           ],
@@ -534,20 +548,28 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildSummaryRow(String title, String amount, Color color, ThemeData theme, {bool isTotal = false}) {
+  Widget _buildSummaryRow(String title, String amount, Color color, ThemeData theme, bool isPrivate,{bool isTotal = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(title, style: isTotal ? theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold) : theme.textTheme.bodyMedium?.copyWith( // Scaled
           color: theme.colorScheme.onSurfaceVariant,
         )),
-        Text(
-          amount,
-          // MODIFIED: Scaled down text
+        // Text(
+        //   amount,
+        //   // MODIFIED: Scaled down text
+        //   style: (isTotal ? theme.textTheme.titleMedium : theme.textTheme.titleSmall)?.copyWith(
+        //     color: color,
+        //     fontWeight: FontWeight.bold,
+        //   ),
+        // ),
+        PrivacyCurrency(
+          amount: amount,
+          isPrivacyActive: isPrivate,
           style: (isTotal ? theme.textTheme.titleMedium : theme.textTheme.titleSmall)?.copyWith(
-            color: color,
-            fontWeight: FontWeight.bold,
-          ),
+              color: color,
+              fontWeight: FontWeight.bold,
+              ),
         ),
       ],
     );
@@ -602,6 +624,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   /// Builds the "Cash Flow" card
   Widget _buildCashFlowChart(double income, double expense, ColorScheme colorScheme, ThemeData theme) {
+    final isPrivate = _privacyManager.shouldHideSensitiveData();
     return Card(
       elevation: 0,
       color: colorScheme.surfaceContainer,
@@ -626,7 +649,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         '$_currentCurrency ${income.toStringAsFixed(0)}',
                         Icons.arrow_downward_rounded,
                         colorScheme.primary,
-                        theme
+                        theme,
+                        isPrivate
                     )
                 ),
                 Container(
@@ -640,7 +664,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         '$_currentCurrency ${expense.toStringAsFixed(0)}',
                         Icons.arrow_upward_rounded,
                         colorScheme.error,
-                        theme
+                        theme,
+                      isPrivate
                     )
                 ),
               ],
@@ -668,17 +693,25 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildFlowColumn(String title, String amount, IconData icon, Color color, ThemeData theme) {
+  Widget _buildFlowColumn(String title, String amount, IconData icon, Color color, ThemeData theme, bool isPrivate) {
     return Column(
       children: [
         Icon(icon, color: color, size: 28), // Scaled
         const SizedBox(height: 8),
         Text(title, style: theme.textTheme.labelLarge),
-        Text(amount,
-          // MODIFIED: Scaled down text
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: color,
+        // Text(amount,
+        //   // MODIFIED: Scaled down text
+        //   style: theme.textTheme.titleSmall?.copyWith(
+        //     color: color,
+        //     fontWeight: FontWeight.bold,
+        //   ),
+        // ),
+        PrivacyCurrency(
+          amount: amount,
+          isPrivacyActive: isPrivate,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.bold,
+            color: color,
           ),
         ),
       ],
@@ -686,12 +719,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   /// Builds the "Recent Transactions" list
-  Widget _buildRecentTransactions(List<dynamic> transactions, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildRecentTransactions(List<dynamic> transactions, ThemeData theme, ColorScheme colorScheme, bool isPrivate) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Recent Transactions', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 12),
+        // const SizedBox(height: 12),
         if (transactions.isEmpty)
           Card(
             elevation: 0,
@@ -757,14 +790,22 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  trailing: Text(
-                    '${isIncome ? '+' : '-'} $_currentCurrency ${t.amount.toStringAsFixed(0)}',
-                    // MODIFIED: Scaled down text
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: isIncome ? colorScheme.primary : colorScheme.error,
+                  trailing: PrivacyCurrency(
+                    amount: '${isIncome ? '+' : '-'} $_currentCurrency ${t.amount.toStringAsFixed(0)}',
+                    isPrivacyActive: isPrivate,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.bold,
+                      color: isIncome ? colorScheme.primary : colorScheme.error,
                     ),
                   ),
+                  // trailing: Text(
+                  //   '${isIncome ? '+' : '-'} $_currentCurrency ${t.amount.toStringAsFixed(0)}',
+                  //   // MODIFIED: Scaled down text
+                  //   style: theme.textTheme.bodyLarge?.copyWith(
+                  //     color: isIncome ? colorScheme.primary : colorScheme.error,
+                  //     fontWeight: FontWeight.bold,
+                  //   ),
+                  // ),
                 ),
               );
             },
