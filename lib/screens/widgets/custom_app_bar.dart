@@ -468,21 +468,53 @@ class _SimpleCustomAppBarState extends State<SimpleCustomAppBar>
                 ),
               ),
               // Collapsed title that only shows when fully collapsed
+              // title: scrollProgress > 0.85
+              //     ? AnimatedOpacity(
+              //   duration: const Duration(milliseconds: 100),
+              //   opacity: ((scrollProgress - 0.85) / 0.15).clamp(0.0, 1.0), // Fixed: clamp opacity
+              //   child: Text(
+              //     widget.title,
+              //     style: TextStyle(
+              //       color: colorScheme.onSurface,
+              //       fontSize: 20,
+              //       fontWeight: FontWeight.w600,
+              //     ),
+              //   ),
+              // )
+              //     : null,
+              // titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+
+              // Collapsed title that only shows when fully collapsed
               title: scrollProgress > 0.85
                   ? AnimatedOpacity(
                 duration: const Duration(milliseconds: 100),
-                opacity: ((scrollProgress - 0.85) / 0.15).clamp(0.0, 1.0), // Fixed: clamp opacity
-                child: Text(
-                  widget.title,
-                  style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
+                opacity: ((scrollProgress - 0.85) / 0.15).clamp(0.0, 1.0),
+                child: Builder(
+                  builder: (context) {
+                    // Detect if there's an automatically added back button
+                    final bool hasBackButton = _hasAutomaticBackButton(context);
+
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        left: hasBackButton ? 48.0 : 16.0,
+                        bottom: 16,
+                      ),
+                      child: Text(
+                        widget.title,
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               )
                   : null,
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+              titlePadding: EdgeInsets.only(
+                  left: _hasAutomaticBackButton(context) ? 10 : 0,
+              ),
             ),
           ),
           SliverToBoxAdapter(
@@ -516,6 +548,18 @@ class _SimpleCustomAppBarState extends State<SimpleCustomAppBar>
   // Smooth interpolation function
   double _interpolate(double start, double end, double progress) {
     return start + (end - start) * progress;
+  }
+
+  bool _hasAutomaticBackButton(BuildContext context) {
+    final navigator = Navigator.of(context);
+    final route = ModalRoute.of(context);
+
+    // debugPrint('Can pop: ${navigator.canPop()}');
+    // debugPrint('Route name: ${route?.settings.name}');
+    // debugPrint('Is first: ${route?.isFirst}');
+
+    // Only add padding when we can pop AND we're not on the main/home screen
+    return navigator.canPop() && route?.settings.name != '/';
   }
 
   // Easing function for smoother animations

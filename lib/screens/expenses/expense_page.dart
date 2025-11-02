@@ -1,15 +1,27 @@
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
+import '../widgets/bottom_sheet.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/custom_chart.dart';
+import '../widgets/snack_bar.dart';
 import 'expense_listing_page.dart';
 
-enum ExpenseFilter { today, week, month, year }
+enum DateRangePreset {
+  today,
+  thisWeek,
+  last7Days,
+  thisMonth,
+  lastMonth,
+  last3Months,
+  last6Months,
+  thisYear,
+  custom
+}
 
 class ExpensePage extends StatefulWidget {
   const ExpensePage({super.key});
@@ -19,25 +31,174 @@ class ExpensePage extends StatefulWidget {
 }
 
 class _ExpensePageState extends State<ExpensePage> {
-  ExpenseFilter _selectedFilter = ExpenseFilter.month;
+  DateRangePreset _selectedPreset = DateRangePreset.last7Days;
+  DateTimeRange? _customDateRange;
+  bool _isLoading = false;
+  String _currentCurrency = 'INR';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    _currentCurrency = await Helpers().getCurrentCurrency() ?? 'INR';
+    if (mounted) setState(() {});
+  }
+
+  DateTimeRange _getDateRange() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    switch (_selectedPreset) {
+      case DateRangePreset.today:
+        return DateTimeRange(start: today, end: now);
+      case DateRangePreset.thisWeek:
+        final weekStart = today.subtract(Duration(days: now.weekday - 1));
+        return DateTimeRange(start: weekStart, end: now);
+      case DateRangePreset.last7Days:
+        return DateTimeRange(
+          start: today.subtract(const Duration(days: 6)),
+          end: now,
+        );
+      case DateRangePreset.thisMonth:
+        return DateTimeRange(
+          start: DateTime(now.year, now.month, 1),
+          end: now,
+        );
+      case DateRangePreset.lastMonth:
+        final lastMonth = DateTime(now.year, now.month - 1, 1);
+        final lastMonthEnd = DateTime(now.year, now.month, 1).subtract(const Duration(days: 1));
+        return DateTimeRange(start: lastMonth, end: lastMonthEnd);
+      case DateRangePreset.last3Months:
+        return DateTimeRange(
+          start: DateTime(now.year, now.month - 3, now.day),
+          end: now,
+        );
+      case DateRangePreset.last6Months:
+        return DateTimeRange(
+          start: DateTime(now.year, now.month - 6, now.day),
+          end: now,
+        );
+      case DateRangePreset.thisYear:
+        return DateTimeRange(
+          start: DateTime(now.year, 1, 1),
+          end: now,
+        );
+      case DateRangePreset.custom:
+        return _customDateRange ?? DateTimeRange(start: today.subtract(const Duration(days: 6)), end: now);
+    }
+  }
+
+
+  Future<void> _showDateRangeMenu() async {
+    await BottomSheetUtil.show(
+      context: context,
+      title: 'Select Date Range',
+      height: MediaQuery.of(context).size.height * 0.45,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildDateRangeOption('Today', DateRangePreset.today),
+            _buildDateRangeOption('This Week', DateRangePreset.thisWeek),
+            _buildDateRangeOption('Last 7 Days', DateRangePreset.last7Days),
+            _buildDateRangeOption('This Month', DateRangePreset.thisMonth),
+            _buildDateRangeOption('Last Month', DateRangePreset.lastMonth),
+            _buildDateRangeOption('Last 3 Months', DateRangePreset.last3Months),
+            _buildDateRangeOption('Last 6 Months', DateRangePreset.last6Months),
+            _buildDateRangeOption('This Year', DateRangePreset.thisYear),
+            ListTile(
+              leading: Radio<DateRangePreset>(
+                value: DateRangePreset.custom,
+                groupValue: _selectedPreset,
+                onChanged: (value) async {
+                  Navigator.pop(context);
+                  await _showCustomDatePicker();
+                },
+              ),
+              title: const Text('Custom Range'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _showCustomDatePicker();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateRangeOption(String label, DateRangePreset preset) {
+    return ListTile(
+      leading: Radio<DateRangePreset>(
+        value: preset,
+        groupValue: _selectedPreset,
+        onChanged: (value) {
+          Navigator.pop(context);
+          _updateDateRange(value!);
+        },
+      ),
+      title: Text(label),
+      onTap: () {
+        Navigator.pop(context);
+        _updateDateRange(preset);
+      },
+    );
+  }
+
+  Future<void> _showCustomDatePicker() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _customDateRange,
+    );
+
+    if (picked != null) {
+      if (picked.duration.inDays > 365) {
+        if (mounted) {
+          SnackBars.show(context,message: 'Please select a range within 1 year',type: SnackBarType.error);
+        }
+        return;
+      }
+
+      setState(() {
+        _customDateRange = picked;
+        _selectedPreset = DateRangePreset.custom;
+      });
+      await _loadData();
+    }
+  }
+
+  Future<void> _updateDateRange(DateRangePreset preset) async {
+    setState(() {
+      _selectedPreset = preset;
+    });
+    await _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   List<Expense> _getFilteredExpenses(Box<Expense> box) {
-    final now = DateTime.now();
-    final expenses = box.values.toList();
-
-    switch (_selectedFilter) {
-      case ExpenseFilter.today:
-        return expenses.where((e) => Helpers().isSameDay(e.date, now)).toList();
-      case ExpenseFilter.week:
-        final weekAgo = now.subtract(const Duration(days: 7));
-        return expenses.where((e) => e.date.isAfter(weekAgo)).toList();
-      case ExpenseFilter.month:
-        return expenses
-            .where((e) => e.date.year == now.year && e.date.month == now.month)
-            .toList();
-      case ExpenseFilter.year:
-        return expenses.where((e) => e.date.year == now.year).toList();
-    }
+    final range = _getDateRange();
+    return box.values.where((e) {
+      return e.date.isAfter(range.start.subtract(const Duration(days: 1))) &&
+          e.date.isBefore(range.end.add(const Duration(days: 1)));
+    }).toList();
   }
 
   double getTotalExpenses(List<Expense> expenses) {
@@ -53,8 +214,7 @@ class _ExpensePageState extends State<ExpensePage> {
         final name = category?.name ?? 'Uncategorized';
         breakdown[name] = (breakdown[name] ?? 0) + expense.amount;
       } else {
-        breakdown['Uncategorized'] =
-            (breakdown['Uncategorized'] ?? 0) + expense.amount;
+        breakdown['Uncategorized'] = (breakdown['Uncategorized'] ?? 0) + expense.amount;
       }
     }
     return breakdown;
@@ -63,47 +223,64 @@ class _ExpensePageState extends State<ExpensePage> {
   Map<String, double> getMethodBreakdown(List<Expense> expenses) {
     Map<String, double> breakdown = {};
     for (var expense in expenses) {
-      final method =
-      expense.method?.isNotEmpty == true ? expense.method! : 'UPI';
+      final method = expense.method?.isNotEmpty == true ? expense.method! : 'UPI';
       breakdown[method] = (breakdown[method] ?? 0) + expense.amount;
     }
     return breakdown;
   }
 
-  // UPDATED: This function now returns data in the format
-  // required by CustomBarChart (Map<DateTime, double>)
-  Map<DateTime, double> getLast30DaysExpenses(Box<Expense> box) {
-    final expenses = box.values.toList();
-    final now = DateTime.now();
-    final Map<DateTime, double> dailyExpenses = {
-      for (int i = 0; i < 30; i++) DateTime(now.year, now.month, now.day - i): 0
-    };
+  Map<DateTime, double> getDailyExpenses(Box<Expense> box) {
+    final expenses = _getFilteredExpenses(box);
+    final range = _getDateRange();
+    final daysDiff = range.duration.inDays + 1;
+    final Map<DateTime, double> dailyExpenses = {};
+
+    for (int i = 0; i < daysDiff; i++) {
+      final date = DateTime(
+        range.start.year,
+        range.start.month,
+        range.start.day + i,
+      );
+      dailyExpenses[date] = 0;
+    }
 
     for (var expense in expenses) {
-      final expenseDay =
-      DateTime(expense.date.year, expense.date.month, expense.date.day);
+      final expenseDay = DateTime(
+        expense.date.year,
+        expense.date.month,
+        expense.date.day,
+      );
       if (dailyExpenses.containsKey(expenseDay)) {
         dailyExpenses[expenseDay] = dailyExpenses[expenseDay]! + expense.amount;
       }
     }
-    // Return sorted by date
+
     return Map.fromEntries(
-        dailyExpenses.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
+      dailyExpenses.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+    );
   }
 
-  String _currentCurrency = 'INR';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadInitialData();
-  }
-
-  Future<void> _loadInitialData() async {
-    _currentCurrency = await Helpers().getCurrentCurrency() ?? 'INR';
-    debugPrint("_currentCurrency: $_currentCurrency");
-    if (mounted) {
-      setState(() {});
+  String _getDateRangeLabel() {
+    final range = _getDateRange();
+    switch (_selectedPreset) {
+      case DateRangePreset.today:
+        return 'Today';
+      case DateRangePreset.thisWeek:
+        return 'This Week';
+      case DateRangePreset.last7Days:
+        return 'Last 7 Days';
+      case DateRangePreset.thisMonth:
+        return 'This Month';
+      case DateRangePreset.lastMonth:
+        return 'Last Month';
+      case DateRangePreset.last3Months:
+        return 'Last 3 Months';
+      case DateRangePreset.last6Months:
+        return 'Last 6 Months';
+      case DateRangePreset.thisYear:
+        return 'This Year';
+      case DateRangePreset.custom:
+        return '${DateFormat('d MMM').format(range.start)} - ${DateFormat('d MMM').format(range.end)}';
     }
   }
 
@@ -122,58 +299,71 @@ class _ExpensePageState extends State<ExpensePage> {
           IconButton(
             icon: const Icon(Icons.list_alt_rounded),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const ExpenseListingPage()),
-              );
+              Helpers.navigateTo(context, const ExpenseListingPage());
             },
           ),
-          PopupMenuButton<ExpenseFilter>(
-            onSelected: (filter) => setState(() => _selectedFilter = filter),
-            icon: const Icon(Icons.filter_list_rounded),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                  value: ExpenseFilter.today, child: Text("Today")),
-              const PopupMenuItem(
-                  value: ExpenseFilter.week, child: Text("This Week")),
-              const PopupMenuItem(
-                  value: ExpenseFilter.month, child: Text("This Month")),
-              const PopupMenuItem(
-                  value: ExpenseFilter.year, child: Text("This Year")),
-            ],
+          IconButton(
+            icon: const Icon(Icons.date_range_rounded),
+            onPressed: _showDateRangeMenu,
+            tooltip: 'Select Date Range',
           ),
         ],
         child: Container(
-          margin: const EdgeInsets.all(10),
-          padding: const EdgeInsets.all(10),
+          margin: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(25),
+            borderRadius: BorderRadius.circular(20),
             color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
           ),
           child: ValueListenableBuilder<Box<Expense>>(
-            valueListenable:
-            Hive.box<Expense>(AppConstants.expenses).listenable(),
+            valueListenable: Hive.box<Expense>(AppConstants.expenses).listenable(),
             builder: (context, box, _) {
-              final filteredExpenses = _getFilteredExpenses(box);
-              final total = getTotalExpenses(filteredExpenses);
+              if (_isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
               if (box.isEmpty) {
                 return _buildEmptyState(theme, colorScheme);
               }
 
+              final filteredExpenses = _getFilteredExpenses(box);
+              final total = getTotalExpenses(filteredExpenses);
               final categoryBreakdown = getCategoryBreakdown(filteredExpenses);
               final methodBreakdown = getMethodBreakdown(filteredExpenses);
-              // UPDATED: Use the new function to get 30 days of data
-              final last30Days = getLast30DaysExpenses(box);
-              final avgDaily = total / 30;
+              final dailyExpenses = getDailyExpenses(box);
+              final daysDiff = _getDateRange().duration.inDays + 1;
+              final avgDaily = daysDiff > 0 ? total / daysDiff : 0;
 
               return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Total & Average Cards
+                    // Date Range Chip
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_today_rounded, size: 14, color: colorScheme.onPrimaryContainer),
+                          const SizedBox(width: 6),
+                          Text(
+                            _getDateRangeLabel(),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Stats Cards
                     Row(
                       children: [
                         Expanded(
@@ -186,7 +376,7 @@ class _ExpensePageState extends State<ExpensePage> {
                             theme,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: _buildStatCard(
                             'Daily Avg',
@@ -199,116 +389,99 @@ class _ExpensePageState extends State<ExpensePage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
-                    // REPLACED: Use the new CustomBarChart
+                    // Chart
                     Card(
                       child: Padding(
-                        // The custom chart has its own internal padding,
-                        // so we can reduce the padding on the card.
-                        padding: const EdgeInsets.fromLTRB(0, 8, 8, 0),
+                        padding: const EdgeInsets.fromLTRB(0, 6, 6, 0),
                         child: ScrollConfiguration(
-                          behavior: const ScrollBehavior()
-                              .copyWith(overscroll: false),
+                          behavior: const ScrollBehavior().copyWith(overscroll: false),
                           child: CustomBarChart<MapEntry<DateTime, double>>.simple(
-                            // Pass the 30-day data
-                            data: last30Days.entries.toList(),
-                            // Tell the chart how to get date and value
+                            data: dailyExpenses.entries.toList(),
                             getDate: (entry) => entry.key,
                             getValue: (entry) => entry.value,
-                            // Configure the chart's appearance and behavior
                             config: ChartConfig(
-                              chartTitle: "Expense Trend (Last 30 Days)",
-                              primaryColor: colorScheme.error, // Red for expenses
+                              chartTitle: "Expense Trend ($daysDiff Days)",
+                              primaryColor: colorScheme.error,
                               hoverColor: colorScheme.errorContainer,
                               yAxisLabel: "Amount",
                               valueUnit: "$_currentCurrency ",
                               highlightHighest: true,
                               highlightMode: HighlightMode.lowest,
-                              isAscending: true, // Data is pre-sorted ascending
-                              showToggleSwitch: true, // Show bar/line toggle
+                              isAscending: true,
+                              showToggleSwitch: true,
                             ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
                     // Category Breakdown
                     if (categoryBreakdown.isNotEmpty) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('By Category',
-                              style: theme.textTheme.titleMedium),
-                        ],
-                      ),
+                      Text('By Category', style: theme.textTheme.titleSmall),
+                      const SizedBox(height: 8),
+                      _buildCategoryBreakdown(categoryBreakdown, total, colorScheme, theme),
                       const SizedBox(height: 12),
-                      _buildCategoryBreakdown(
-                          categoryBreakdown, total, colorScheme, theme),
-                      const SizedBox(height: 16),
                     ],
 
-                    // Payment Method Breakdown
+                    // Method Breakdown
                     if (methodBreakdown.isNotEmpty) ...[
-                      Text('By Payment Method',
-                          style: theme.textTheme.titleMedium),
+                      Text('By Payment Method', style: theme.textTheme.titleSmall),
+                      const SizedBox(height: 8),
+                      _buildMethodBreakdown(methodBreakdown, colorScheme, theme),
                       const SizedBox(height: 12),
-                      _buildMethodBreakdown(
-                          methodBreakdown, colorScheme, theme),
-                      const SizedBox(height: 16),
                     ],
 
                     // Recent Transactions
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Recent', style: theme.textTheme.titleMedium),
+                        Text('Recent', style: theme.textTheme.titleSmall),
                         TextButton(
                           onPressed: () {
-                            Helpers.navigateTo(
-                                context, const ExpenseListingPage());
+                            Helpers.navigateTo(context, const ExpenseListingPage());
                           },
-                          child: const Text('View All'),
+                          child: const Text('View All', style: TextStyle(fontSize: 12)),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     ...filteredExpenses.take(5).map((expense) {
-                      final categoryBox =
-                      Hive.box<Category>(AppConstants.categories);
+                      final categoryBox = Hive.box<Category>(AppConstants.categories);
                       String categoryName = 'Uncategorized';
                       if (expense.categoryKeys.isNotEmpty) {
-                        final category =
-                        categoryBox.get(expense.categoryKeys.first);
+                        final category = categoryBox.get(expense.categoryKeys.first);
                         categoryName = category?.name ?? 'General';
                       }
 
                       return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
+                        margin: const EdgeInsets.only(bottom: 6),
                         child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           leading: CircleAvatar(
                             backgroundColor: colorScheme.errorContainer,
+                            radius: 16,
                             child: Icon(
                               Icons.arrow_upward_rounded,
                               color: colorScheme.onErrorContainer,
+                              size: 16,
                             ),
                           ),
                           title: Text(
-                            expense.method?.isNotEmpty == true
-                                ? expense.method!
-                                : 'UPI',
-                            style: theme.textTheme.bodyLarge
-                                ?.copyWith(fontWeight: FontWeight.w600),
+                            expense.method?.isNotEmpty == true ? expense.method! : 'UPI',
+                            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                           ),
                           subtitle: Text(
                             '$categoryName • ${expense.description}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall,
                           ),
                           trailing: Text(
                             '$_currentCurrency ${expense.amount.toStringAsFixed(0)}',
-                            style: theme.textTheme.titleMedium?.copyWith(
+                            style: theme.textTheme.titleSmall?.copyWith(
                               color: colorScheme.error,
                               fontWeight: FontWeight.bold,
                             ),
@@ -316,7 +489,7 @@ class _ExpensePageState extends State<ExpensePage> {
                         ),
                       );
                     }),
-                    const SizedBox(height: 100),
+                    const SizedBox(height: 90),
                   ],
                 ),
               );
@@ -337,22 +510,21 @@ class _ExpensePageState extends State<ExpensePage> {
       ) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
               backgroundColor: bgColor,
-              radius: 20,
-              child: Icon(icon, color: iconColor, size: 20),
+              radius: 16,
+              child: Icon(icon, color: iconColor, size: 16),
             ),
-            const SizedBox(height: 12),
-            Text(label, style: theme.textTheme.bodySmall),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
+            Text(label, style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
+            const SizedBox(height: 2),
             Text(
               value,
-              style:
-              theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -360,31 +532,23 @@ class _ExpensePageState extends State<ExpensePage> {
     );
   }
 
-  // REMOVED: _buildExpenseTrendBarChart is no longer needed.
-  // The new CustomBarChart widget replaces it.
-
-  // REMOVED: _buildSpendingTrendChart (commented out) is no longer needed.
-
   Widget _buildCategoryBreakdown(
       Map<String, double> breakdown,
       double total,
       ColorScheme colorScheme,
       ThemeData theme,
       ) {
-    final sorted = breakdown.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    // Handle division by zero if total is 0
+    final sorted = breakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     final validTotal = total == 0 ? 1 : total;
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
-          children: sorted.take(4).map((entry) {
+          children: sorted.take(3).map((entry) {
             final percentage = (entry.value / validTotal * 100);
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 10),
               child: Row(
                 children: [
                   Expanded(
@@ -392,32 +556,31 @@ class _ExpensePageState extends State<ExpensePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(entry.key, style: theme.textTheme.bodyMedium),
+                        Text(entry.key, style: theme.textTheme.bodySmall?.copyWith(fontSize: 12)),
                         const SizedBox(height: 4),
                         LinearProgressIndicator(
                           value: percentage / 100,
                           backgroundColor: colorScheme.surfaceContainerHighest,
-                          valueColor:
-                          AlwaysStoppedAnimation<Color>(colorScheme.primary),
-                          minHeight: 6,
-                          borderRadius: BorderRadius.circular(3),
+                          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                          minHeight: 5,
+                          borderRadius: BorderRadius.circular(2.5),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
                         '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                        style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                       Text(
                         '${percentage.toStringAsFixed(0)}%',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
+                          fontSize: 10,
                         ),
                       ),
                     ],
@@ -438,16 +601,16 @@ class _ExpensePageState extends State<ExpensePage> {
       ) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 8,
+          runSpacing: 8,
           children: breakdown.entries.map((entry) {
             return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -456,13 +619,13 @@ class _ExpensePageState extends State<ExpensePage> {
                     entry.key,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
+                      fontSize: 10,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 11),
                   ),
                 ],
               ),
@@ -478,8 +641,7 @@ class _ExpensePageState extends State<ExpensePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.receipt_long_outlined,
-              size: 80, color: colorScheme.onSurfaceVariant),
+          Icon(Icons.receipt_long_outlined, size: 80, color: colorScheme.onSurfaceVariant),
           const SizedBox(height: 16),
           Text('No expenses yet', style: theme.textTheme.headlineSmall),
           const SizedBox(height: 8),

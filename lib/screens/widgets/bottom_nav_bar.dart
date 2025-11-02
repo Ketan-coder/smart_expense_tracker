@@ -549,13 +549,15 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
       // --- START OF CHANGES ---
       body: Stack(
         children: [
+
           // Your main content
           _tabs[_currentIndex],
 
           // SMS Status Dot Overlay
-          SafeArea(
+          if (kDebugMode)
+            SafeArea(
             child: Padding(
-              padding: const EdgeInsets.only(left: 35.0, top: 870.0),
+              padding: const EdgeInsets.only(left: 15.0, top: 5.0),
               child: Container(
                 width: 10,
                 height: 10,

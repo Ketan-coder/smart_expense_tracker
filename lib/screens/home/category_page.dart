@@ -75,326 +75,636 @@ class _CategoryPageState extends State<CategoryPage> {
       'house', 'celebration', 'card_giftcard', 'assignment_return', 'directions_run'
     ];
 
-    await showModalBottomSheet(
+    await BottomSheetUtil.show(
       context: context,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (modalContext, setModalState) {
-            /// Shows the color picker dialog
-            void showColorPickerDialog() {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Pick a color'),
-                  content: SingleChildScrollView(
-                    child: BlockPicker(
-                      pickerColor: selectedColor,
-                      onColorChanged: (color) {
-                        setModalState(() {
-                          selectedColor = color;
-                        });
-                      },
-                    ),
+      title: isEditing ? 'Edit Category' : 'Add Category',
+      height: MediaQuery.of(context).size.height * 0.75, // Increased height for better fit
+      child: StatefulBuilder(
+        builder: (modalContext, setModalState) {
+          /// Shows the color picker dialog
+          void showColorPickerDialog() {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Pick a color'),
+                content: SingleChildScrollView(
+                  child: BlockPicker(
+                    pickerColor: selectedColor,
+                    onColorChanged: (color) {
+                      setModalState(() {
+                        selectedColor = color;
+                      });
+                    },
                   ),
-                  actions: <Widget>[
-                    TextButton(
-                      child: const Text('Cancel'),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    FilledButton(
-                      child: const Text('Select'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ],
                 ),
+                actions: <Widget>[
+                  TextButton(
+                    child: const Text('Cancel'),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  FilledButton(
+                    child: const Text('Select'),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
+              ),
+            );
+          }
+
+          /// Get current icons based on selected category type
+          List<String> getCurrentIcons() {
+            return selectedType.toLowerCase() == 'expense' ? expenseIcons : incomeIcons;
+          }
+
+          /// Handles the save logic for both add and edit
+          Future<void> onSave() async {
+            final name = nameController.text.trim();
+            if (name.isEmpty) {
+              SnackBars.show(
+                context,
+                message: 'Please enter a category name',
+                type: SnackBarType.error,
+              );
+              return;
+            }
+
+            final newCategory = Category(
+              name: name,
+              type: selectedType,
+              color: colorToHex(selectedColor),
+              icon: selectedIcon,
+            );
+
+            bool success;
+            if (isEditing) {
+              success = await UniversalHiveFunctions().updateCategory(key, newCategory);
+            } else {
+              success = await UniversalHiveFunctions().addCategory(
+                  name,
+                  selectedType,
+                  selectedColor,
+                  selectedIcon
               );
             }
 
-            /// Get current icons based on selected category type
-            List<String> getCurrentIcons() {
-              return selectedType.toLowerCase() == 'expense' ? expenseIcons : incomeIcons;
-            }
-
-            /// Handles the save logic for both add and edit
-            Future<void> onSave() async {
-              final name = nameController.text.trim();
-              if (name.isEmpty) {
+            if (context.mounted) {
+              if (success) {
+                Navigator.of(context).pop(); // Close bottom sheet
                 SnackBars.show(
                   context,
-                  message: 'Please enter a category name',
+                  message: isEditing ? 'Category updated' : 'Category added',
+                  type: SnackBarType.success,
+                );
+              } else {
+                SnackBars.show(
+                  context,
+                  message: 'Error saving category',
                   type: SnackBarType.error,
                 );
-                return;
-              }
-
-              final newCategory = Category(
-                name: name,
-                type: selectedType,
-                color: colorToHex(selectedColor),
-                icon: selectedIcon,
-              );
-
-              bool success;
-              if (isEditing) {
-                success = await UniversalHiveFunctions().updateCategory(key, newCategory);
-              } else {
-                success = await UniversalHiveFunctions().addCategory(
-                    name,
-                    selectedType,
-                    selectedColor,
-                    selectedIcon
-                );
-              }
-
-              if (context.mounted) {
-                if (success) {
-                  Navigator.of(context).pop(); // Close bottom sheet
-                  SnackBars.show(
-                    context,
-                    message: isEditing ? 'Category updated' : 'Category added',
-                    type: SnackBarType.success,
-                  );
-                } else {
-                  SnackBars.show(
-                    context,
-                    message: 'Error saving category',
-                    type: SnackBarType.error,
-                  );
-                }
               }
             }
+          }
 
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(ctx).viewInsets.bottom,
-                top: 20,
-                left: 20,
-                right: 20,
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 10),
+
+              // Category Name
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: "Category Name",
+                  border: OutlineInputBorder(),
+                  hintText: "e.g., Groceries, Salary, etc.",
+                ),
+                textCapitalization: TextCapitalization.words,
               ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      isEditing ? 'Edit Category' : 'Add Category',
-                      style: Theme.of(context).textTheme.titleLarge,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-                    // Category Name
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: "Category Name",
-                        border: OutlineInputBorder(),
-                        hintText: "e.g., Groceries, Salary, etc.",
+              // Category Type
+              DropdownButtonFormField<String>(
+                value: selectedType,
+                decoration: const InputDecoration(
+                  labelText: 'Category Type',
+                  border: OutlineInputBorder(),
+                ),
+                items: ["Expense", "Income"]
+                    .map((type) =>
+                    DropdownMenuItem(value: type, child: Text(type)))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setModalState(() {
+                      selectedType = value;
+                      // Reset to appropriate default icon when type changes
+                      selectedIcon = value.toLowerCase() == 'expense'
+                          ? 'shopping_cart'
+                          : 'work';
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Color Selection
+              ListTile(
+                contentPadding: EdgeInsets.symmetric(horizontal: 10),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(
+                        color: Theme.of(context).colorScheme.outline)),
+                title: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                  child: const Text('Category Color'),
+                ),
+                trailing: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: selectedColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade400),
+                  ),
+                  child: Center(
+                    child: Text(
+                      "Color",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
                       ),
-                      textCapitalization: TextCapitalization.words,
                     ),
-                    const SizedBox(height: 16),
+                  ),
+                ),
+                onTap: showColorPickerDialog,
+              ),
+              const SizedBox(height: 16),
 
-                    // Category Type
-                    DropdownButtonFormField<String>(
-                      value: selectedType,
-                      decoration: const InputDecoration(
-                        labelText: 'Category Type',
-                        border: OutlineInputBorder(),
+              // Icon Selection Section
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Category Icon',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Selected Icon Preview
+                  Container(
+                    width: 60,
+                    height: 60,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: selectedColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: selectedColor.withOpacity(0.5)),
+                    ),
+                    child: Icon(
+                      _getIconData(selectedIcon),
+                      color: selectedColor,
+                      size: 30,
+                    ),
+                  ),
+
+                  // Icon Grid
+                  Container(
+                    height: 160,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: GridView.builder(
+                      padding: const EdgeInsets.all(8),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                        childAspectRatio: 1,
                       ),
-                      items: ["Expense", "Income"]
-                          .map((type) =>
-                          DropdownMenuItem(value: type, child: Text(type)))
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setModalState(() {
-                            selectedType = value;
-                            // Reset to appropriate default icon when type changes
-                            selectedIcon = value.toLowerCase() == 'expense'
-                                ? 'shopping_cart'
-                                : 'work';
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Color Selection
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(
-                              color: Theme.of(context).colorScheme.outline)),
-                      title: const Text('Category Color'),
-                      trailing: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: selectedColor,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade400),
-                        ),
-                        child: Center(
-                          child: Text(
-                            "Color",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      ),
-                      onTap: showColorPickerDialog,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Icon Selection Section
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Category Icon',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Selected Icon Preview
-                        Container(
-                          width: 60,
-                          height: 60,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: selectedColor.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: selectedColor.withOpacity(0.5)),
-                          ),
-                          child: Icon(
-                            _getIconData(selectedIcon),
-                            color: selectedColor,
-                            size: 30,
-                          ),
-                        ),
-
-                        // Icon Grid
-                        Container(
-                          height: 120,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: GridView.builder(
-                            padding: const EdgeInsets.all(8),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 5,
-                              crossAxisSpacing: 8,
-                              mainAxisSpacing: 8,
-                              childAspectRatio: 1,
-                            ),
-                            itemCount: getCurrentIcons().length,
-                            itemBuilder: (context, index) {
-                              final icon = getCurrentIcons()[index];
-                              return GestureDetector(
-                                onTap: () {
-                                  setModalState(() {
-                                    selectedIcon = icon;
-                                  });
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: selectedIcon == icon
-                                        ? selectedColor.withOpacity(0.3)
-                                        : Colors.grey.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: selectedIcon == icon
-                                          ? selectedColor
-                                          : Colors.transparent,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    _getIconData(selectedIcon),
-                                    color: selectedIcon == icon ? selectedColor : Colors.grey.shade600,
-                                    size: 20,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Preview Card
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceVariant,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
+                      itemCount: getCurrentIcons().length,
+                      itemBuilder: (context, index) {
+                        final icon = getCurrentIcons()[index];
+                        return GestureDetector(
+                          onTap: () {
+                            setModalState(() {
+                              selectedIcon = icon;
+                            });
+                          },
+                          child: Container(
                             decoration: BoxDecoration(
-                              color: selectedColor,
+                              color: selectedIcon == icon
+                                  ? selectedColor.withOpacity(0.3)
+                                  : Colors.grey.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: selectedIcon == icon
+                                    ? selectedColor
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
                             ),
                             child: Icon(
-                              _getIconData(selectedIcon),
-                              color: Colors.white,
+                              _getIconData(icon),
+                              color: selectedIcon == icon ? selectedColor : Colors.grey.shade600,
                               size: 20,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  nameController.text.isNotEmpty ? nameController.text : "Category Name",
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                                Text(
-                                  selectedType.toUpperCase(),
-                                  style: TextStyle(
-                                    color: Theme.of(context).colorScheme.outline,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Preview Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: selectedColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        _getIconData(selectedIcon),
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nameController.text.isNotEmpty ? nameController.text : "Category Name",
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            selectedType.toUpperCase(),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.outline,
+                              fontSize: 12,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
-
-                    // Save Button
-                    FilledButton(
-                      onPressed: onSave,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: Text(isEditing ? "Save Changes" : "Create Category"),
-                    ),
-                    const SizedBox(height: 16),
                   ],
                 ),
               ),
-            );
-          },
-        );
-      },
+              const SizedBox(height: 24),
+
+              // Save Button
+              FilledButton(
+                onPressed: onSave,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: Text(isEditing ? "Save Changes" : "Create Category"),
+              ),
+              const SizedBox(height: 16),
+            ],
+          );
+        },
+      ),
     );
+    // await showModalBottomSheet(
+    //   context: context,
+    //   isScrollControlled: true,
+    //
+    //   builder: (ctx) {
+    //     return StatefulBuilder(
+    //       builder: (modalContext, setModalState) {
+    //         /// Shows the color picker dialog
+    //         void showColorPickerDialog() {
+    //           showDialog(
+    //             context: context,
+    //             builder: (context) => AlertDialog(
+    //               title: const Text('Pick a color'),
+    //               content: SingleChildScrollView(
+    //                 child: BlockPicker(
+    //                   pickerColor: selectedColor,
+    //                   onColorChanged: (color) {
+    //                     setModalState(() {
+    //                       selectedColor = color;
+    //                     });
+    //                   },
+    //                 ),
+    //               ),
+    //               actions: <Widget>[
+    //                 TextButton(
+    //                   child: const Text('Cancel'),
+    //                   onPressed: () => Navigator.of(context).pop(),
+    //                 ),
+    //                 FilledButton(
+    //                   child: const Text('Select'),
+    //                   onPressed: () {
+    //                     Navigator.of(context).pop();
+    //                   },
+    //                 ),
+    //               ],
+    //             ),
+    //           );
+    //         }
+    //
+    //         /// Get current icons based on selected category type
+    //         List<String> getCurrentIcons() {
+    //           return selectedType.toLowerCase() == 'expense' ? expenseIcons : incomeIcons;
+    //         }
+    //
+    //         /// Handles the save logic for both add and edit
+    //         Future<void> onSave() async {
+    //           final name = nameController.text.trim();
+    //           if (name.isEmpty) {
+    //             SnackBars.show(
+    //               context,
+    //               message: 'Please enter a category name',
+    //               type: SnackBarType.error,
+    //             );
+    //             return;
+    //           }
+    //
+    //           final newCategory = Category(
+    //             name: name,
+    //             type: selectedType,
+    //             color: colorToHex(selectedColor),
+    //             icon: selectedIcon,
+    //           );
+    //
+    //           bool success;
+    //           if (isEditing) {
+    //             success = await UniversalHiveFunctions().updateCategory(key, newCategory);
+    //           } else {
+    //             success = await UniversalHiveFunctions().addCategory(
+    //                 name,
+    //                 selectedType,
+    //                 selectedColor,
+    //                 selectedIcon
+    //             );
+    //           }
+    //
+    //           if (context.mounted) {
+    //             if (success) {
+    //               Navigator.of(context).pop(); // Close bottom sheet
+    //               SnackBars.show(
+    //                 context,
+    //                 message: isEditing ? 'Category updated' : 'Category added',
+    //                 type: SnackBarType.success,
+    //               );
+    //             } else {
+    //               SnackBars.show(
+    //                 context,
+    //                 message: 'Error saving category',
+    //                 type: SnackBarType.error,
+    //               );
+    //             }
+    //           }
+    //         }
+    //
+    //         return SafeArea(
+    //           child: Padding(
+    //             padding: EdgeInsets.only(
+    //               bottom: MediaQuery.of(ctx).viewInsets.bottom,
+    //               top: 20,
+    //               left: 20,
+    //               right: 20,
+    //             ),
+    //             child: SingleChildScrollView(
+    //               child: Column(
+    //                 mainAxisSize: MainAxisSize.min,
+    //                 crossAxisAlignment: CrossAxisAlignment.stretch,
+    //                 children: [
+    //                   Text(
+    //                     isEditing ? 'Edit Category' : 'Add Category',
+    //                     style: Theme.of(context).textTheme.titleLarge,
+    //                     textAlign: TextAlign.center,
+    //                   ),
+    //                   const SizedBox(height: 24),
+    //
+    //                   // Category Name
+    //                   TextField(
+    //                     controller: nameController,
+    //                     decoration: const InputDecoration(
+    //                       labelText: "Category Name",
+    //                       border: OutlineInputBorder(),
+    //                       hintText: "e.g., Groceries, Salary, etc.",
+    //                     ),
+    //                     textCapitalization: TextCapitalization.words,
+    //                   ),
+    //                   const SizedBox(height: 16),
+    //
+    //                   // Category Type
+    //                   DropdownButtonFormField<String>(
+    //                     value: selectedType,
+    //                     decoration: const InputDecoration(
+    //                       labelText: 'Category Type',
+    //                       border: OutlineInputBorder(),
+    //                     ),
+    //                     items: ["Expense", "Income"]
+    //                         .map((type) =>
+    //                         DropdownMenuItem(value: type, child: Text(type)))
+    //                         .toList(),
+    //                     onChanged: (value) {
+    //                       if (value != null) {
+    //                         setModalState(() {
+    //                           selectedType = value;
+    //                           // Reset to appropriate default icon when type changes
+    //                           selectedIcon = value.toLowerCase() == 'expense'
+    //                               ? 'shopping_cart'
+    //                               : 'work';
+    //                         });
+    //                       }
+    //                     },
+    //                   ),
+    //                   const SizedBox(height: 16),
+    //
+    //                   // Color Selection
+    //                   ListTile(
+    //                     contentPadding: EdgeInsets.zero,
+    //                     shape: RoundedRectangleBorder(
+    //                         borderRadius: BorderRadius.circular(8),
+    //                         side: BorderSide(
+    //                             color: Theme.of(context).colorScheme.outline)),
+    //                     title: const Text('Category Color'),
+    //                     trailing: Container(
+    //                       width: 40,
+    //                       height: 40,
+    //                       decoration: BoxDecoration(
+    //                         color: selectedColor,
+    //                         borderRadius: BorderRadius.circular(8),
+    //                         border: Border.all(color: Colors.grey.shade400),
+    //                       ),
+    //                       child: Center(
+    //                         child: Text(
+    //                           "Color",
+    //                           style: TextStyle(
+    //                             color: Colors.white,
+    //                             fontWeight: FontWeight.bold,
+    //                             fontSize: 10,
+    //                           ),
+    //                         ),
+    //                       ),
+    //                     ),
+    //                     onTap: showColorPickerDialog,
+    //                   ),
+    //                   const SizedBox(height: 16),
+    //
+    //                   // Icon Selection Section
+    //                   Column(
+    //                     crossAxisAlignment: CrossAxisAlignment.start,
+    //                     children: [
+    //                       const Text(
+    //                         'Category Icon',
+    //                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+    //                       ),
+    //                       const SizedBox(height: 8),
+    //
+    //                       // Selected Icon Preview
+    //                       Container(
+    //                         width: 60,
+    //                         height: 60,
+    //                         margin: const EdgeInsets.only(bottom: 12),
+    //                         decoration: BoxDecoration(
+    //                           color: selectedColor.withOpacity(0.2),
+    //                           borderRadius: BorderRadius.circular(12),
+    //                           border: Border.all(color: selectedColor.withOpacity(0.5)),
+    //                         ),
+    //                         child: Icon(
+    //                           _getIconData(selectedIcon),
+    //                           color: selectedColor,
+    //                           size: 30,
+    //                         ),
+    //                       ),
+    //
+    //                       // Icon Grid
+    //                       Container(
+    //                         height: 120,
+    //                         decoration: BoxDecoration(
+    //                           border: Border.all(color: Colors.grey.shade300),
+    //                           borderRadius: BorderRadius.circular(12),
+    //                         ),
+    //                         child: GridView.builder(
+    //                           padding: const EdgeInsets.all(8),
+    //                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+    //                             crossAxisCount: 5,
+    //                             crossAxisSpacing: 8,
+    //                             mainAxisSpacing: 8,
+    //                             childAspectRatio: 1,
+    //                           ),
+    //                           itemCount: getCurrentIcons().length,
+    //                           itemBuilder: (context, index) {
+    //                             final icon = getCurrentIcons()[index];
+    //                             return GestureDetector(
+    //                               onTap: () {
+    //                                 setModalState(() {
+    //                                   selectedIcon = icon;
+    //                                 });
+    //                               },
+    //                               child: Container(
+    //                                 decoration: BoxDecoration(
+    //                                   color: selectedIcon == icon
+    //                                       ? selectedColor.withOpacity(0.3)
+    //                                       : Colors.grey.withOpacity(0.1),
+    //                                   borderRadius: BorderRadius.circular(8),
+    //                                   border: Border.all(
+    //                                     color: selectedIcon == icon
+    //                                         ? selectedColor
+    //                                         : Colors.transparent,
+    //                                     width: 2,
+    //                                   ),
+    //                                 ),
+    //                                 child: Icon(
+    //                                   _getIconData(icon),
+    //                                   color: selectedIcon == icon ? selectedColor : Colors.grey.shade600,
+    //                                   size: 20,
+    //                                 ),
+    //                               ),
+    //                             );
+    //                           },
+    //                         ),
+    //                       ),
+    //                     ],
+    //                   ),
+    //                   const SizedBox(height: 24),
+    //
+    //                   // Preview Card
+    //                   Container(
+    //                     padding: const EdgeInsets.all(16),
+    //                     decoration: BoxDecoration(
+    //                       color: Theme.of(context).colorScheme.surfaceVariant,
+    //                       borderRadius: BorderRadius.circular(12),
+    //                     ),
+    //                     child: Row(
+    //                       children: [
+    //                         Container(
+    //                           width: 40,
+    //                           height: 40,
+    //                           decoration: BoxDecoration(
+    //                             color: selectedColor,
+    //                             borderRadius: BorderRadius.circular(8),
+    //                           ),
+    //                           child: Icon(
+    //                             _getIconData(selectedIcon),
+    //                             color: Colors.white,
+    //                             size: 20,
+    //                           ),
+    //                         ),
+    //                         const SizedBox(width: 12),
+    //                         Expanded(
+    //                           child: Column(
+    //                             crossAxisAlignment: CrossAxisAlignment.start,
+    //                             children: [
+    //                               Text(
+    //                                 nameController.text.isNotEmpty ? nameController.text : "Category Name",
+    //                                 style: const TextStyle(fontWeight: FontWeight.w600),
+    //                               ),
+    //                               Text(
+    //                                 selectedType.toUpperCase(),
+    //                                 style: TextStyle(
+    //                                   color: Theme.of(context).colorScheme.outline,
+    //                                   fontSize: 12,
+    //                                 ),
+    //                               ),
+    //                             ],
+    //                           ),
+    //                         ),
+    //                       ],
+    //                     ),
+    //                   ),
+    //                   const SizedBox(height: 24),
+    //
+    //                   // Save Button
+    //                   FilledButton(
+    //                     onPressed: onSave,
+    //                     style: FilledButton.styleFrom(
+    //                       padding: const EdgeInsets.symmetric(vertical: 16),
+    //                     ),
+    //                     child: Text(isEditing ? "Save Changes" : "Create Category"),
+    //                   ),
+    //                   const SizedBox(height: 16),
+    //                 ],
+    //               ),
+    //             ),
+    //           ),
+    //         );
+    //       },
+    //     );
+    //   },
+    // );
   }
 
 // Helper function to convert icon string to code
