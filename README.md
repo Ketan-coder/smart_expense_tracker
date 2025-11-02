@@ -45,8 +45,8 @@ SmartSpend monitors your SMS inbox for transaction notifications (like UPI payme
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/<your-username>/smartspend.git
-   cd smartspend
+   git clone https://github.com/Ketan-coder/smart_expense_tracker.git
+   cd smart_expense_tracker
    ```
 
 2. **Install dependencies**
@@ -103,16 +103,16 @@ SmartSpend monitors your SMS inbox for transaction notifications (like UPI payme
 - [ ] Analytics limited to basic views
 - [ ] Provider state management not yet implemented
 
-See [Issues](https://github.com/<your-username>/smartspend/issues) for the full list.
+See [Issues](https://github.com/Ketan-coder/smart_expense_tracker/issues) for the full list.
 
 ---
 
 ## 🗺️ Roadmap
 
 - [ ] Enhanced SMS parsing with ML-based detection
-- [ ] Custom categories and tags
+- [*] Custom categories and tags
 - [ ] Budget setting and alerts
-- [ ] Data export (CSV, JSON)
+- [*] Data export (CSV, JSON)
 - [ ] Multi-account support
 - [ ] iOS version
 - [ ] Optional cloud backup (encrypted)
