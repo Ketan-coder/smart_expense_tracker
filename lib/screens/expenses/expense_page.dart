@@ -5,9 +5,11 @@ import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
+import '../../services/privacy/privacy_manager.dart';
 import '../widgets/bottom_sheet.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/custom_chart.dart';
+import '../widgets/privacy_overlay_widget.dart';
 import '../widgets/snack_bar.dart';
 import 'expense_listing_page.dart';
 
@@ -35,6 +37,10 @@ class _ExpensePageState extends State<ExpensePage> {
   DateTimeRange? _customDateRange;
   bool _isLoading = false;
   String _currentCurrency = 'INR';
+  // Privacy
+  final PrivacyManager _expensePagePrivacyManager = PrivacyManager();
+
+
 
   @override
   void initState() {
@@ -288,6 +294,7 @@ class _ExpensePageState extends State<ExpensePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isPrivate = _expensePagePrivacyManager.shouldHideSensitiveData();
 
     return Scaffold(
       body: SimpleCustomAppBar(
@@ -340,25 +347,28 @@ class _ExpensePageState extends State<ExpensePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Date Range Chip
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.calendar_today_rounded, size: 14, color: colorScheme.onPrimaryContainer),
-                          const SizedBox(width: 6),
-                          Text(
-                            _getDateRangeLabel(),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onPrimaryContainer,
-                              fontWeight: FontWeight.w600,
+                    GestureDetector(
+                      onTap: _showDateRangeMenu,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.calendar_today_rounded, size: 14, color: colorScheme.onPrimaryContainer),
+                            const SizedBox(width: 6),
+                            Text(
+                              _getDateRangeLabel(),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -392,25 +402,28 @@ class _ExpensePageState extends State<ExpensePage> {
                     const SizedBox(height: 12),
 
                     // Chart
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 6, 6, 0),
-                        child: ScrollConfiguration(
-                          behavior: const ScrollBehavior().copyWith(overscroll: false),
-                          child: CustomBarChart<MapEntry<DateTime, double>>.simple(
-                            data: dailyExpenses.entries.toList(),
-                            getDate: (entry) => entry.key,
-                            getValue: (entry) => entry.value,
-                            config: ChartConfig(
-                              chartTitle: "Expense Trend ($daysDiff Days)",
-                              primaryColor: colorScheme.error,
-                              hoverColor: colorScheme.errorContainer,
-                              yAxisLabel: "Amount",
-                              valueUnit: "$_currentCurrency ",
-                              highlightHighest: true,
-                              highlightMode: HighlightMode.lowest,
-                              isAscending: true,
-                              showToggleSwitch: true,
+                    PrivacyOverlay(
+                      isPrivacyActive: isPrivate,
+                      child: Card(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(0, 6, 6, 0),
+                          child: ScrollConfiguration(
+                            behavior: const ScrollBehavior().copyWith(overscroll: false),
+                            child: CustomBarChart<MapEntry<DateTime, double>>.simple(
+                              data: dailyExpenses.entries.toList(),
+                              getDate: (entry) => entry.key,
+                              getValue: (entry) => entry.value,
+                              config: ChartConfig(
+                                chartTitle: "Expense Trend ($daysDiff Days)",
+                                primaryColor: colorScheme.error,
+                                hoverColor: colorScheme.errorContainer,
+                                yAxisLabel: "Amount",
+                                valueUnit: "$_currentCurrency ",
+                                highlightHighest: true,
+                                highlightMode: HighlightMode.lowest,
+                                isAscending: true,
+                                showToggleSwitch: true,
+                              ),
                             ),
                           ),
                         ),
@@ -479,12 +492,20 @@ class _ExpensePageState extends State<ExpensePage> {
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall,
                           ),
-                          trailing: Text(
-                            '$_currentCurrency ${expense.amount.toStringAsFixed(0)}',
+                          // trailing: Text(
+                          //   '$_currentCurrency ${expense.amount.toStringAsFixed(0)}',
+                          //   style: theme.textTheme.titleSmall?.copyWith(
+                          //     color: colorScheme.error,
+                          //     fontWeight: FontWeight.bold,
+                          //   ),
+                          // ),
+                          trailing: PrivacyCurrency(
+                            amount: '$_currentCurrency ${expense.amount.toStringAsFixed(0)}',
+                            isPrivacyActive: isPrivate,
                             style: theme.textTheme.titleSmall?.copyWith(
-                              color: colorScheme.error,
-                              fontWeight: FontWeight.bold,
-                            ),
+                                  color: colorScheme.error,
+                                  fontWeight: FontWeight.bold,
+                                ),
                           ),
                         ),
                       );
@@ -508,6 +529,7 @@ class _ExpensePageState extends State<ExpensePage> {
       Color iconColor,
       ThemeData theme,
       ) {
+    final isPrivate = _expensePagePrivacyManager.shouldHideSensitiveData();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -522,10 +544,15 @@ class _ExpensePageState extends State<ExpensePage> {
             const SizedBox(height: 8),
             Text(label, style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
             const SizedBox(height: 2),
-            Text(
-              value,
+            PrivacyCurrency(
+              amount: value,
+              isPrivacyActive: isPrivate,
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
+            // Text(
+            //   value,
+            //   style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            // ),
           ],
         ),
       ),
@@ -540,6 +567,7 @@ class _ExpensePageState extends State<ExpensePage> {
       ) {
     final sorted = breakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     final validTotal = total == 0 ? 1 : total;
+    final isPrivate = _expensePagePrivacyManager.shouldHideSensitiveData();
 
     return Card(
       child: Padding(
@@ -572,8 +600,13 @@ class _ExpensePageState extends State<ExpensePage> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
+                      // Text(
+                      //   '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
+                      //   style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
+                      // ),
+                      PrivacyCurrency(
+                        amount: '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
+                        isPrivacyActive: isPrivate,
                         style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                       Text(
@@ -583,6 +616,7 @@ class _ExpensePageState extends State<ExpensePage> {
                           fontSize: 10,
                         ),
                       ),
+
                     ],
                   ),
                 ],
@@ -599,6 +633,7 @@ class _ExpensePageState extends State<ExpensePage> {
       ColorScheme colorScheme,
       ThemeData theme,
       ) {
+    final isPrivate = _expensePagePrivacyManager.shouldHideSensitiveData();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -623,9 +658,14 @@ class _ExpensePageState extends State<ExpensePage> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
-                    style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 11),
+                  // Text(
+                  //   '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
+                  //   style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 11),
+                  // ),
+                  PrivacyCurrency(
+                      amount: '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
+                      isPrivacyActive: isPrivate,
+                      style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 11),
                   ),
                 ],
               ),

@@ -1,3 +1,4 @@
+import 'package:expense_tracker/services/privacy/privacy_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +10,7 @@ import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
 import '../widgets/bottom_sheet.dart';
 import '../widgets/custom_app_bar.dart';
+import '../widgets/privacy_overlay_widget.dart';
 
 class ExpenseListingPage extends StatefulWidget {
   final String? initialFilter;
@@ -28,6 +30,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
   double? _minAmount;
   double? _maxAmount;
   String _currentCurrency = 'INR';
+  final PrivacyManager _expensePagePrivacyManager = PrivacyManager();
 
   @override
   void initState() {
@@ -314,6 +317,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isPrivate = _expensePagePrivacyManager.isPrivacyActive;
 
     return Scaffold(
       body: SimpleCustomAppBar(
@@ -494,10 +498,18 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                                 ),
                               ],
                             ),
-                            Text(
-                              '$_currentCurrency ${total.toStringAsFixed(2)}',
+                            // Text(
+                            //   '$_currentCurrency ${total.toStringAsFixed(2)}',
+                            //   style: theme.textTheme.headlineMedium?.copyWith(
+                            //     color: colorScheme.onErrorContainer,
+                            //     fontWeight: FontWeight.bold,
+                            //   ),
+                            // ),
+                            PrivacyCurrency(
+                              amount: '$_currentCurrency ${total.toStringAsFixed(2)}',
+                              isPrivacyActive: isPrivate,
                               style: theme.textTheme.headlineMedium?.copyWith(
-                                color: colorScheme.onErrorContainer,
+                                color: colorScheme.onPrimaryContainer,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -570,7 +582,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                               ),
                             ),
                             ...entry.value.map((expenseEntry) {
-                              return _buildExpenseTile(expenseEntry, colorScheme, theme);
+                              return _buildExpenseTile(expenseEntry, colorScheme, theme,isPrivate);
                             }),
                             const SizedBox(height: 8),
                           ],
@@ -591,6 +603,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
       MapEntry<dynamic, Expense> expenseEntry,
       ColorScheme colorScheme,
       ThemeData theme,
+      bool isPrivate,
       ) {
     final keyId = expenseEntry.key as int;
     final expense = expenseEntry.value;
@@ -685,10 +698,18 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
               ),
             ],
           ),
-          trailing: Text(
-            '$_currentCurrency ${expense.amount.toStringAsFixed(2)}',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: colorScheme.error,
+          // trailing: Text(
+          //   '$_currentCurrency ${expense.amount.toStringAsFixed(2)}',
+          //   style: theme.textTheme.titleMedium?.copyWith(
+          //     color: colorScheme.error,
+          //     fontWeight: FontWeight.bold,
+          //   ),
+          // ),
+          trailing: PrivacyCurrency(
+            amount: '$_currentCurrency ${expense.amount.toStringAsFixed(0)}',
+            isPrivacyActive: isPrivate,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: colorScheme.primary,
               fontWeight: FontWeight.bold,
             ),
           ),

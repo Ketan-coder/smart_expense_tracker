@@ -1,30 +1,37 @@
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// import 'common_widgets.dart';
-bool isLightMode(BuildContext context) {
-  return Theme.of(context).brightness == Brightness.light;
-}
+import '../../core/helpers.dart';
 
 
-// ENHANCEMENT: Enum to determine which value to highlight as "best".
+// ENUM: Mode to highlight "best" value on the chart.
 enum HighlightMode {
   highest,
   lowest,
 }
 
-// Data model for chart points
+// DATA MODEL: Represents a single data point on the chart.
+// Includes optional start/end dates for averaged/binned points in summarized view.
 class ChartDataPoint {
-  final DateTime date;
+  final DateTime date; // Display date (midpoint for binned).
   final double value;
+  final DateTime? startDate; // Start of period for averaged points.
+  final DateTime? endDate;   // End of period for averaged points.
 
-  ChartDataPoint({required this.date, required this.value});
+  ChartDataPoint({
+    required this.date,
+    required this.value,
+    this.startDate,
+    this.endDate,
+  });
 }
 
-// Configuration class for customizing the chart
+// CONFIG: Customizable settings for the chart appearance and behavior.
+// Includes toggles for bar/line, scrollable/summarized, etc.
 class ChartConfig {
   final String yAxisLabel;
   final String valueUnit;
@@ -42,10 +49,11 @@ class ChartConfig {
   final int decimalPlaces;
   final bool reverseData;
   final HighlightMode highlightMode;
-  final bool showToggleSwitch; // This now controls the ExpansionTile
+  final bool showToggleSwitch; // Controls visibility of settings ExpansionTile.
   final bool isAscending;
   final String chartTitle;
-  final bool isBarChart; // NEW: Toggle between Bar and Line chart
+  final bool isBarChart; // Toggle: true for bars, false for line.
+  final bool isScrollable; // Toggle: true for summarized (non-scrollable), false for detailed (scrollable).
 
   const ChartConfig({
     this.yAxisLabel = 'Value',
@@ -66,10 +74,12 @@ class ChartConfig {
     this.highlightMode = HighlightMode.highest,
     this.showToggleSwitch = true,
     this.isAscending = false,
-    this.chartTitle = 'Chart View',
-    this.isBarChart = true, // NEW: Default to bar chart
+    this.chartTitle = '',
+    this.isBarChart = false, // Default to line chart? Wait, original was false for bar? No, set to true for bar if needed.
+    this.isScrollable = true, // Default to summarized view.
   });
 
+  // CopyWith for updating config properties.
   ChartConfig copyWith({
     String? yAxisLabel,
     String? valueUnit,
@@ -90,7 +100,8 @@ class ChartConfig {
     bool? showToggleSwitch,
     bool? isAscending,
     String? chartTitle,
-    bool? isBarChart, // NEW
+    bool? isBarChart,
+    bool? isScrollable,
   }) {
     return ChartConfig(
       yAxisLabel: yAxisLabel ?? this.yAxisLabel,
@@ -112,12 +123,13 @@ class ChartConfig {
       showToggleSwitch: showToggleSwitch ?? this.showToggleSwitch,
       isAscending: isAscending ?? this.isAscending,
       chartTitle: chartTitle ?? this.chartTitle,
-      isBarChart: isBarChart ?? this.isBarChart, // NEW
+      isBarChart: isBarChart ?? this.isBarChart,
+      isScrollable: isScrollable ?? this.isScrollable,
     );
   }
 }
 
-// Main CustomBarChart widget
+// MAIN WIDGET: CustomBarChart - Stateful widget for the entire chart component.
 class CustomBarChart<T> extends StatefulWidget {
   final List<T> data;
   final DateTime Function(T) getDate;
@@ -134,7 +146,7 @@ class CustomBarChart<T> extends StatefulWidget {
     this.emptyMessage = "No data available for this period.",
   }) : super(key: key);
 
-  // Factory constructor for simple date-value models
+  // Factory for simple use with date/value getters.
   factory CustomBarChart.simple({
     required List<T> data,
     required DateTime Function(T) getDate,
@@ -155,30 +167,31 @@ class CustomBarChart<T> extends StatefulWidget {
   State<CustomBarChart<T>> createState() => _CustomBarChartState<T>();
 }
 
+// STATE: _CustomBarChartState - Handles state, preferences, data processing, and toggles.
 class _CustomBarChartState<T> extends State<CustomBarChart<T>> {
   late ChartConfig _currentConfig;
-  bool _isLoadingPrefs = true; // NEW: For loading preferences
+  bool _isLoadingPrefs = true; // Flag for asynchronous preference loading.
 
   @override
   void initState() {
     super.initState();
-    _currentConfig = widget.config; // Initialize with widget config
-    _loadPreferences();
+    _currentConfig = widget.config; // Initialize with passed config.
+    _loadPreferences(); // Load saved user preferences.
   }
 
-  // NEW: Load preferences from storage
+  // Load saved preferences from SharedPreferences.
   Future<void> _loadPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
 
-      // Update config with stored values, falling back to current config
+      // Update config with stored toggles, fallback to defaults.
       _currentConfig = _currentConfig.copyWith(
         isAscending: prefs.getBool('chart_isAscending') ?? _currentConfig.isAscending,
         isBarChart: prefs.getBool('chart_isBarChart') ?? _currentConfig.isBarChart,
+        isScrollable: prefs.getBool('chart_isScrollable') ?? _currentConfig.isScrollable,
       );
     } catch (e) {
-      // Handle potential errors (e.g., platform exceptions)
       debugPrint("Could not load chart preferences: $e");
     } finally {
       if (mounted) {
@@ -192,57 +205,90 @@ class _CustomBarChartState<T> extends State<CustomBarChart<T>> {
   @override
   void didUpdateWidget(CustomBarChart<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Update config if the widget's config changes, but keep local state
-    // for toggles. We can do this by only copying non-toggle properties
-    // or by just accepting the new config as the source of truth.
-    // For simplicity, let's accept the new config, but toggles will
-    // rebuild this state anyway.
+    // Preserve local toggles when widget config changes.
     if (oldWidget.config != widget.config) {
-      // Keep local state for toggles
       _currentConfig = widget.config.copyWith(
         isAscending: _currentConfig.isAscending,
         isBarChart: _currentConfig.isBarChart,
+        isScrollable: _currentConfig.isScrollable,
       );
     }
   }
 
+  // Process raw data into processed ChartDataPoint list.
+  // Summarized mode: Bin into max 12 points with averages if >12.
+  // Detailed mode: Use all raw points.
   List<ChartDataPoint> get chartData {
     try {
       if (widget.data.isEmpty) return [];
 
-      List<ChartDataPoint> points = widget.data.map((item) {
+      // Map raw data to ChartDataPoint, filter invalid.
+      List<ChartDataPoint> rawPoints = widget.data.map((item) {
         try {
+          DateTime dt = widget.getDate(item);
+          double val = widget.getValue(item);
           return ChartDataPoint(
-            date: widget.getDate(item),
-            value: widget.getValue(item),
+            date: dt,
+            value: val,
+            startDate: dt,
+            endDate: dt,
           );
         } catch (e) {
-          // Skip invalid items
           return null;
         }
       }).where((point) => point != null).cast<ChartDataPoint>().toList();
 
-      // Sort by date (ascending first)
-      points.sort((a, b) => a.date.compareTo(b.date));
+      // Sort ascending by date.
+      rawPoints.sort((a, b) => a.date.compareTo(b.date));
 
-      // Apply sorting based on isAscending toggle
-      if (_currentConfig.isAscending) {
-        // Keep ascending order (oldest to newest)
-        // Do nothing, already sorted ascending
+      List<ChartDataPoint> processed;
+      const int glanceMaxPoints = 12;
+
+      if (_currentConfig.isScrollable) {
+        // Summarized: Bin if too many.
+        if (rawPoints.length <= glanceMaxPoints) {
+          processed = rawPoints;
+        } else {
+          int numGroups = glanceMaxPoints;
+          int groupSize = rawPoints.length ~/ numGroups;
+          int remainder = rawPoints.length % numGroups;
+          processed = <ChartDataPoint>[];
+          int idx = 0;
+          for (int g = 0; g < numGroups; g++) {
+            if (idx >= rawPoints.length) break;
+            int size = groupSize + (g < remainder ? 1 : 0);
+            List<ChartDataPoint> group = rawPoints.sublist(idx, idx + size);
+            double avg = group.map((e) => e.value).reduce((a, b) => a + b) / group.length;
+            DateTime sDate = group.first.date;
+            DateTime eDate = group.last.date;
+            Duration diff = eDate.difference(sDate);
+            DateTime midDate = sDate.add(diff ~/ 2);
+            processed.add(ChartDataPoint(
+              date: midDate,
+              value: avg,
+              startDate: sDate,
+              endDate: eDate,
+            ));
+            idx += size;
+          }
+        }
       } else {
-        // Descending order (newest to oldest)
-        points = points.reversed.toList();
+        processed = rawPoints;
       }
 
-      return points;
+      // Apply sort toggle.
+      if (!_currentConfig.isAscending) {
+        processed = processed.reversed.toList();
+      }
+
+      return processed;
     } catch (e) {
       return [];
     }
   }
 
-  // Toggle for Sort Order
+  // Toggle sort order, save to prefs.
   void _toggleSortOrder(bool value) async {
-    // NEW: Save preference
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('chart_isAscending', value);
@@ -254,9 +300,8 @@ class _CustomBarChartState<T> extends State<CustomBarChart<T>> {
     });
   }
 
-  // NEW: Toggle for Chart Type
+  // Toggle chart type, save to prefs.
   void _toggleChartType(bool value) async {
-    // NEW: Save preference
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('chart_isBarChart', value);
@@ -268,12 +313,24 @@ class _CustomBarChartState<T> extends State<CustomBarChart<T>> {
     });
   }
 
+  // Toggle scrollable mode, save to prefs.
+  void _toggleScrollable(bool value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('chart_isScrollable', value);
+    } catch (e) {
+      debugPrint("Could not save chart_isScrollable preference: $e");
+    }
+    setState(() {
+      _currentConfig = _currentConfig.copyWith(isScrollable: value);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    // NEW: Show a loader while preferences are loading
     if (_isLoadingPrefs) {
       return const SizedBox(
-        height: 300, // Approx height of chart + expansion tile
+        height: 300,
         child: Center(child: CircularProgressIndicator()),
       );
     }
@@ -296,81 +353,116 @@ class _CustomBarChartState<T> extends State<CustomBarChart<T>> {
     double yAxisMax = _currentConfig.maxValue ?? ((localMax * 1.5 / 10).ceil() * 10.0);
     if (yAxisMax < 20) yAxisMax = 20;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Chart Title (now separate from toggles)
-        Padding(
-          padding: const EdgeInsets.only(left: 20, right: 16, bottom: 12, top: 8),
-          child: Text(
-            _currentConfig.chartTitle,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: isLightMode(context)
-                  ? Colors.grey.shade700
-                  : Colors.grey.shade300,
+    double totalWidth = (processedData.length * _currentConfig.barWidth) +
+        max(0, (processedData.length - 1) * _currentConfig.barSpacing);
+
+    Widget chartContainer;
+    if (_currentConfig.isScrollable) {
+      chartContainer = Expanded(
+        child: LayoutBuilder(
+          builder: (ctx, constraints) {
+            return _CustomBarChartCanvas(
+              data: processedData,
+              config: _currentConfig,
+              yAxisMax: yAxisMax,
+              constrainedWidth: constraints.maxWidth,
+            );
+          },
+        ),
+      );
+    } else {
+      chartContainer = Expanded(
+        child: Scrollbar(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: totalWidth,
+              height: 260,
+              child: _CustomBarChartCanvas(
+                data: processedData,
+                config: _currentConfig,
+                yAxisMax: yAxisMax,
+                constrainedWidth: null,
+              ),
             ),
           ),
         ),
+      );
+    }
 
-        // Chart area
-        SizedBox(
-          height: 260,
-          child: Row(
-            children: [
-              // Y-axis labels
-              _buildYAxisLabels(yAxisMax, context),
-              // Scrollable chart area
-              Expanded(
-                child: Scrollbar(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: _CustomBarChartCanvas(
-                      data: processedData,
-                      config: _currentConfig, // Pass the mutable config
-                      yAxisMax: yAxisMax,
-                    ),
-                  ),
-                ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_currentConfig.chartTitle != '')
+          Padding(
+            padding: const EdgeInsets.only(left: 20, right: 16, bottom: 12, top: 8),
+            child: Text(
+              _currentConfig.chartTitle,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Helpers().isLightMode(context) ? Colors.grey.shade700 : Colors.grey.shade300,
               ),
-            ],
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 5, 10, 0),
+          child: SizedBox(
+            height: 260,
+            child: Row(
+              children: [
+                _buildYAxisLabels(yAxisMax, context),
+                chartContainer,
+              ],
+            ),
           ),
         ),
-
-        // NEW: ExpansionTile for settings
         if (_currentConfig.showToggleSwitch)
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
             child: ExpansionTile(
-              title: const Text(
-                'Additional Settings',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-              ),
+              title: const Text('Graph Settings', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
               tilePadding: const EdgeInsets.symmetric(horizontal: 12),
               childrenPadding: const EdgeInsets.only(bottom: 8),
               children: [
                 SwitchListTile(
-                  title: const Text('Chart Type', style: TextStyle(fontSize: 13)),
-                  subtitle: Text(
-                    _currentConfig.isBarChart ? 'Bar Chart' : 'Line Graph',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
+                  title: const Text('Chart Type', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  subtitle: Text(_currentConfig.isBarChart ? 'Bar Chart' : 'Line Graph', style: TextStyle(fontSize: 12, color: Helpers().isLightMode(context) ? Colors.grey.shade700 : Colors.grey.shade300)),
                   value: _currentConfig.isBarChart,
                   onChanged: _toggleChartType,
                   dense: true,
-                  activeColor: _currentConfig.primaryColor,
+                  activeColor: _currentConfig.primaryColor.withValues(alpha: 0.8),
+                  activeTrackColor: _currentConfig.primaryColor.withValues(alpha: 0.2),
+                  inactiveThumbColor: Helpers().isLightMode(context) ? Colors.grey.shade400 : Colors.grey.shade600,
+                  inactiveTrackColor: Helpers().isLightMode(context) ? Colors.grey.shade300 : Colors.grey.shade800,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 SwitchListTile(
-                  title: const Text('Sort Order', style: TextStyle(fontSize: 13)),
-                  subtitle: Text(
-                    _currentConfig.isAscending ? 'Oldest First' : 'Newest First',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
+                  title: const Text('Sort Order', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  subtitle: Text(_currentConfig.isAscending ? 'Oldest First' : 'Newest First', style: TextStyle(fontSize: 12, color: Helpers().isLightMode(context) ? Colors.grey.shade700 : Colors.grey.shade300)),
                   value: _currentConfig.isAscending,
                   onChanged: _toggleSortOrder,
                   dense: true,
-                  activeColor: _currentConfig.primaryColor,
+                  activeColor: _currentConfig.primaryColor.withValues(alpha: 0.8),
+                  activeTrackColor: _currentConfig.primaryColor.withValues(alpha: 0.2),
+                  inactiveThumbColor: Helpers().isLightMode(context) ? Colors.grey.shade400 : Colors.grey.shade600,
+                  inactiveTrackColor: Helpers().isLightMode(context) ? Colors.grey.shade300 : Colors.grey.shade800,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                SwitchListTile(
+                  title: const Text('Scrollable', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  subtitle: Text(_currentConfig.isScrollable ? 'Summarized View (Non-Scrollable)' : 'Detailed View (Scrollable)', style: TextStyle(fontSize: 12, color: Helpers().isLightMode(context) ? Colors.grey.shade700 : Colors.grey.shade300)),
+                  value: _currentConfig.isScrollable,
+                  onChanged: _toggleScrollable,
+                  dense: true,
+                  activeColor: _currentConfig.primaryColor.withValues(alpha: 0.8),
+                  activeTrackColor: _currentConfig.primaryColor.withValues(alpha: 0.2),
+                  inactiveThumbColor: Helpers().isLightMode(context) ? Colors.grey.shade400 : Colors.grey.shade600,
+                  inactiveTrackColor: Helpers().isLightMode(context) ? Colors.grey.shade300 : Colors.grey.shade800,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ],
             ),
@@ -387,21 +479,15 @@ class _CustomBarChartState<T> extends State<CustomBarChart<T>> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Y-axis label at top
           Container(
             height: 25,
             alignment: Alignment.bottomRight,
             child: Text(
               _currentConfig.yAxisLabel,
-              style: TextStyle(
-                color: isLightMode(context) ? Colors.grey.shade600 : Colors.grey.shade200,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(color: Helpers().isLightMode(context) ? Colors.grey.shade600 : Colors.grey.shade200, fontSize: 10, fontWeight: FontWeight.w500),
             ),
           ),
           const SizedBox(height: 5),
-          // Y-axis values
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -410,10 +496,7 @@ class _CustomBarChartState<T> extends State<CustomBarChart<T>> {
                 double value = maxValue - (index * maxValue / 4);
                 return Text(
                   _formatYAxisValue(value),
-                  style: TextStyle(
-                    color: isLightMode(context) ? Colors.grey.shade600 : Colors.grey.shade200,
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: Helpers().isLightMode(context) ? Colors.grey.shade600 : Colors.grey.shade200, fontSize: 11),
                 );
               }),
             ),
@@ -431,16 +514,18 @@ class _CustomBarChartState<T> extends State<CustomBarChart<T>> {
   }
 }
 
-// Internal chart canvas widget
+// INTERNAL CANVAS: _CustomBarChartCanvas - Handles rendering, interactions, animations.
 class _CustomBarChartCanvas extends StatefulWidget {
   final List<ChartDataPoint> data;
   final ChartConfig config;
   final double yAxisMax;
+  final double? constrainedWidth; // For fitting in summarized mode.
 
   const _CustomBarChartCanvas({
     required this.data,
     required this.config,
     required this.yAxisMax,
+    this.constrainedWidth,
   });
 
   @override
@@ -454,33 +539,17 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
   late AnimationController _trophyAnimationController;
   late Animation<double> _trophyScaleAnimation;
   late Animation<double> _trophyBounceAnimation;
-  final GlobalKey _chartCanvasKey = GlobalKey(); // NEW: Key to find canvas position
+  final GlobalKey _chartCanvasKey = GlobalKey();
 
-  static const double bottomPadding = 70.0;
   static const double topPadding = 40.0;
+  static const double bottomPadding = 70.0;
 
   @override
   void initState() {
     super.initState();
-    _trophyAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-
-    _trophyScaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _trophyAnimationController,
-        curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
-      ),
-    );
-
-    _trophyBounceAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _trophyAnimationController,
-        curve: const Interval(0.0, 1.0, curve: Curves.easeInOut),
-      ),
-    );
-
+    _trophyAnimationController = AnimationController(duration: const Duration(milliseconds: 1500), vsync: this);
+    _trophyScaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _trophyAnimationController, curve: const Interval(0.0, 0.6, curve: Curves.elasticOut)));
+    _trophyBounceAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _trophyAnimationController, curve: const Interval(0.0, 1.0, curve: Curves.easeInOut)));
     _animateTrophy();
   }
 
@@ -490,21 +559,16 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
     if (oldWidget.config.highlightHighest != widget.config.highlightHighest) {
       _animateTrophy();
     }
-    // If switching chart type, hide tooltip
     if (oldWidget.config.isBarChart != widget.config.isBarChart) {
       _hideTooltip();
-      setState(() {
-        hoveredIndex = null;
-      });
+      setState(() => hoveredIndex = null);
     }
   }
 
   void _animateTrophy() {
     if (widget.config.highlightHighest) {
       Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          _trophyAnimationController.repeat(reverse: true);
-        }
+        if (mounted) _trophyAnimationController.repeat(reverse: true);
       });
     } else {
       _trophyAnimationController.stop();
@@ -520,7 +584,6 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
 
   int? get highlightedValueIndex {
     if (!widget.config.highlightHighest || widget.data.isEmpty) return null;
-
     try {
       if (widget.config.highlightMode == HighlightMode.highest) {
         final maxValue = widget.data.map((d) => d.value).reduce((a, b) => a > b ? a : b);
@@ -529,7 +592,6 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
       } else {
         final positiveValues = widget.data.where((d) => d.value > 0);
         if (positiveValues.isEmpty) return null;
-
         final minValue = positiveValues.map((d) => d.value).reduce((a, b) => a < b ? a : b);
         return widget.data.indexWhere((d) => d.value == minValue);
       }
@@ -538,294 +600,281 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
     }
   }
 
-  // --- NEW: Interaction Handlers ---
-
-  void _updateHoverIndex(double dx, double totalWidth) {
-    double slotWidth = widget.config.barWidth + widget.config.barSpacing;
+  void _updateHoverIndex(double dx, double slotWidth) {
     int index = (dx / slotWidth).round();
     if (index < 0) index = 0;
     if (index >= widget.data.length) index = widget.data.length - 1;
-
-    if (hoveredIndex != index) {
-      setState(() => hoveredIndex = index);
-    }
+    if (hoveredIndex != index) setState(() => hoveredIndex = index);
   }
 
   void _handleTap(BuildContext context, TapUpDetails details, int index) {
     if (index < 0 || index >= widget.data.length) return;
-
     if (_activeTooltipIndex == index) {
       _hideTooltip();
     } else {
       final point = widget.data[index];
       final isHighlighted = widget.config.highlightHighest && index == highlightedValueIndex;
-
-      // MODIFIED: Calculate tooltip position differently for line vs bar
       Offset globalPosition;
       if (!widget.config.isBarChart) {
-        // For line chart, find the data point's global position
         final Offset localPointOffset = _getPointOffset(index);
         final RenderBox? renderBox = _chartCanvasKey.currentContext?.findRenderObject() as RenderBox?;
-        if (renderBox == null) return; // Safety check
+        if (renderBox == null) return;
         globalPosition = renderBox.localToGlobal(localPointOffset);
       } else {
-        // For bar chart, use the tap position (original logic)
         globalPosition = details.globalPosition;
       }
-
       _showTooltip(context, globalPosition, point, isHighlighted);
-      setState(() {
-        _activeTooltipIndex = index;
-      });
+      setState(() => _activeTooltipIndex = index);
     }
   }
 
-  int _getIndexFromPosition(double dx, double totalWidth) {
-    double slotWidth = widget.config.barWidth + widget.config.barSpacing;
+  int _getIndexFromPosition(double dx, double slotWidth) {
     int index = (dx / slotWidth).round();
     if (index < 0) index = 0;
     if (index >= widget.data.length) index = widget.data.length - 1;
     return index;
   }
 
-  // NEW: Helper to get the local offset of a data point on the canvas
   Offset _getPointOffset(int index) {
-    final double slotWidth = widget.config.barWidth + widget.config.barSpacing;
-    final double halfBarWidth = widget.config.barWidth / 2;
+    final double slotWidth = _effectiveBarWidth + _effectiveSpacing;
+    final double halfBarWidth = _effectiveBarWidth / 2;
     final double x = index * slotWidth + halfBarWidth;
-    final double y = topPadding +
-        (widget.config.chartHeight -
-            (widget.data[index].value / widget.yAxisMax) *
-                widget.config.chartHeight);
+    final double y = topPadding + (widget.config.chartHeight - (widget.data[index].value / widget.yAxisMax) * widget.config.chartHeight);
     return Offset(x, y.clamp(topPadding, topPadding + widget.config.chartHeight));
   }
 
+  late double _effectiveBarWidth;
+  late double _effectiveSpacing;
+
+  bool get isDetailed => !widget.config.isScrollable;
+
+  double get dateHeight => isDetailed ? 35.0 : 0.0; // Hide in summarized mode.
+
+  double get dateBottom => dateHeight;
+
   @override
   Widget build(BuildContext context) {
-    double totalWidth = (widget.data.length * widget.config.barWidth) +
-        ((widget.data.length - 1) * widget.config.barSpacing);
-
-    // Conditional rendering based on the config
-    if (widget.config.isBarChart) {
-      return _buildBarChart(totalWidth);
+    if (widget.constrainedWidth != null && widget.data.isNotEmpty) {
+      double available = widget.constrainedWidth!;
+      double minSpacing = 10.0;
+      double tempBarWidth = (available - (widget.data.length - 1) * minSpacing) / widget.data.length;
+      tempBarWidth = tempBarWidth.clamp(20.0, widget.config.barWidth);
+      double tempSpacing = (available - (widget.data.length * tempBarWidth)) / max(1, widget.data.length - 1);
+      _effectiveBarWidth = tempBarWidth;
+      _effectiveSpacing = tempSpacing;
     } else {
-      return _buildLineChart(totalWidth);
+      _effectiveBarWidth = widget.config.barWidth;
+      _effectiveSpacing = widget.config.barSpacing;
+    }
+
+    double totalWidth = (widget.data.length * _effectiveBarWidth) + max(0, (widget.data.length - 1) * _effectiveSpacing);
+    double slotWidth = _effectiveBarWidth + _effectiveSpacing;
+
+    if (widget.config.isBarChart) {
+      return _buildBarChart(totalWidth, slotWidth);
+    } else {
+      return _buildLineChart(totalWidth, slotWidth);
     }
   }
 
-  // --- NEW: Bar Chart Builder ---
-  Widget _buildBarChart(double totalWidth) {
+  Widget _buildBarChart(double totalWidth, double slotWidth) {
+    bool showLabels = widget.config.showValueLabels && isDetailed;
+
     return GestureDetector(
       onTap: _hideTooltip,
       child: SizedBox(
-        key: _chartCanvasKey, // NEW: Assign key
+        key: _chartCanvasKey,
         width: totalWidth,
         height: 260,
         child: Stack(
           children: [
-            // Grid lines
             if (widget.config.showGrid)
               Positioned(
                 top: topPadding,
                 left: 0,
                 right: 0,
                 height: widget.config.chartHeight,
-                child: CustomPaint(
-                  painter: _GridPainter(
-                    gridColor: isLightMode(context) ? Colors.grey.shade300 : Colors.grey.shade700,
-                  ),
-                ),
+                child: CustomPaint(painter: _GridPainter(gridColor: Helpers().isLightMode(context) ? Colors.grey.shade300 : Colors.grey.shade700)),
               ),
-            // Bars container
             Positioned(
               top: topPadding,
               left: 0,
               right: 0,
               height: widget.config.chartHeight,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 crossAxisAlignment: CrossAxisAlignment.end,
-                children: widget.data.asMap().entries.map((entry) {
-                  int index = entry.key;
-                  ChartDataPoint point = entry.value;
-                  return _buildBar(point, index);
-                }).toList(),
+                children: <Widget>[
+                  for (int i = 0; i < widget.data.length; i++) ...[
+                    _buildBar(widget.data[i], i),
+                    if (i < widget.data.length - 1) SizedBox(width: _effectiveSpacing),
+                  ],
+                ],
               ),
             ),
-            // Date labels at bottom
-            Positioned(
-              bottom: 35,
-              left: 0,
-              right: 0,
-              height: 35,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: widget.data.asMap().entries.map((entry) {
-                  int index = entry.key;
-                  ChartDataPoint point = entry.value;
-                  return _buildDateLabel(point, index);
-                }).toList(),
+            // Date labels only in detailed mode
+            if (isDetailed)
+              Positioned(
+                bottom: dateBottom,
+                left: 0,
+                right: 0,
+                height: dateHeight,
+                child: Row(
+                  children: <Widget>[
+                    for (int i = 0; i < widget.data.length; i++) ...[
+                      _buildDateLabel(widget.data[i], i),
+                      if (i < widget.data.length - 1) SizedBox(width: _effectiveSpacing),
+                    ],
+                  ],
+                ),
               ),
-            ),
-            // Month labels at very bottom
-            _buildMonthLabels(totalWidth),
+            _buildMonthLabels(totalWidth, slotWidth),
           ],
         ),
       ),
     );
   }
 
-  // --- NEW: Line Chart Builder ---
-  Widget _buildLineChart(double totalWidth) {
-    return MouseRegion(
-      onEnter: (_) {}, // Handled by onHover
-      onExit: (_) => setState(() => hoveredIndex = null),
-      onHover: (event) => _updateHoverIndex(event.localPosition.dx, totalWidth),
-      child: GestureDetector(
-        onTap: _hideTooltip,
-        onTapUp: (details) => _handleTap(
-          context,
-          details,
-          _getIndexFromPosition(details.localPosition.dx, totalWidth),
+  Widget _buildLineChart(double totalWidth, double slotWidth) {
+    bool showLabels = widget.config.showValueLabels && isDetailed;
+
+    List<Widget> stackChildren = [
+      if (widget.config.showGrid)
+        Positioned(
+          top: topPadding,
+          left: 0,
+          right: 0,
+          height: widget.config.chartHeight,
+          child: CustomPaint(painter: _GridPainter(gridColor: Helpers().isLightMode(context) ? Colors.grey.shade300 : Colors.grey.shade700)),
         ),
-        child: SizedBox(
-          key: _chartCanvasKey, // NEW: Assign key
-          width: totalWidth,
-          height: 260,
-          child: Stack(
-            children: [
-              // Grid lines
-              if (widget.config.showGrid)
-                Positioned(
-                  top: topPadding,
-                  left: 0,
-                  right: 0,
-                  height: widget.config.chartHeight,
-                  child: CustomPaint(
-                    painter: _GridPainter(
-                      gridColor: isLightMode(context) ? Colors.grey.shade300 : Colors.grey.shade700,
-                    ),
-                  ),
-                ),
-              // NEW: Line Chart Painter
-              Positioned(
-                top: topPadding,
-                left: 0,
-                right: 0,
-                height: widget.config.chartHeight,
-                child: CustomPaint(
-                  painter: _LineChartPainter(
-                    data: widget.data,
-                    yAxisMax: widget.yAxisMax,
-                    config: widget.config,
-                    hoveredIndex: hoveredIndex,
-                    highlightedValueIndex: highlightedValueIndex,
-                    chartHeight: widget.config.chartHeight,
-                  ),
-                ),
-              ),
-              // NEW: Value labels for line chart
-              if (widget.config.showValueLabels)
-                Positioned(
-                  top: 0, // Positioned relative to the 260 height
-                  left: 0,
-                  right: 0,
-                  // Height constraints:
-                  // 260 - 70 (bottomPadding) = 190
-                  height: 260 - bottomPadding,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    crossAxisAlignment: CrossAxisAlignment.start, // Align to top
-                    children: widget.data.asMap().entries.map((entry) {
-                      int index = entry.key;
-                      ChartDataPoint point = entry.value;
-                      bool isHovered = hoveredIndex == index;
-                      bool isHighlighted = widget.config.highlightHighest && index == highlightedValueIndex;
-
-                      // Calculate Y position
-                      // This is the y position from the top of the painter's canvas (0 -> chartHeight)
-                      double pointY = (widget.config.chartHeight -
-                          (point.value / widget.yAxisMax) *
-                              widget.config.chartHeight);
-
-                      pointY = pointY.clamp(0, widget.config.chartHeight);
-
-                      // This is the y position from the top of the Stack (0 -> 260)
-                      double stackY = pointY + topPadding;
-
-                      // Position label 22px above the point (18px text + 4px padding)
-                      // This is the `top` for the Positioned widget
-                      double labelTopPosition = stackY - 22;
-
-                      // Add extra space if highlighted (for trophy)
-                      if (isHighlighted) {
-                        labelTopPosition -= 24; // 22px trophy + 2px padding
-                      }
-
-                      // Ensure label doesn't go off the top edge
-                      if (labelTopPosition < 0) {
-                        labelTopPosition = 0;
-                      }
-
-                      return SizedBox(
-                        width: widget.config.barWidth,
-                        child: Stack(
-                          clipBehavior: Clip.none, // Allow trophy to overflow
-                          alignment: Alignment.topCenter,
+      Positioned(
+        top: topPadding,
+        left: 0,
+        right: 0,
+        height: widget.config.chartHeight,
+        child: CustomPaint(
+          painter: _LineChartPainter(
+            data: widget.data,
+            yAxisMax: widget.yAxisMax,
+            config: widget.config,
+            hoveredIndex: hoveredIndex,
+            highlightedValueIndex: highlightedValueIndex,
+            chartHeight: widget.config.chartHeight,
+            barWidth: _effectiveBarWidth,
+            barSpacing: _effectiveSpacing,
+          ),
+        ),
+      ),
+      if (showLabels)
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 260 - bottomPadding,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              for (int i = 0; i < widget.data.length; i++) ...[
+                SizedBox(
+                  width: _effectiveBarWidth,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.topCenter,
+                    children: [
+                      Positioned(
+                        top: _calculateLabelTopPosition(i),
+                        child: Column(
                           children: [
-                            Positioned(
-                              top: labelTopPosition,
-                              child: Column(
-                                children: [
-                                  // Trophy icon
-                                  if (isHighlighted) ...[
-                                    _buildTrophyIcon(),
-                                    const SizedBox(height: 2),
-                                  ],
-                                  // Value label
-                                  _buildValueLabel(point, isHighlighted, isHovered),
-                                ],
-                              ),
-                            ),
+                            if (widget.config.highlightHighest && i == highlightedValueIndex) ...[
+                              _buildTrophyIcon(),
+                              const SizedBox(height: 2),
+                            ],
+                            _buildValueLabel(widget.data[i], i == highlightedValueIndex, i == hoveredIndex),
                           ],
                         ),
-                      );
-                    }).toList(),
+                      ),
+                    ],
                   ),
                 ),
-              // Date labels at bottom
-              Positioned(
-                bottom: 35,
-                left: 0,
-                right: 0,
-                height: 35,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: widget.data.asMap().entries.map((entry) {
-                    int index = entry.key;
-                    ChartDataPoint point = entry.value;
-                    return _buildDateLabel(point, index);
-                  }).toList(),
-                ),
-              ),
-              // Month labels at very bottom
-              _buildMonthLabels(totalWidth),
+                if (i < widget.data.length - 1) SizedBox(width: _effectiveSpacing),
+              ],
             ],
           ),
+        ),
+      if (widget.config.highlightHighest && highlightedValueIndex != null && !showLabels) _buildAbsoluteTrophy(highlightedValueIndex!),
+      // Date labels only in detailed mode
+      if (isDetailed)
+        Positioned(
+          bottom: dateBottom,
+          left: 0,
+          right: 0,
+          height: dateHeight,
+          child: Row(
+            children: <Widget>[
+              for (int i = 0; i < widget.data.length; i++) ...[
+                _buildDateLabel(widget.data[i], i),
+                if (i < widget.data.length - 1) SizedBox(width: _effectiveSpacing),
+              ],
+            ],
+          ),
+        ),
+      _buildMonthLabels(totalWidth, slotWidth),
+    ];
+
+    return MouseRegion(
+      onEnter: (_) {},
+      onExit: (_) => setState(() => hoveredIndex = null),
+      onHover: (event) => _updateHoverIndex(event.localPosition.dx, slotWidth),
+      child: GestureDetector(
+        onSecondaryTap: _hideTooltip,
+        onTapUp: (details) => _handleTap(context, details, _getIndexFromPosition(details.localPosition.dx, slotWidth)),
+        child: SizedBox(
+          key: _chartCanvasKey,
+          width: totalWidth,
+          height: 260,
+          child: Stack(children: stackChildren),
         ),
       ),
     );
   }
 
-  // --- COMMON: Build Methods ---
+  Widget _buildAbsoluteTrophy(int index) {
+    final ChartDataPoint point = widget.data[index];
+    double pointY = (widget.config.chartHeight - (point.value / widget.yAxisMax) * widget.config.chartHeight);
+    pointY = pointY.clamp(0, widget.config.chartHeight);
+    double stackY = pointY + topPadding;
+    double trophyTop = stackY - 22;
+    if (trophyTop < 0) trophyTop = 0;
+
+    double trophySlot = _effectiveBarWidth + _effectiveSpacing;
+    double halfBar = _effectiveBarWidth / 2;
+    double trophyLeft = index * trophySlot + halfBar - 11;
+
+    return Positioned(left: trophyLeft, top: trophyTop, child: _buildTrophyIcon());
+  }
+
+  double _calculateLabelTopPosition(int index) {
+    final ChartDataPoint point = widget.data[index];
+    double pointY = (widget.config.chartHeight - (point.value / widget.yAxisMax) * widget.config.chartHeight);
+    pointY = pointY.clamp(0, widget.config.chartHeight);
+    double stackY = pointY + topPadding;
+    double labelTopPosition = stackY - 22;
+    if (widget.config.highlightHighest && index == highlightedValueIndex) labelTopPosition -= 24;
+    if (labelTopPosition < 0) labelTopPosition = 0;
+    return labelTopPosition;
+  }
 
   Widget _buildBar(ChartDataPoint point, int index) {
     double barHeight = (point.value / widget.yAxisMax) * widget.config.chartHeight;
     bool isHovered = hoveredIndex == index;
     bool isHighlighted = widget.config.highlightHighest && index == highlightedValueIndex;
+    bool showLabels = widget.config.showValueLabels && isDetailed;
+    bool isAveraged = point.startDate != null && !point.startDate!.isAtSameMomentAs(point.endDate!);
+
+    String period = isAveraged ? '${DateFormat('MMM dd').format(point.startDate!)} to ${DateFormat('MMM dd').format(point.endDate!)}' : DateFormat('MMM dd').format(point.date);
+    String labelPrefix = isAveraged ? 'average ' : '';
 
     return Semantics(
-      label: 'Bar for ${DateFormat('MMM dd').format(point.date)}, value: ${_formatValue(point.value)}',
+      label: 'Bar for $period, $labelPrefix value: ${_formatValue(point.value)}',
       excludeSemantics: true,
       child: GestureDetector(
         onTapUp: (details) => _handleTap(context, details, index),
@@ -833,70 +882,47 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
           onEnter: (_) => setState(() => hoveredIndex = index),
           onExit: (_) => setState(() => hoveredIndex = null),
           child: SizedBox(
+            width: _effectiveBarWidth,
             height: widget.config.chartHeight,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // Trophy icon for highest value
                 if (isHighlighted) ...[
-                  _buildTrophyIcon(), // Use extracted method
+                  _buildTrophyIcon(),
                   const SizedBox(height: 2),
                 ],
-
-                // Value label on top
-                if (widget.config.showValueLabels) ...[
-                  _buildValueLabel(point, isHighlighted, isHovered), // Use extracted method
+                if (showLabels) ...[
+                  _buildValueLabel(point, isHighlighted, isHovered),
                   const SizedBox(height: 4),
                 ],
-
-                // The actual bar
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  width: widget.config.barWidth,
+                  width: _effectiveBarWidth,
                   height: barHeight,
                   decoration: BoxDecoration(
                     borderRadius: const BorderRadius.all(Radius.circular(6)),
                     gradient: LinearGradient(
                       colors: isHighlighted
-                          ? [
-                        Colors.amber.shade400,
-                        Colors.amber.shade600,
-                      ]
+                          ? [Colors.amber.shade400, Colors.amber.shade600]
                           : isHovered
-                          ? [
-                        widget.config.hoverColor.withOpacity(1.0),
-                        widget.config.hoverColor.withOpacity(0.6),
-                      ]
-                          : isLightMode(context)
-                          ? [
-                        widget.config.primaryColor.withOpacity(0.9),
-                        widget.config.primaryColor.withOpacity(0.3),
-                      ]
-                          : [
-                        widget.config.primaryColor,
-                        widget.config.primaryColor.withOpacity(0.7),
-                      ],
+                          ? [widget.config.hoverColor.withOpacity(1.0), widget.config.hoverColor.withOpacity(0.6)]
+                          : Helpers().isLightMode(context)
+                          ? [widget.config.primaryColor.withOpacity(0.9), widget.config.primaryColor.withOpacity(0.3)]
+                          : [widget.config.primaryColor, widget.config.primaryColor.withOpacity(0.7)],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
                     boxShadow: isHighlighted || isHovered
                         ? [
                       BoxShadow(
-                        color: isHighlighted
-                            ? Colors.amber.withOpacity(0.5)
-                            : widget.config.primaryColor.withOpacity(0.3),
+                        color: isHighlighted ? Colors.amber.withOpacity(0.5) : widget.config.primaryColor.withOpacity(0.3),
                         blurRadius: isHighlighted ? 12 : 8,
                         offset: const Offset(0, 2),
                         spreadRadius: isHighlighted ? 2 : 0,
                       ),
                     ]
                         : null,
-                    border: isHighlighted
-                        ? Border.all(
-                      color: Colors.amber.shade300,
-                      width: 2,
-                    )
-                        : null,
+                    border: isHighlighted ? Border.all(color: Colors.amber.shade300, width: 2) : null,
                   ),
                 ),
               ],
@@ -907,7 +933,6 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
     );
   }
 
-  // NEW: Extracted trophy widget
   Widget _buildTrophyIcon() {
     return AnimatedBuilder(
       animation: _trophyAnimationController,
@@ -921,27 +946,15 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Glow effect
                   Container(
                     width: 18,
                     height: 18,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.amber.withOpacity(0.6),
-                          blurRadius: 12,
-                          spreadRadius: 2,
-                        ),
-                      ],
+                      boxShadow: [BoxShadow(color: Colors.amber.withOpacity(0.6), blurRadius: 12, spreadRadius: 2)],
                     ),
                   ),
-                  // Trophy icon
-                  Icon(
-                    Icons.emoji_events,
-                    color: Colors.amber.shade600,
-                    size: 18,
-                  ),
+                  Icon(Icons.emoji_events, color: Colors.amber.shade600, size: 18),
                 ],
               ),
             ),
@@ -951,7 +964,6 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
     );
   }
 
-  // NEW: Extracted value label widget
   Widget _buildValueLabel(ChartDataPoint point, bool isHighlighted, bool isHovered) {
     return SizedBox(
       height: 18,
@@ -961,9 +973,7 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
           fontSize: isHighlighted ? 11 : 10,
           color: isHighlighted
               ? Colors.amber.shade700
-              : isLightMode(context)
-              ? (isHovered ? Colors.black : Colors.black87)
-              : Colors.white,
+              : Helpers().isLightMode(context) ? (isHovered ? Colors.black : Colors.black87) : Colors.white,
           fontWeight: isHighlighted || isHovered ? FontWeight.bold : FontWeight.w500,
         ),
       ),
@@ -973,29 +983,49 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
   Widget _buildDateLabel(ChartDataPoint point, int index) {
     bool isHovered = hoveredIndex == index;
     bool isHighlighted = widget.config.highlightHighest && index == highlightedValueIndex;
+    bool hasRange = point.startDate != null && point.endDate != null && !point.startDate!.isAtSameMomentAs(point.endDate!);
+
+    String labelText;
+    String dateFormat = 'E\ndd'; // Default for detailed.
+    double fontSize = 12.0;
+    double lineHeight = 1.1;
+
+    if (hasRange) {
+      // For binned, show range like "01 - 03".
+      String startStr = DateFormat('dd').format(point.startDate!);
+      String endStr = DateFormat('dd').format(point.endDate!);
+      if (point.startDate!.month == point.endDate!.month) {
+        labelText = '$startStr - $endStr';
+        fontSize = 10.0;
+        lineHeight = 1.0;
+      } else {
+        endStr = DateFormat('dd MMM').format(point.endDate!);
+        labelText = '$startStr - $endStr';
+        fontSize = 9.0;
+        lineHeight = 1.0;
+      }
+    } else {
+      labelText = DateFormat(dateFormat).format(point.date);
+    }
 
     return SizedBox(
-      width: widget.config.barWidth,
+      width: _effectiveBarWidth,
       child: Text(
-        DateFormat('E\ndd').format(point.date),
+        labelText,
         textAlign: TextAlign.center,
         style: TextStyle(
           color: isHighlighted
               ? Colors.amber.shade700
-              : isHovered
-              ? (isLightMode(context) ? Colors.black : Colors.white)
-              : isLightMode(context)
-              ? Colors.grey.shade600
-              : Colors.grey.shade200,
-          fontSize: 12,
-          height: 1.1,
+              : isHovered ? (Helpers().isLightMode(context) ? Colors.black : Colors.white) : Helpers().isLightMode(context) ? Colors.grey.shade600 : Colors.grey.shade200,
+          fontSize: fontSize,
+          height: lineHeight,
           fontWeight: isHighlighted || isHovered ? FontWeight.w600 : FontWeight.normal,
         ),
       ),
     );
   }
 
-  Widget _buildMonthLabels(double totalWidth) {
+  Widget _buildMonthLabels(double totalWidth, double slotWidth) {
     Map<String, List<int>> monthGroups = {};
     for (int i = 0; i < widget.data.length; i++) {
       String monthKey = DateFormat('MMM yyyy').format(widget.data[i].date);
@@ -1004,8 +1034,7 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
     }
 
     List<Widget> monthLabels = [];
-    double slotWidth = widget.config.barWidth + widget.config.barSpacing;
-    double halfBarWidth = widget.config.barWidth / 2;
+    double halfBarWidth = _effectiveBarWidth / 2;
 
     for (var entry in monthGroups.entries) {
       String month = entry.key;
@@ -1014,9 +1043,7 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
       double startPos = (indices.first * slotWidth) + halfBarWidth;
       double endPos = (indices.last * slotWidth) + halfBarWidth;
       double centerPos = (startPos + endPos) / 2;
-      double width = endPos - startPos + (widget.config.barWidth);
-
-      // Clamp width to total width
+      double width = endPos - startPos + _effectiveBarWidth;
       width = width > totalWidth ? totalWidth : width;
 
       monthLabels.add(
@@ -1029,11 +1056,7 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
             child: Text(
               month,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: isLightMode(context) ? Colors.grey.shade600 : Colors.grey.shade200,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(color: Helpers().isLightMode(context) ? Colors.grey.shade600 : Colors.grey.shade200, fontSize: 10, fontWeight: FontWeight.w500),
               overflow: TextOverflow.clip,
               maxLines: 1,
             ),
@@ -1045,21 +1068,13 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
     return Stack(children: monthLabels);
   }
 
-  // --- COMMON: Helper Methods ---
-
   String _formatValue(double value) {
     try {
       if (widget.config.showDecimals) {
-        if (value >= 1000) {
-          double kValue = value / 1000;
-          return '${kValue.toStringAsFixed(widget.config.decimalPlaces)}k';
-        }
+        if (value >= 1000) return '${(value / 1000).toStringAsFixed(widget.config.decimalPlaces)}k';
         return value.toStringAsFixed(widget.config.decimalPlaces);
       } else {
-        if (value >= 1000) {
-          double kValue = value / 1000;
-          return '${kValue.toStringAsFixed(1)}k';
-        }
+        if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}k';
         return value.toInt().toString();
       }
     } catch (e) {
@@ -1070,13 +1085,14 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
   void _showTooltip(BuildContext context, Offset position, ChartDataPoint point, bool isHighlighted) {
     _hideTooltip();
 
-    // MODIFIED: Position tooltip based on calculated position
-    // (position.dx - 60) centers a ~120px tooltip
-    // (position.dy - 80) positions it 80px above the anchor point
+    bool isAveraged = point.startDate != null && !point.startDate!.isAtSameMomentAs(point.endDate!);
+    String dateStr = isAveraged ? '${DateFormat('MMM dd').format(point.startDate!)} to ${DateFormat('MMM dd').format(point.endDate!)}' : DateFormat('MMM dd, yyyy').format(point.date);
+    String valuePrefix = isAveraged ? 'Average: ' : '';
+
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        left: position.dx - 60, // Adjust positioning as needed
-        top: position.dy - 80,  // Adjust positioning as needed
+        left: position.dx - 60,
+        top: position.dy - 80,
         child: Material(
           elevation: 8,
           borderRadius: BorderRadius.circular(8),
@@ -1085,18 +1101,9 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isHighlighted ? Colors.amber.shade300 : Colors.grey.shade300,
-                width: isHighlighted ? 2 : 1,
-              ),
+              border: Border.all(color: isHighlighted ? Colors.amber.shade300 : Colors.grey.shade300, width: isHighlighted ? 2 : 1),
               boxShadow: isHighlighted
-                  ? [
-                BoxShadow(
-                  color: Colors.amber.withOpacity(0.3),
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                ),
-              ]
+                  ? [BoxShadow(color: Colors.amber.withOpacity(0.3), blurRadius: 8, spreadRadius: 1)]
                   : null,
             ),
             child: Column(
@@ -1107,41 +1114,16 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.emoji_events,
-                        color: Colors.amber.shade600,
-                        size: 16,
-                      ),
+                      Icon(Icons.emoji_events, color: Colors.amber.shade600, size: 16),
                       const SizedBox(width: 4),
-                      Text(
-                        'Personal Best!',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.amber.shade700,
-                        ),
-                      ),
+                      Text('Personal Best!', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade700)),
                     ],
                   ),
                   const SizedBox(height: 4),
                 ],
-                Text(
-                  DateFormat('MMM dd, yyyy').format(point.date),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
-                  ),
-                ),
+                Text(dateStr, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black)),
                 const SizedBox(height: 4),
-                Text(
-                  '${_formatValue(point.value)} ${widget.config.valueUnit}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: isHighlighted ? Colors.amber.shade700 : widget.config.primaryColor,
-                  ),
-                ),
+                Text('$valuePrefix${_formatValue(point.value)} ${widget.config.valueUnit}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isHighlighted ? Colors.amber.shade700 : widget.config.primaryColor)),
               ],
             ),
           ),
@@ -1155,16 +1137,11 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
   void _hideTooltip() {
     _overlayEntry?.remove();
     _overlayEntry = null;
-    if (_activeTooltipIndex != null) {
-      setState(() {
-        _activeTooltipIndex = null;
-      });
-    }
+    if (_activeTooltipIndex != null) setState(() => _activeTooltipIndex = null);
   }
 }
 
-// --- NEW: Line Chart Painter ---
-
+// PAINTER: Line chart with gradient fill, smooth line, and interactive points.
 class _LineChartPainter extends CustomPainter {
   final List<ChartDataPoint> data;
   final double yAxisMax;
@@ -1172,6 +1149,8 @@ class _LineChartPainter extends CustomPainter {
   final int? hoveredIndex;
   final int? highlightedValueIndex;
   final double chartHeight;
+  final double barWidth;
+  final double barSpacing;
 
   _LineChartPainter({
     required this.data,
@@ -1180,17 +1159,18 @@ class _LineChartPainter extends CustomPainter {
     this.hoveredIndex,
     this.highlightedValueIndex,
     required this.chartHeight,
+    required this.barWidth,
+    required this.barSpacing,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (data.isEmpty) return;
 
-    final double slotWidth = config.barWidth + config.barSpacing;
-    final double halfBarWidth = config.barWidth / 2;
+    final double slotWidth = barWidth + barSpacing;
+    final double halfBarWidth = barWidth / 2;
 
-    // 1. Calculate points
-    final points = <Offset>[];
+    final List<Offset> points = [];
     for (int i = 0; i < data.length; i++) {
       final double x = i * slotWidth + halfBarWidth;
       final double y = chartHeight - (data[i].value / yAxisMax) * chartHeight;
@@ -1199,26 +1179,23 @@ class _LineChartPainter extends CustomPainter {
 
     if (points.isEmpty) return;
 
-    // 2. Draw Gradient Fill
+    // Gradient fill
     final Paint fillPaint = Paint()
       ..shader = LinearGradient(
-        colors: [
-          config.primaryColor.withOpacity(0.4),
-          config.primaryColor.withOpacity(0.0),
-        ],
+        colors: [config.primaryColor.withOpacity(0.4), config.primaryColor.withOpacity(0.0)],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ).createShader(Rect.fromLTWH(0, 0, size.width, chartHeight));
 
     final Path fillPath = Path();
-    fillPath.moveTo(points.first.dx, chartHeight); // Start at bottom-left
-    fillPath.lineTo(points.first.dx, points.first.dy); // Go to first data point
-    _addSmoothPathSegments(fillPath, points); // Add smooth line segments
-    fillPath.lineTo(points.last.dx, chartHeight); // Go to bottom-right
+    fillPath.moveTo(points.first.dx, chartHeight);
+    fillPath.lineTo(points.first.dx, points.first.dy);
+    _addSmoothPathSegments(fillPath, points);
+    fillPath.lineTo(points.last.dx, chartHeight);
     fillPath.close();
     canvas.drawPath(fillPath, fillPaint);
 
-    // 3. Draw Line Stroke
+    // Line
     final Paint linePaint = Paint()
       ..color = config.primaryColor
       ..strokeWidth = 3
@@ -1230,7 +1207,7 @@ class _LineChartPainter extends CustomPainter {
     _addSmoothPathSegments(linePath, points);
     canvas.drawPath(linePath, linePaint);
 
-    // 4. Draw Points
+    // Points
     final Paint pointPaint = Paint()..color = config.primaryColor;
     final Paint pointInnerPaint = Paint()..color = Colors.white;
     final Paint highlightPaint = Paint()..color = Colors.amber.shade600;
@@ -1239,30 +1216,20 @@ class _LineChartPainter extends CustomPainter {
     for (int i = 0; i < points.length; i++) {
       final bool isHighlighted = i == highlightedValueIndex;
       final bool isHovered = i == hoveredIndex;
-
       final double radius = isHighlighted ? 8 : (isHovered ? 7 : 5);
-      final Paint currentPaint =
-      isHighlighted ? highlightPaint : (isHovered ? hoverPaint : pointPaint);
-
+      final Paint currentPaint = isHighlighted ? highlightPaint : (isHovered ? hoverPaint : pointPaint);
       canvas.drawCircle(points[i], radius, currentPaint);
-      if(radius > 2) {
-        canvas.drawCircle(points[i], radius - 2, pointInnerPaint);
-      }
+      if (radius > 2) canvas.drawCircle(points[i], radius - 2, pointInnerPaint);
     }
   }
 
-  // Helper to create the smooth curve
   void _addSmoothPathSegments(Path path, List<Offset> points) {
     if (points.length < 2) return;
-
     for (int i = 0; i < points.length - 1; i++) {
       final Offset p0 = points[i];
       final Offset p1 = points[i + 1];
-
-      // Simple cubic smoothing
       final Offset cp1 = Offset(p0.dx + (p1.dx - p0.dx) * 0.5, p0.dy);
       final Offset cp2 = Offset(p1.dx - (p1.dx - p0.dx) * 0.5, p1.dy);
-
       path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p1.dx, p1.dy);
     }
   }
@@ -1273,12 +1240,13 @@ class _LineChartPainter extends CustomPainter {
         oldDelegate.yAxisMax != yAxisMax ||
         oldDelegate.config != config ||
         oldDelegate.hoveredIndex != hoveredIndex ||
-        oldDelegate.highlightedValueIndex != highlightedValueIndex;
+        oldDelegate.highlightedValueIndex != highlightedValueIndex ||
+        oldDelegate.barWidth != barWidth ||
+        oldDelegate.barSpacing != barSpacing;
   }
 }
 
-// --- COMMON: Grid Painter ---
-
+// PAINTER: Dashed horizontal grid lines.
 class _GridPainter extends CustomPainter {
   final Color gridColor;
 
@@ -1286,10 +1254,7 @@ class _GridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final dashedPaint = Paint()
-      ..color = gridColor
-      ..strokeWidth = 1;
-
+    final Paint dashedPaint = Paint()..color = gridColor..strokeWidth = 1;
     for (int i = 0; i <= 4; i++) {
       double y = i * size.height / 4;
       _drawDashedLine(canvas, Offset(0, y), Offset(size.width, y), dashedPaint);
@@ -1300,22 +1265,18 @@ class _GridPainter extends CustomPainter {
     const dashWidth = 4.0;
     const dashSpace = 3.0;
     double distance = (end - start).distance;
-
     if (distance == 0) return;
 
     double currentDistance = 0;
     bool drawDash = true;
-
     while (currentDistance < distance) {
       double nextDistance = currentDistance + (drawDash ? dashWidth : dashSpace);
       if (nextDistance > distance) nextDistance = distance;
-
       if (drawDash) {
         Offset dashStart = Offset.lerp(start, end, currentDistance / distance)!;
         Offset dashEnd = Offset.lerp(start, end, nextDistance / distance)!;
         canvas.drawLine(dashStart, dashEnd, paint);
       }
-
       currentDistance = nextDistance;
       drawDash = !drawDash;
     }
@@ -1324,5 +1285,3 @@ class _GridPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _GridPainter oldDelegate) => oldDelegate.gridColor != gridColor;
 }
-
-

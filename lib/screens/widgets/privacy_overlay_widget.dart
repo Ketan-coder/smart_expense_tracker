@@ -142,11 +142,12 @@ class PrivacyIndicator extends StatelessWidget {
   }
 }
 
-/// Vignette overlay for narrower viewing angle simulation
-class VignetteOverlay extends StatelessWidget {
+/// Simple dimming overlay - replaces vignette to avoid light mode glitches
+/// Just a subtle black overlay to reduce brightness
+class MyDimmingOverlay extends StatelessWidget {
   final bool isActive;
 
-  const VignetteOverlay({
+  const MyDimmingOverlay({
     super.key,
     required this.isActive,
   });
@@ -157,20 +158,10 @@ class VignetteOverlay extends StatelessWidget {
 
     return IgnorePointer(
       child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 500),
+        duration: const Duration(milliseconds: 400),
         opacity: isActive ? 1.0 : 0.0,
         child: Container(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment.center,
-              radius: 0.8,
-              colors: [
-                Colors.transparent,
-                Colors.black.withOpacity(0.3),
-              ],
-              stops: const [0.5, 1.0],
-            ),
-          ),
+          color: Colors.black.withOpacity(0.65), // Simple 15% black overlay
         ),
       ),
     );

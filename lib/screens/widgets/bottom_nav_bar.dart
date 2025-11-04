@@ -4,13 +4,13 @@ import 'package:expense_tracker/core/app_constants.dart';
 import 'package:expense_tracker/data/model/wallet.dart';
 import 'package:expense_tracker/data/model/recurring.dart';
 import 'package:expense_tracker/screens/home/income_page.dart';
-import 'package:expense_tracker/screens/reports/reports_page.dart';
 import 'package:expense_tracker/screens/settings/settings_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/privacy_overlay_widget.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/helpers.dart';
@@ -26,6 +26,7 @@ import '../../services/sms_service.dart';
 import '../expenses/expense_page.dart';
 import '../home/category_page.dart';
 import '../home/home_page.dart';
+import 'battery_info_widget.dart';
 import 'floating_toolbar.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
@@ -61,9 +62,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
   // Privacy Focused
   final PrivacyManager _privacyManager = PrivacyManager();
-  final ShakeDetector _shakeDetector = ShakeDetector();
+  ShakeDetector? _shakeDetector; // Make nullable, only create if needed
   final AdaptiveBrightnessService _brightnessService = AdaptiveBrightnessService();
-  GazeDetectionManager? _gazeDetectionManager;
+  // GazeDetectionManager? _gazeDetectionManager;
   bool _showWatcherAlert = false;
   Timer? _watcherAlertTimer;
 
@@ -76,45 +77,23 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     _initializePrivacyServices();
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    SmsListener.stopListening();
-
-    // NEW: Cleanup privacy services
-    _privacyManager.removeListener(_onPrivacyStateChanged);
-    _shakeDetector.dispose();
-    _brightnessService.restoreBrightness();
-    _gazeDetectionManager?.dispose();
-    _watcherAlertTimer?.cancel();
-
-    super.dispose();
-  }
 
   Future<void> _initializePrivacyServices() async {
+    debugPrint("🔒 ========================================");
+    debugPrint("🔒 Initializing Privacy Services (Optimized)");
+
     // Initialize privacy manager
     await _privacyManager.initialize();
 
     // Listen to privacy state changes
     _privacyManager.addListener(_onPrivacyStateChanged);
 
-    // Setup shake detection
+    // IMPORTANT: Only setup shake detection if user has it enabled
     if (_privacyManager.shakeToPrivacyEnabled) {
-      _shakeDetector.startListening(
-        onShake: () {
-          debugPrint("📳 Shake detected - toggling privacy");
-          _privacyManager.togglePrivacyActive();
-        },
-        onFaceDown: () {
-          debugPrint("📱 Face-down detected - activating privacy");
-          if (!_privacyManager.isPrivacyActive) {
-            _privacyManager.activatePrivacy(reason: "Face-down");
-          }
-        },
-      );
+      _initializeShakeDetection();
     }
 
-    // Setup screenshot protection
+    // Setup screenshot protection (no battery impact)
     if (_privacyManager.screenshotProtectionEnabled) {
       await SecureWindowManager.enableProtection();
     }
@@ -122,8 +101,37 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     // Apply initial privacy state
     _onPrivacyStateChanged();
 
-    debugPrint("🔒 Privacy services initialized");
+    debugPrint("🔒 Privacy services initialized (Battery optimized)");
+    debugPrint("🔒 Shake detection: ${_shakeDetector != null ? 'Active' : 'Disabled'}");
+    debugPrint("🔒 Face detection: Disabled (enable in settings if needed)");
+    debugPrint("🔒 ========================================");
   }
+
+  void _initializeShakeDetection() {
+    if (_shakeDetector != null) return; // Already initialized
+
+    _shakeDetector = ShakeDetector();
+    _shakeDetector!.startListening(
+      onShake: () {
+        debugPrint("📳 Shake detected - toggling privacy");
+        _privacyManager.togglePrivacyActive();
+
+        // Haptic feedback
+        HapticFeedback.mediumImpact();
+      },
+      onFaceDown: () {
+        debugPrint("📱 Face-down detected - activating privacy");
+        if (!_privacyManager.isPrivacyActive) {
+          _privacyManager.activatePrivacy(reason: "Face-down");
+          HapticFeedback.lightImpact();
+        }
+      },
+    );
+
+    debugPrint("📳 Shake detection initialized");
+  }
+
+  void _cleanupShakeDetection() { if (_shakeDetector == null) return; _shakeDetector!.dispose(); _shakeDetector = null; debugPrint("📳 Shake detection cleaned up"); }
 
 // Add this callback method:
   void _onPrivacyStateChanged() {
@@ -131,7 +139,14 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
     setState(() {});
 
-    // Handle brightness
+    // Handle shake detection based on settings
+    if (_privacyManager.shakeToPrivacyEnabled && _shakeDetector == null) {
+      _initializeShakeDetection();
+    } else if (!_privacyManager.shakeToPrivacyEnabled && _shakeDetector != null) {
+      _cleanupShakeDetection();
+    }
+
+    // Handle brightness (minimal battery impact)
     if (_privacyManager.adaptiveBrightnessEnabled) {
       if (_privacyManager.isPrivacyActive) {
         _brightnessService.dimForPrivacy();
@@ -140,50 +155,50 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
       }
     }
 
-    // Handle screenshot protection
+    // Handle screenshot protection (no battery impact)
     SecureWindowManager.toggleProtection(
       _privacyManager.screenshotProtectionEnabled && _privacyManager.isPrivacyActive,
     );
 
-    // Handle face detection
-    _handleFaceDetection();
+    // NOTE: Face detection is NOT handled here to save battery
+    // Users must explicitly enable and start it via settings
   }
 
 // Add face detection handler:
-  Future<void> _handleFaceDetection() async {
-    if (_privacyManager.faceDetectionEnabled && _privacyManager.isPrivacyActive) {
-      // Initialize if needed
-      if (_gazeDetectionManager == null) {
-        _gazeDetectionManager = GazeDetectionManager();
-        final initialized = await _gazeDetectionManager!.initialize();
-        if (!initialized) {
-          debugPrint("❌ Could not initialize face detection");
-          return;
-        }
-      }
-
-      // Setup callback
-      _gazeDetectionManager!.onFaceCountChanged = (faceCount) {
-        if (faceCount > 1 && mounted) {
-          setState(() => _showWatcherAlert = true);
-
-          // Auto-hide alert after 3 seconds
-          _watcherAlertTimer?.cancel();
-          _watcherAlertTimer = Timer(const Duration(seconds: 3), () {
-            if (mounted) setState(() => _showWatcherAlert = false);
-          });
-        } else if (faceCount <= 1 && mounted) {
-          setState(() => _showWatcherAlert = false);
-        }
-      };
-
-      // Start detection
-      await _gazeDetectionManager!.startDetection();
-    } else {
-      // Stop detection to save battery
-      await _gazeDetectionManager?.stopDetection();
-    }
-  }
+//   Future<void> _handleFaceDetection() async {
+//     if (_privacyManager.faceDetectionEnabled && _privacyManager.isPrivacyActive) {
+//       // Initialize if needed
+//       if (_gazeDetectionManager == null) {
+//         _gazeDetectionManager = GazeDetectionManager();
+//         final initialized = await _gazeDetectionManager!.initialize();
+//         if (!initialized) {
+//           debugPrint("❌ Could not initialize face detection");
+//           return;
+//         }
+//       }
+//
+//       // Setup callback
+//       _gazeDetectionManager!.onFaceCountChanged = (faceCount) {
+//         if (faceCount > 1 && mounted) {
+//           setState(() => _showWatcherAlert = true);
+//
+//           // Auto-hide alert after 3 seconds
+//           _watcherAlertTimer?.cancel();
+//           _watcherAlertTimer = Timer(const Duration(seconds: 3), () {
+//             if (mounted) setState(() => _showWatcherAlert = false);
+//           });
+//         } else if (faceCount <= 1 && mounted) {
+//           setState(() => _showWatcherAlert = false);
+//         }
+//       };
+//
+//       // Start detection
+//       await _gazeDetectionManager!.startDetection();
+//     } else {
+//       // Stop detection to save battery
+//       await _gazeDetectionManager?.stopDetection();
+//     }
+//   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -202,16 +217,17 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
       debugPrint("🔐 App paused - biometric will be required on resume");
     }
 
-    // NEW: Privacy lifecycle handling
+    // OPTIMIZED: Privacy lifecycle handling
     if (state == AppLifecycleState.paused) {
-      // Stop privacy sensors to save battery
-      _shakeDetector.stopListening();
-      _gazeDetectionManager?.stopDetection();
+      // CRITICAL: Stop ALL sensors to save battery
+      _shakeDetector?.stopListening();
       _brightnessService.restoreBrightness();
+
+      debugPrint("🔋 Battery optimization: All privacy sensors stopped");
     } else if (state == AppLifecycleState.resumed) {
-      // Resume privacy sensors
-      if (_privacyManager.shakeToPrivacyEnabled) {
-        _shakeDetector.startListening(
+      // Resume ONLY if enabled
+      if (_privacyManager.shakeToPrivacyEnabled && _shakeDetector != null) {
+        _shakeDetector!.startListening(
           onShake: () => _privacyManager.togglePrivacyActive(),
           onFaceDown: () {
             if (!_privacyManager.isPrivacyActive) {
@@ -219,9 +235,31 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
             }
           },
         );
+        debugPrint("📳 Shake detection resumed");
       }
+
       _onPrivacyStateChanged();
+    } else if (state == AppLifecycleState.inactive) {
+      // User might be switching apps - stop sensors immediately
+      _shakeDetector?.stopListening();
+      debugPrint("🔋 App inactive - sensors paused");
     }
+  }
+
+// OPTIMIZED DISPOSE
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    SmsListener.stopListening();
+
+    // Cleanup privacy services
+    _privacyManager.removeListener(_onPrivacyStateChanged);
+    _shakeDetector?.dispose();
+    _brightnessService.restoreBrightness();
+
+    debugPrint("🔒 Privacy services disposed");
+
+    super.dispose();
   }
 
 
@@ -695,13 +733,23 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
           _tabs[_currentIndex],
 
           // Privacy vignette overlay
-          VignetteOverlay(
+          MyDimmingOverlay(
             isActive: _privacyManager.isPrivacyActive && _privacyManager.adaptiveBrightnessEnabled,
           ),
 
           // Multiple watchers alert
           if (_showWatcherAlert)
             const MultipleWatchersAlert(),
+
+          if (kDebugMode)
+            BatteryMonitorWidget(
+             shakeDetectorActive: _shakeDetector?.isListening ?? false,
+             faceDetectionActive: false, // or your face detection state
+             privacyModeActive: _privacyManager.isPrivacyActive,
+             adaptiveBrightnessActive: _privacyManager.adaptiveBrightnessEnabled,
+           ),
+
+
 
           // Privacy indicator in top-right corner
           SafeArea(
@@ -782,6 +830,18 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
+  }
+
+  void _logBatteryOptimization() {
+    debugPrint("🔋 ========================================");
+    debugPrint("🔋 BATTERY OPTIMIZATION STATUS");
+    debugPrint("🔋 Privacy Mode: ${_privacyManager.privacyModeEnabled}");
+    debugPrint("🔋 Privacy Active: ${_privacyManager.isPrivacyActive}");
+    debugPrint("🔋 Shake Detection: ${_shakeDetector?.isListening ?? false}");
+    debugPrint("🔋 Face Detection: Disabled (user choice)");
+    debugPrint("🔋 Adaptive Brightness: ${_privacyManager.adaptiveBrightnessEnabled}");
+    debugPrint("🔋 Screenshot Protection: ${_privacyManager.screenshotProtectionEnabled}");
+    debugPrint("🔋 ========================================");
   }
 
   // ========================================

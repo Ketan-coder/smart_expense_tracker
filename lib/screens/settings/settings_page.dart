@@ -1035,35 +1035,35 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _updateFaceDetection(bool value) async {
-    if (value) {
-      // Show warning about camera usage
-      final confirmed = await Dialogs.showConfirmation(
-        context: context,
-        title: "Enable Face Detection?",
-        message: "This feature uses the front camera to detect when someone else is looking at your screen. "
-            "The camera is only active when the app is open and uses minimal battery.",
-        yesText: "Enable",
-        noText: "Cancel",
-      );
-
-      if (confirmed != true) {
-        return;
-      }
-    }
-
-    setState(() => _faceDetectionEnabled = value);
-    await PrivacyManager().setFaceDetection(value);
-
-    if (mounted) {
-      SnackBars.show(
-        context,
-        message: value ? "Face detection enabled" : "Face detection disabled",
-        type: SnackBarType.success,
-        behavior: SnackBarBehavior.floating,
-      );
-    }
-  }
+  // Future<void> _updateFaceDetection(bool value) async {
+  //   if (value) {
+  //     // Show warning about camera usage
+  //     final confirmed = await Dialogs.showConfirmation(
+  //       context: context,
+  //       title: "Enable Face Detection?",
+  //       message: "This feature uses the front camera to detect when someone else is looking at your screen. "
+  //           "The camera is only active when the app is open and uses minimal battery.",
+  //       yesText: "Enable",
+  //       noText: "Cancel",
+  //     );
+  //
+  //     if (confirmed != true) {
+  //       return;
+  //     }
+  //   }
+  //
+  //   setState(() => _faceDetectionEnabled = value);
+  //   await PrivacyManager().setFaceDetection(value);
+  //
+  //   if (mounted) {
+  //     SnackBars.show(
+  //       context,
+  //       message: value ? "Face detection enabled" : "Face detection disabled",
+  //       type: SnackBarType.success,
+  //       behavior: SnackBarBehavior.floating,
+  //     );
+  //   }
+  // }
 
   Future<void> _updateAdaptiveBrightness(bool value) async {
     setState(() => _adaptiveBrightnessEnabled = value);
@@ -1472,6 +1472,104 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  // UPDATED: Face detection toggle with stronger warning
+  Future<void> _updateFaceDetection(bool value) async {
+    if (value) {
+      // Show battery warning dialog
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: const [
+              Icon(Icons.battery_alert, color: Colors.orange),
+              SizedBox(width: 8),
+              Text("Battery Warning"),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Gaze Detection uses the front camera continuously, which can significantly drain your battery.",
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.battery_3_bar, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "Expected battery drain: ~5% per hour",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "Camera stops when app is in background, but will restart when you return.",
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Do you still want to enable this feature?",
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("Cancel"),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.orange,
+              ),
+              child: const Text("Enable Anyway"),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) {
+        return;
+      }
+    }
+
+    setState(() => _faceDetectionEnabled = value);
+    await PrivacyManager().setFaceDetection(value);
+
+    if (mounted) {
+      SnackBars.show(
+        context,
+        message: value
+            ? "⚠️ Face detection enabled - watch your battery"
+            : "Face detection disabled",
+        type: value ? SnackBarType.warning : SnackBarType.success,
+        behavior: SnackBarBehavior.floating,
+      );
+    }
+  }
+
   String get _currentLanguageNativeName {
     final language = _languages.firstWhere(
           (lang) => lang["name"] == _selectedLanguage,
@@ -1659,7 +1757,38 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
                 const SizedBox(height: 8),
-
+                // Privacy Info Card
+                if (_privacyModeEnabled)
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            "Toggle privacy anytime from the home screen icon or by shaking your device.",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 // Privacy Mode Master Switch
                 ListTile(
                   leading: Icon(
@@ -1748,55 +1877,154 @@ class _SettingsPageState extends State<SettingsPage> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.purple.withOpacity(0.2),
+                          color: Colors.orange.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.orange, width: 1),
                         ),
-                        child: const Text(
-                          'BETA',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.battery_alert, size: 12, color: Colors.orange),
+                            SizedBox(width: 4),
+                            Text(
+                              'BETA • High Battery',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                   subtitle: Text(
                     _faceDetectionEnabled
-                        ? "Alert when multiple faces detected"
-                        : "No face detection",
+                        ? "⚠️ Camera active - may drain battery (~5%/hr)"
+                        : "Disabled (Recommended for battery)",
                   ),
                   trailing: Switch(
                     value: _faceDetectionEnabled,
                     onChanged: _privacyModeEnabled ? _updateFaceDetection : null,
                   ),
                   enabled: _privacyModeEnabled,
+                  onTap: _privacyModeEnabled ? () {
+                    // Show info dialog
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Row(
+                          children: const [
+                            Icon(Icons.info_outline, color: Colors.orange),
+                            SizedBox(width: 8),
+                            Text("About Gaze Detection"),
+                          ],
+                        ),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "This feature uses the front camera to detect when multiple people are viewing your screen.",
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildInfoRow(
+                              Icons.battery_charging_full,
+                              "Battery Impact",
+                              "~5% drain per hour of use",
+                              Colors.orange,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildInfoRow(
+                              Icons.camera_front,
+                              "Privacy",
+                              "All processing on-device",
+                              Colors.green,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildInfoRow(
+                              Icons.speed,
+                              "Performance",
+                              "Optimized: 1 FPS, low resolution",
+                              Colors.blue,
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.tips_and_updates, size: 20, color: Colors.blue.shade700),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      "Tip: Keep this OFF unless you frequently work in public spaces.",
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.blue.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text("Close"),
+                          ),
+                        ],
+                      ),
+                    );
+                  } : null,
                 ),
-
-// Privacy Info Card
                 if (_privacyModeEnabled)
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                      color: Helpers().isLightMode(context) ? Colors.green.shade50 : Colors.green.shade800,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                        color: Helpers().isLightMode(context) ? Colors.green.shade200 : Colors.green.shade600,
                       ),
                     ),
                     child: Row(
                       children: [
                         Icon(
-                          Icons.info_outline,
+                          Icons.eco,
                           size: 20,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Helpers().isLightMode(context) ? Colors.green.shade700 : Colors.green.shade50,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Text(
-                            "Toggle privacy anytime from the home screen icon or by shaking your device.",
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Battery Optimized",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Helpers().isLightMode(context) ? Colors.green.shade700 : Colors.green.shade50,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "Privacy features use minimal power. Keep face detection OFF for best battery life.",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Helpers().isLightMode(context) ? Colors.green.shade900 : Colors.green.shade200,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -2093,3 +2321,33 @@ class _LanguageSearchSheetState extends State<LanguageSearchSheet> {
     );
   }
 }
+
+Widget _buildInfoRow(IconData icon, String title, String subtitle, Color color) {
+  return Row(
+    children: [
+      Icon(icon, size: 16, color: color),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: color,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+
+}
+

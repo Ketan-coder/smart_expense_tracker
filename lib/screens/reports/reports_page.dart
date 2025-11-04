@@ -286,27 +286,30 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   }
 
   Widget _buildDateRangeDisplay(ThemeData theme, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.calendar_today_rounded, size: 16, color: colorScheme.onPrimaryContainer),
-            const SizedBox(width: 8),
-            Text(
-              '${DateFormat('d MMM yyyy').format(_startDate)} - ${DateFormat('d MMM yyyy').format(_endDate)}',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onPrimaryContainer,
+    return GestureDetector(
+      onTap: _selectDateRange,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.calendar_today_rounded, size: 16, color: colorScheme.onPrimaryContainer),
+              const SizedBox(width: 8),
+              Text(
+                '${DateFormat('d MMM yyyy').format(_startDate)} - ${DateFormat('d MMM yyyy').format(_endDate)}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onPrimaryContainer,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -558,7 +561,6 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                     valueUnit: "$_currentCurrency ",
                     highlightHighest: true,
                     highlightMode: HighlightMode.highest,
-                    isAscending: true,
                     showToggleSwitch: true,
                   ),
                 ),

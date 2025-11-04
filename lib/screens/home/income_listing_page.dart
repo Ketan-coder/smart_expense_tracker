@@ -7,8 +7,10 @@ import '../../core/helpers.dart';
 import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../data/model/income.dart';
+import '../../services/privacy/privacy_manager.dart';
 import '../widgets/bottom_sheet.dart';
 import '../widgets/custom_app_bar.dart';
+import '../widgets/privacy_overlay_widget.dart';
 import '../widgets/snack_bar.dart';
 
 class IncomeListingPage extends StatefulWidget {
@@ -29,6 +31,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
   double? _minAmount;
   double? _maxAmount;
   String _currentCurrency = 'INR';
+  final PrivacyManager _incomePagePrivacyManager = PrivacyManager();
   
   @override
   void initState() {
@@ -315,6 +318,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isPrivate = _incomePagePrivacyManager.isPrivacyActive;
 
     return Scaffold(
       body: SimpleCustomAppBar(
@@ -494,8 +498,16 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                                 ),
                               ],
                             ),
-                            Text(
-                              '$_currentCurrency ${total.toStringAsFixed(2)}',
+                            // Text(
+                            //   '$_currentCurrency ${total.toStringAsFixed(2)}',
+                            //   style: theme.textTheme.headlineMedium?.copyWith(
+                            //     color: colorScheme.onPrimaryContainer,
+                            //     fontWeight: FontWeight.bold,
+                            //   ),
+                            // ),
+                            PrivacyCurrency(
+                                amount: '$_currentCurrency ${total.toStringAsFixed(2)}',
+                                isPrivacyActive: isPrivate,
                               style: theme.textTheme.headlineMedium?.copyWith(
                                 color: colorScheme.onPrimaryContainer,
                                 fontWeight: FontWeight.bold,
@@ -570,7 +582,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                               ),
                             ),
                             ...entry.value.map((incomeEntry) {
-                              return _buildIncomeTile(incomeEntry, colorScheme, theme);
+                              return _buildIncomeTile(incomeEntry, colorScheme, theme, isPrivate);
                             }),
                             const SizedBox(height: 8),
                           ],
@@ -591,6 +603,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
       MapEntry<dynamic, Income> incomeEntry,
       ColorScheme colorScheme,
       ThemeData theme,
+      bool isPrivate,
       ) {
     final keyId = incomeEntry.key as int;
     final income = incomeEntry.value;
@@ -685,9 +698,17 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
               ),
             ],
           ),
-          trailing: Text(
-            '$_currentCurrency ${income.amount.toStringAsFixed(2)}',
-            style: theme.textTheme.titleMedium?.copyWith(
+          // trailing: Text(
+          //   '$_currentCurrency ${income.amount.toStringAsFixed(2)}',
+          //   style: theme.textTheme.titleMedium?.copyWith(
+          //     color: colorScheme.primary,
+          //     fontWeight: FontWeight.bold,
+          //   ),
+          // ),
+          trailing: PrivacyCurrency(
+            amount: '$_currentCurrency ${income.amount.toStringAsFixed(0)}',
+            isPrivacyActive: isPrivate,
+            style: theme.textTheme.titleSmall?.copyWith(
               color: colorScheme.primary,
               fontWeight: FontWeight.bold,
             ),

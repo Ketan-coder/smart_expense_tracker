@@ -269,10 +269,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // MOVED: Animated title is now inside the scroll view
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                            child: Center(child: _buildAnimatedAppBarTitle()),
-                          ),
+                          if (!isPrivate)...[
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                              child: Center(child: _buildAnimatedAppBarTitle()),
+                            ),
+                          ] else ...[
+                            const SizedBox(height: 10,),
+                          ],
 
                           // 1. Horizontal Swipable Wallets
                           _buildWalletSection(walletBox, theme, colorScheme),
@@ -357,63 +361,67 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     final isPrivate = _privacyManager.shouldHideSensitiveData();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: PrivacyOverlay(
-        isPrivacyActive: isPrivate,
-        useBlur: true,
-        child: Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
-          ),
-          color: colorScheme.surfaceContainer,
-          child: InkWell(
-            onTap: () => _showWalletDetailsSheet(key: key as int, wallet: wallet),
-            borderRadius: BorderRadius.circular(20),
-            child: Padding(
-              // MODIFIED: Scaled down padding
-              padding: const EdgeInsets.all(16.0),
-              // MODIFIED: Use MainAxisAlignment.spaceBetween
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: colorScheme.primaryContainer,
-                        child: _getWalletIcon(wallet.type, colorScheme.onPrimaryContainer),
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+        ),
+        color: colorScheme.surfaceContainer,
+        child: InkWell(
+          onTap: () => _showWalletDetailsSheet(key: key as int, wallet: wallet),
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            // MODIFIED: Scaled down padding
+            padding: const EdgeInsets.all(16.0),
+            // MODIFIED: Use MainAxisAlignment.spaceBetween
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: colorScheme.primaryContainer,
+                      child: _getWalletIcon(wallet.type, colorScheme.onPrimaryContainer),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        wallet.name,
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          wallet.name,
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                    ),
+                  ],
+                ),
+                // const Spacer(), // Removed Spacer
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Balance',
+                      style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
+                    // Text(
+                    //   '$_currentCurrency ${wallet.balance.toStringAsFixed(2)}',
+                    //   // MODIFIED: Scaled down text
+                    //   style: theme.textTheme.headlineSmall?.copyWith(
+                    //     color: colorScheme.onSurface,
+                    //     fontWeight: FontWeight.bold,
+                    //   ),
+                    // ),
+                    PrivacyCurrency(
+                        amount: '$_currentCurrency ${wallet.balance.toStringAsFixed(2)}',
+                        isPrivacyActive: isPrivate,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
-                  ),
-                  // const Spacer(), // Removed Spacer
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Balance',
-                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-                      ),
-                      Text(
-                        '$_currentCurrency ${wallet.balance.toStringAsFixed(2)}',
-                        // MODIFIED: Scaled down text
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  )
-                ],
-              ),
+                    ),
+                  ],
+                )
+              ],
             ),
           ),
         ),
