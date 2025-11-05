@@ -741,13 +741,13 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
           if (_showWatcherAlert)
             const MultipleWatchersAlert(),
 
-          if (kDebugMode)
-            BatteryMonitorWidget(
-             shakeDetectorActive: _shakeDetector?.isListening ?? false,
-             faceDetectionActive: false, // or your face detection state
-             privacyModeActive: _privacyManager.isPrivacyActive,
-             adaptiveBrightnessActive: _privacyManager.adaptiveBrightnessEnabled,
-           ),
+          // if (kDebugMode)
+          //   BatteryMonitorWidget(
+          //    shakeDetectorActive: _shakeDetector?.isListening ?? false,
+          //    faceDetectionActive: false, // or your face detection state
+          //    privacyModeActive: _privacyManager.isPrivacyActive,
+          //    adaptiveBrightnessActive: _privacyManager.adaptiveBrightnessEnabled,
+          //  ),
 
 
 
@@ -944,6 +944,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                         onSelected: (value) {
                           if (value == 'edit') {
                             Navigator.pop(context);
+                            debugPrint("key: $key, wallet: ${wallet.type} $wallet");
                             _showAddEditWalletSheet(key: key, wallet: wallet);
                           } else if (value == 'delete') {
                             _showDeleteWalletDialog(key, wallet);
@@ -970,7 +971,8 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     final isEditing = key != null && wallet != null;
     final nameController = TextEditingController(text: isEditing ? wallet.name : '');
     final balanceController = TextEditingController(text: isEditing ? wallet.balance.toString() : '');
-    String selectedType = isEditing ? wallet.type : 'cash';
+    String selectedType = isEditing ? wallet.type.toLowerCase() : 'cash';
+    debugPrint("selectedType ==>$selectedType");
 
     BottomSheetUtil.show(
       context: context,
@@ -999,7 +1001,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: selectedType,
+                initialValue: selectedType,
                 decoration: const InputDecoration(
                   labelText: 'Type',
                   border: OutlineInputBorder(),

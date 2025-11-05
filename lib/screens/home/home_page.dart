@@ -925,7 +925,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     final isEditing = key != null && wallet != null;
     final nameController = TextEditingController(text: isEditing ? wallet.name : '');
     final balanceController = TextEditingController(text: isEditing ? wallet.balance.toString() : '');
-    String selectedType = isEditing ? wallet.type : 'cash';
+    String selectedType = isEditing ? wallet.type.toLowerCase() : 'cash';
 
     BottomSheetUtil.show(
       context: context,

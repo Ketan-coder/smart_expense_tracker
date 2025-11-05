@@ -123,94 +123,86 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
     final categoryBox = Hive.box<Category>(AppConstants.categories);
     final categories = categoryBox.values.toList();
 
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Filter by Category',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              title: const Text('All Categories'),
-              leading: Radio<String?>(
-                value: null,
-                groupValue: _filterCategory,
-                onChanged: (value) {
-                  setState(() => _filterCategory = value);
-                  Navigator.pop(context);
-                },
-              ),
-            ),
-            ...categories.map((category) {
-              return ListTile(
-                title: Text(category.name),
-                leading: Radio<String>(
-                  value: category.name,
-                  groupValue: _filterCategory,
-                  onChanged: (value) {
-                    setState(() => _filterCategory = value);
-                    Navigator.pop(context);
-                  },
+    BottomSheetUtil.show(
+        context: context,
+        title: 'Filter By Category',
+        height: MediaQuery.sizeOf(context).height * 0.5,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: const Text('All Categories'),
+                  leading: Radio<String?>(
+                    value: null,
+                    groupValue: _filterCategory,
+                    onChanged: (value) {
+                      setState(() => _filterCategory = value);
+                      Navigator.pop(context);
+                    },
+                  ),
                 ),
-              );
-            }),
-          ],
+                ...categories.map((category) {
+                  return ListTile(
+                    title: Text(category.name),
+                    leading: Radio<String>(
+                      value: category.name,
+                      groupValue: _filterCategory,
+                      onChanged: (value) {
+                        setState(() => _filterCategory = value);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
         ),
-      ),
     );
   }
 
   void _showMethodFilter() {
     final methods = Helpers().getPaymentMethods();
 
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Filter by Payment Method',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              title: const Text('All Methods'),
-              leading: Radio<String?>(
-                value: null,
-                groupValue: _filterMethod,
-                onChanged: (value) {
-                  setState(() => _filterMethod = value);
-                  Navigator.pop(context);
-                },
-              ),
-            ),
-            ...methods.map((method) {
-              return ListTile(
-                title: Text(method),
-                leading: Radio<String>(
-                  value: method,
-                  groupValue: _filterMethod,
-                  onChanged: (value) {
-                    setState(() => _filterMethod = value);
-                    Navigator.pop(context);
-                  },
+    BottomSheetUtil.show(
+        context: context,
+        title: 'Filter by Method',
+        height: MediaQuery.sizeOf(context).height * 0.5,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: const Text('All Methods'),
+                  leading: Radio<String?>(
+                    value: null,
+                    groupValue: _filterMethod,
+                    onChanged: (value) {
+                      setState(() => _filterMethod = value);
+                      Navigator.pop(context);
+                    },
+                  ),
                 ),
-              );
-            }),
-          ],
+                ...methods.map((method) {
+                  return ListTile(
+                    title: Text(method),
+                    leading: Radio<String>(
+                      value: method,
+                      groupValue: _filterMethod,
+                      onChanged: (value) {
+                        setState(() => _filterMethod = value);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
         ),
-      ),
     );
   }
 

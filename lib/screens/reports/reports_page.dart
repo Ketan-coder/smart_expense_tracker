@@ -270,6 +270,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                                   ],
                                 ),
                               ),
+
+                              const SizedBox(height: 40),
                             ],
                           ),
                         );

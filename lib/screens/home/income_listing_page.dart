@@ -120,98 +120,190 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
     return incomes;
   }
 
+  // void _showCategoryFilter() {
+  //   final categoryBox = Hive.box<Category>(AppConstants.categories);
+  //   final categories = categoryBox.values.toList();
+  //
+  //   showModalBottomSheet(
+  //     context: context,
+  //     builder: (context) => SafeArea(
+  //       child: SingleChildScrollView(
+  //         child: Column(
+  //           mainAxisSize: MainAxisSize.min,
+  //           children: [
+  //             const Padding(
+  //               padding: EdgeInsets.all(16.0),
+  //               child: Text(
+  //                 'Filter by Category',
+  //                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+  //               ),
+  //             ),
+  //             const Divider(height: 1),
+  //             ListTile(
+  //               title: const Text('All Categories'),
+  //               leading: Radio<String?>(
+  //                 value: null,
+  //                 groupValue: _filterCategory,
+  //                 onChanged: (value) {
+  //                   setState(() => _filterCategory = value);
+  //                   Navigator.pop(context);
+  //                 },
+  //               ),
+  //             ),
+  //             ...categories.map((category) {
+  //               return ListTile(
+  //                 title: Text(category.name),
+  //                 leading: Radio<String>(
+  //                   value: category.name,
+  //                   groupValue: _filterCategory,
+  //                   onChanged: (value) {
+  //                     setState(() => _filterCategory = value);
+  //                     Navigator.pop(context);
+  //                   },
+  //                 ),
+  //               );
+  //             }),
+  //           ],
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
+
   void _showCategoryFilter() {
     final categoryBox = Hive.box<Category>(AppConstants.categories);
     final categories = categoryBox.values.toList();
 
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Filter by Category',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              title: const Text('All Categories'),
-              leading: Radio<String?>(
-                value: null,
-                groupValue: _filterCategory,
-                onChanged: (value) {
-                  setState(() => _filterCategory = value);
-                  Navigator.pop(context);
-                },
-              ),
-            ),
-            ...categories.map((category) {
-              return ListTile(
-                title: Text(category.name),
-                leading: Radio<String>(
-                  value: category.name,
-                  groupValue: _filterCategory,
-                  onChanged: (value) {
-                    setState(() => _filterCategory = value);
-                    Navigator.pop(context);
-                  },
+    BottomSheetUtil.show(
+        context: context,
+        title: 'Filter by Category',
+        height: MediaQuery.of(context).size.height * 0.5,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: const Text('All Categories'),
+                  leading: Radio<String?>(
+                    value: null,
+                    groupValue: _filterCategory,
+                    onChanged: (value) {
+                      setState(() => _filterCategory = value);
+                      Navigator.pop(context);
+                    },
+                  ),
                 ),
-              );
-            }),
-          ],
+                ...categories.map((category) {
+                  return ListTile(
+                    title: Text(category.name),
+                    leading: Radio<String>(
+                      value: category.name,
+                      groupValue: _filterCategory,
+                      onChanged: (value) {
+                        setState(() => _filterCategory = value);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
         ),
-      ),
     );
   }
+
+
+  // void _showSourceFilter() {
+  //   final sources = Helpers().getPaymentMethods();
+  //
+  //   showModalBottomSheet(
+  //     context: context,
+  //     builder: (context) => SafeArea(
+  //       child: SingleChildScrollView(
+  //         child: Column(
+  //           mainAxisSize: MainAxisSize.min,
+  //           children: [
+  //             const Padding(
+  //               padding: EdgeInsets.all(16.0),
+  //               child: Text(
+  //                 'Filter by Source',
+  //                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+  //               ),
+  //             ),
+  //             const Divider(height: 1),
+  //             ListTile(
+  //               title: const Text('All Sources'),
+  //               leading: Radio<String?>(
+  //                 value: null,
+  //                 groupValue: _filterSource,
+  //                 onChanged: (value) {
+  //                   setState(() => _filterSource = value);
+  //                   Navigator.pop(context);
+  //                 },
+  //               ),
+  //             ),
+  //             ...sources.map((source) {
+  //               return ListTile(
+  //                 title: Text(source),
+  //                 leading: Radio<String>(
+  //                   value: source,
+  //                   groupValue: _filterSource,
+  //                   onChanged: (value) {
+  //                     setState(() => _filterSource = value);
+  //                     Navigator.pop(context);
+  //                   },
+  //                 ),
+  //               );
+  //             }),
+  //           ],
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   void _showSourceFilter() {
     final sources = Helpers().getPaymentMethods();
 
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Filter by Source',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              title: const Text('All Sources'),
-              leading: Radio<String?>(
-                value: null,
-                groupValue: _filterSource,
-                onChanged: (value) {
-                  setState(() => _filterSource = value);
-                  Navigator.pop(context);
-                },
-              ),
-            ),
-            ...sources.map((source) {
-              return ListTile(
-                title: Text(source),
-                leading: Radio<String>(
-                  value: source,
-                  groupValue: _filterSource,
-                  onChanged: (value) {
-                    setState(() => _filterSource = value);
-                    Navigator.pop(context);
-                  },
+    BottomSheetUtil.show(
+        context: context,
+        title: 'Filter by Source',
+        height: MediaQuery.of(context).size.height * 0.5,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: const Text('All Sources'),
+                  leading: Radio<String?>(
+                    value: null,
+                    groupValue: _filterSource,
+                    onChanged: (value) {
+                      setState(() => _filterSource = value);
+                      Navigator.pop(context);
+                    },
+                  ),
                 ),
-              );
-            }),
-          ],
+                ...sources.map((source) {
+                  return ListTile(
+                    title: Text(source),
+                    leading: Radio<String>(
+                      value: source,
+                      groupValue: _filterSource,
+                      onChanged: (value) {
+                        setState(() => _filterSource = value);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
         ),
-      ),
     );
   }
 
