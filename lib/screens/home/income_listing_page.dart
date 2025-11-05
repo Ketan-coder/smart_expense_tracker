@@ -14,9 +14,9 @@ import '../widgets/privacy_overlay_widget.dart';
 import '../widgets/snack_bar.dart';
 
 class IncomeListingPage extends StatefulWidget {
-  final String? initialFilter;
+  final String? initialFilter, filterByCategory, filterByMethod;
 
-  const IncomeListingPage({super.key, this.initialFilter});
+  const IncomeListingPage({super.key, this.initialFilter, this.filterByCategory, this.filterByMethod});
 
   @override
   State<IncomeListingPage> createState() => _IncomeListingPageState();
@@ -38,6 +38,15 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
     super.initState();
     if (widget.initialFilter == 'category') {
       _showCategoryFilter();
+    }
+    if (widget.initialFilter == 'source') {
+      _showSourceFilter();
+    }
+    if (widget.filterByCategory != null) {
+      _filterCategory = widget.filterByCategory;
+    }
+    if (widget.filterByMethod != null) {
+      _filterSource = widget.filterByMethod;
     }
     _loadInitialData();
   }

@@ -1,4 +1,5 @@
 import 'package:expense_tracker/data/model/category.dart';
+import 'package:expense_tracker/screens/home/income_listing_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
@@ -6,6 +7,7 @@ import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 // import '../widgets/bottom_nav_bar.dart'; // Not used in this file
 import '../../data/local/universal_functions.dart';
+import '../expenses/expense_listing_page.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/dialog.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -495,7 +497,6 @@ class _CategoryPageState extends State<CategoryPage> {
               // Use SingleChildScrollView + Column to correctly
               // render a list inside the SimpleCustomAppBar's child
               return SingleChildScrollView(
-                // Add padding inside the scroll view
                 padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
                 child: Column(
                   children: List.generate(categories.length, (index) {
@@ -503,8 +504,24 @@ class _CategoryPageState extends State<CategoryPage> {
                     final category = categories[index];
                     final color = Helpers().hexToColor(category.color);
 
-                    // RESTORED: Dismissible functionality
-                    return _buildCategoryTile(context, key, category, color);
+                    return GestureDetector(
+                      onTap: () {
+                        if (category.type.toLowerCase().contains('income')){
+                          Helpers.navigateTo(
+                            context,
+                            IncomeListingPage(filterByCategory: category.name),
+                          );
+                          return;
+                        } else if (category.type.toLowerCase().contains('expense')){
+                          Helpers.navigateTo(
+                            context,
+                            ExpenseListingPage(filterByCategory: category.name),
+                          );
+                          return;
+                        }
+                      },
+                      child: _buildCategoryTile(context, key, category, color),
+                    );
                   }),
                 ),
               );
@@ -693,7 +710,7 @@ class _CategoryPageState extends State<CategoryPage> {
             ],
           ),
           trailing: Icon(
-            Icons.drag_handle_rounded, // Hint for dismissible
+            Icons.chevron_right_rounded, // Hint for dismissible
             color: colorScheme.onSurfaceVariant.withValues(alpha: .5),
           ),
         ),

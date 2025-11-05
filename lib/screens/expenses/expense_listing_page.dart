@@ -13,9 +13,9 @@ import '../widgets/custom_app_bar.dart';
 import '../widgets/privacy_overlay_widget.dart';
 
 class ExpenseListingPage extends StatefulWidget {
-  final String? initialFilter;
+  final String? initialFilter, filterByCategory, filterByMethod;
 
-  const ExpenseListingPage({super.key, this.initialFilter});
+  const ExpenseListingPage({super.key, this.initialFilter, this.filterByCategory, this.filterByMethod});
 
   @override
   State<ExpenseListingPage> createState() => _ExpenseListingPageState();
@@ -37,6 +37,12 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
     super.initState();
     if (widget.initialFilter == 'category') {
       _showCategoryFilter();
+    }
+    if (widget.filterByCategory != null) {
+      _filterCategory = widget.filterByCategory;
+    }
+    if (widget.filterByMethod != null) {
+      _filterMethod = widget.filterByMethod;
     }
     _loadInitialData();
   }
