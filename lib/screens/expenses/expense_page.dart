@@ -461,7 +461,7 @@ class _ExpensePageState extends State<ExpensePage> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    ...filteredExpenses.take(5).map((expense) {
+                    ...filteredExpenses.toList().reversed.take(5).map((expense) {
                       final categoryBox = Hive.box<Category>(AppConstants.categories);
                       String categoryName = 'Uncategorized';
                       if (expense.categoryKeys.isNotEmpty) {

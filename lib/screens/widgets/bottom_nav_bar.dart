@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:expense_tracker/core/app_constants.dart';
 import 'package:expense_tracker/data/model/wallet.dart';
 import 'package:expense_tracker/data/model/recurring.dart';
+import 'package:expense_tracker/screens/habit_screen.dart';
 import 'package:expense_tracker/screens/home/income_page.dart';
 import 'package:expense_tracker/screens/settings/settings_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
@@ -17,12 +18,14 @@ import '../../core/helpers.dart';
 import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../services/biometric_auth.dart';
+import '../../services/habit_detection_service.dart';
 import '../../services/privacy/adaptive_brightness_service.dart';
 import '../../services/privacy/gaze_detection_manager.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../../services/privacy/secure_window_manager.dart';
 import '../../services/privacy/shake_detector.dart';
 import '../../services/sms_service.dart';
+import '../add_edit_habit_bottom_sheet.dart';
 import '../expenses/expense_page.dart';
 import '../home/category_page.dart';
 import '../home/home_page.dart';
@@ -47,7 +50,8 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     HomePage(),
     ExpensePage(),
     IncomePage(),
-    CategoryPage(),
+    // CategoryPage(),
+    HabitPage(),
     SettingsPage(),
   ];
 
@@ -75,6 +79,23 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     _currentIndex = widget.currentIndex;
     _initializeApp();
     _initializePrivacyServices();
+    _scheduleHabitDetection();
+  }
+
+  void _scheduleHabitDetection() {
+    // Run detection once per day
+    Future.delayed(const Duration(seconds: 5), () async {
+      final prefs = await SharedPreferences.getInstance();
+      final lastRun = prefs.getString('last_habit_detection');
+      final now = DateTime.now();
+
+      if (lastRun == null ||
+          DateTime.parse(lastRun).day != now.day) {
+        // Run detection
+        await HabitDetectionService().runAutoDetection();
+        await prefs.setString('last_habit_detection', now.toIso8601String());
+      }
+    });
   }
 
 
@@ -106,6 +127,8 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     debugPrint("🔒 Face detection: Disabled (enable in settings if needed)");
     debugPrint("🔒 ========================================");
   }
+
+
 
   void _initializeShakeDetection() {
     if (_shakeDetector != null) return; // Already initialized
@@ -798,10 +821,11 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
           FloatingToolbarItem(icon: Icons.home, label: 'Home'),
           FloatingToolbarItem(icon: Icons.money_off, label: 'Expenses'),
           FloatingToolbarItem(icon: Icons.monetization_on, label: 'Incomes'),
-          FloatingToolbarItem(icon: Icons.category, label: 'Categories'),
+          // FloatingToolbarItem(icon: Icons.category, label: 'Categories'),
+          FloatingToolbarItem(icon: Icons.track_changes, label: 'Habits'),
           FloatingToolbarItem(icon: Icons.settings, label: 'Settings'),
         ],
-        primaryButton: const Icon(Icons.add),
+        primaryButton: _currentIndex != 5 ? Icon(Icons.add) : null,
         onPrimaryPressed: () {
           switch (_currentIndex) {
             case 0:
@@ -813,8 +837,15 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
             case 2:
               _showAddIncomeSheet();
               break;
+            // case 3:
+            //   _showAddCategorySheet();
+            //   break;
             case 3:
-              _showAddCategorySheet();
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                builder: (context) => const AddEditHabitSheet(),
+              );
               break;
             case 4:
               SnackBars.show(

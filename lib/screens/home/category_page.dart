@@ -497,7 +497,7 @@ class _CategoryPageState extends State<CategoryPage> {
               // Use SingleChildScrollView + Column to correctly
               // render a list inside the SimpleCustomAppBar's child
               return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
                 child: Column(
                   children: List.generate(categories.length, (index) {
                     final key = categoryKeys[index] as int;

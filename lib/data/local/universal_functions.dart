@@ -326,6 +326,7 @@ import 'package:hive_ce/hive.dart';
 import '../../core/app_constants.dart';
 import '../model/category.dart';
 import '../model/expense.dart';
+import '../model/habit.dart';
 import '../model/income.dart';
 import '../model/wallet.dart';
 
@@ -1246,6 +1247,311 @@ class UniversalHiveFunctions {
       return true;
     } catch (e, st) {
       debugPrint("❌ [ensureWalletExists] Error: $e\n$st");
+      return false;
+    }
+  }
+
+  /// Atomic operation: Mark habit as completed, with optional auto-transaction creation
+  /// Checks for recent matching expense/income within 5 minutes; adds if missing
+  Future<bool> markHabitComplete(dynamic habitKey, Habit habit) async {
+    debugPrint("✅ [markHabitComplete] Starting atomic completion for habit: ${habit.name}");
+    final habitBox = Hive.box<Habit>(AppConstants.habits);
+    final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+    final incomeBox = Hive.box<Income>(AppConstants.incomes);
+    final categoryBox = Hive.box<Category>(AppConstants.categories);
+
+    Habit? originalHabit;
+    bool transactionAdded = false;
+    try {
+      // Step 1: Save original habit state
+      originalHabit = habitBox.get(habitKey);
+      if (originalHabit == null) {
+        debugPrint("❌ [markHabitComplete] Habit not found for key: $habitKey");
+        return false;
+      }
+
+      // Step 2: Mark habit as completed
+      final wasCompleted = habit.isCompletedToday();
+      habit.markCompleted();
+      await habitBox.put(habitKey, habit);
+      debugPrint("📅 [markHabitComplete] Habit marked completed: ${habit.name} (streak: ${habit.streakCount})");
+
+      if (wasCompleted) {
+        debugPrint("ℹ️ [markHabitComplete] Habit already completed today, skipping transaction check");
+        return true;
+      }
+
+      // Step 3: Determine if expense or income based on type or categories
+      bool isExpense = habit.type.toLowerCase() == 'expense';
+      bool isIncome = habit.type.toLowerCase() == 'income';
+      if (!isExpense && !isIncome) {
+        // Check categories
+        final habitCategories = habit.categoryKeys
+            .map((k) => categoryBox.get(k))
+            .whereType<Category>()
+            .toList();
+        isExpense = habitCategories.any((cat) => cat.type.toLowerCase() == 'expense');
+        isIncome = habitCategories.any((cat) => cat.type.toLowerCase() == 'income');
+      }
+
+      if (!isExpense && !isIncome) {
+        debugPrint("ℹ️ [markHabitComplete] Habit has no expense/income categories, no transaction added");
+        return true;
+      }
+
+      // Step 4: Check for recent matching transaction (within 5 minutes)
+      final fiveMinAgo = DateTime.now().subtract(const Duration(minutes: 5));
+      final matchingDescription = '${habit.name} (Habit)';
+      bool hasRecentTransaction = false;
+
+      if (isExpense) {
+        hasRecentTransaction = expenseBox.values.any((e) =>
+        e.date.isAfter(fiveMinAgo) &&
+            e.categoryKeys.any((k) => habit.categoryKeys.contains(k)) &&
+            e.description.contains(habit.name));
+      } else if (isIncome) {
+        hasRecentTransaction = incomeBox.values.any((i) =>
+        i.date.isAfter(fiveMinAgo) &&
+            i.categoryKeys.any((k) => habit.categoryKeys.contains(k)) &&
+            i.description.contains(habit.name));
+      }
+
+      // Step 5: Add transaction if missing
+      if (!hasRecentTransaction && habit.targetAmount != null && habit.targetAmount! > 0) {
+        final amount = habit.targetAmount!;
+        final method = 'Habit';  // Default method for auto-habits
+        final desc = matchingDescription;
+
+        if (isExpense) {
+          transactionAdded = await addExpense(
+            amount: amount,
+            description: desc,
+            method: method,
+            categoryKeys: habit.categoryKeys,
+            date: DateTime.now(),
+          );
+        } else if (isIncome) {
+          transactionAdded = await addIncome(
+            amount: amount,
+            description: desc,
+            method: method,
+            categoryKeys: habit.categoryKeys,
+            date: DateTime.now(),
+          );
+        }
+
+        if (transactionAdded) {
+          debugPrint("💳 [markHabitComplete] Auto-added ${isExpense ? 'expense' : 'income'}: $amount for ${habit.name}");
+        } else {
+          debugPrint("⚠️ [markHabitComplete] Failed to auto-add transaction for ${habit.name}");
+        }
+      } else if (hasRecentTransaction) {
+        debugPrint("ℹ️ [markHabitComplete] Recent transaction found, skipping auto-add for ${habit.name}");
+      }
+
+      return true;
+    } catch (e, st) {
+      debugPrint("❌ [markHabitComplete] Atomic operation failed: $e\n$st");
+      // Rollback: Restore original completion state
+      await _rollbackHabitComplete(habitBox, habitKey, originalHabit);
+      return false;
+    }
+  }
+
+  /// Rollback for failed habit completion
+  Future<void> _rollbackHabitComplete(Box<Habit> habitBox, dynamic habitKey, Habit? originalHabit) async {
+    try {
+      if (originalHabit != null) {
+        // Restore original completionHistory (remove today's entry if added)
+        final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+        originalHabit.completionHistory.removeWhere((date) => date.isAtSameMomentAs(today));
+        originalHabit.lastCompletedAt = originalHabit.completionHistory.isNotEmpty
+            ? originalHabit.completionHistory.last
+            : null;
+        originalHabit.streakCount = 0;  // Reset streak on rollback
+        await habitBox.put(habitKey, originalHabit);
+        debugPrint("↩️ [rollback] Restored original habit state");
+      }
+    } catch (e) {
+      debugPrint("⚠️ [rollback] Error during habit completion rollback: $e");
+    }
+  }
+
+  /// Atomic operation: Unmark habit as completed today, with optional auto-transaction removal
+  Future<bool> unmarkHabitComplete(dynamic habitKey, Habit habit) async {
+    debugPrint("↩️ [unmarkHabitComplete] Starting atomic unmark for habit: ${habit.name}");
+    final habitBox = Hive.box<Habit>(AppConstants.habits);
+    final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+    final incomeBox = Hive.box<Income>(AppConstants.incomes);
+    final categoryBox = Hive.box<Category>(AppConstants.categories);
+
+    Habit? originalHabit;
+    int? removedTransactionKey;
+    bool wasExpense = false;
+    bool wasIncome = false;
+    try {
+      // Step 1: Save original habit state
+      originalHabit = habitBox.get(habitKey);
+      if (originalHabit == null) {
+        debugPrint("❌ [unmarkHabitComplete] Habit not found for key: $habitKey");
+        return false;
+      }
+
+      if (!habit.isCompletedToday()) {
+        debugPrint("ℹ️ [unmarkHabitComplete] Habit not completed today, nothing to unmark");
+        return true;
+      }
+
+      // Step 2: Unmark habit (remove today's completion)
+      final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+      habit.completionHistory.removeWhere((date) => date.isAtSameMomentAs(today));
+      habit.lastCompletedAt = habit.completionHistory.isNotEmpty ? habit.completionHistory.last : null;
+      // Recalculate streak (simplified; call _updateStreak if available)
+      habit.streakCount = 0;  // Reset on unmark
+      await habitBox.put(habitKey, habit);
+      debugPrint("📅 [unmarkHabitComplete] Habit unmarked: ${habit.name}");
+
+      // Step 3: Determine type and find recent matching transaction (within 5 minutes)
+      bool isExpense = habit.type.toLowerCase() == 'expense';
+      bool isIncome = habit.type.toLowerCase() == 'income';
+      if (!isExpense && !isIncome) {
+        final habitCategories = habit.categoryKeys
+            .map((k) => categoryBox.get(k))
+            .whereType<Category>()
+            .toList();
+        isExpense = habitCategories.any((cat) => cat.type.toLowerCase() == 'expense');
+        isIncome = habitCategories.any((cat) => cat.type.toLowerCase() == 'income');
+      }
+
+      if (isExpense || isIncome) {
+        final fiveMinAgo = DateTime.now().subtract(const Duration(minutes: 5));
+        final matchingDescription = '${habit.name} (Habit)';
+        dynamic matchingTransaction;
+
+        if (isExpense) {
+          try {
+            matchingTransaction = expenseBox.values.firstWhere(
+                  (e) => e.date.isAfter(fiveMinAgo) &&
+                  e.categoryKeys.any((k) => habit.categoryKeys.contains(k)) &&
+                  e.description == matchingDescription,
+            );
+          } catch (_) {
+            matchingTransaction = null;
+          }
+          wasExpense = true;
+        } else if (isIncome) {
+          try {
+            matchingTransaction = incomeBox.values.firstWhere(
+                  (i) => i.date.isAfter(fiveMinAgo) &&
+                  i.categoryKeys.any((k) => habit.categoryKeys.contains(k)) &&
+                  i.description == matchingDescription,
+            );
+          } catch (_) {
+            matchingTransaction = null;
+          }
+          wasIncome = true;
+        }
+
+        // Step 4: Remove matching transaction if found (assume auto-added)
+        if (matchingTransaction != null) {
+          if (wasExpense) {
+            removedTransactionKey = expenseBox.keyAt(expenseBox.values.toList().indexOf(matchingTransaction as Expense));
+            await deleteExpense(removedTransactionKey!);
+          } else if (wasIncome) {
+            removedTransactionKey = incomeBox.keyAt(incomeBox.values.toList().indexOf(matchingTransaction as Income));
+            await deleteIncome(removedTransactionKey!, 'Habit');
+          }
+          debugPrint("🗑️ [unmarkHabitComplete] Removed auto-transaction for ${habit.name}");
+        } else {
+          debugPrint("ℹ️ [unmarkHabitComplete] No matching transaction found to remove for ${habit.name}");
+        }
+      }
+
+      return true;
+    } catch (e, st) {
+      debugPrint("❌ [unmarkHabitComplete] Atomic operation failed: $e\n$st");
+      // Rollback: Remark as completed
+      await _rollbackUnmarkHabitComplete(habitBox, habitKey, originalHabit, removedTransactionKey, wasExpense, wasIncome);
+      return false;
+    }
+  }
+
+  /// Rollback for failed habit unmark
+  Future<void> _rollbackUnmarkHabitComplete(
+      Box<Habit> habitBox,
+      dynamic habitKey,
+      Habit? originalHabit,
+      int? removedTransactionKey,
+      bool wasExpense,
+      bool wasIncome,
+      ) async {
+    try {
+      // Restore original completion
+      if (originalHabit != null) {
+        await habitBox.put(habitKey, originalHabit);
+        debugPrint("↩️ [rollback] Restored original habit completion state");
+      }
+      // Restore removed transaction if applicable
+      if (removedTransactionKey != null) {
+        if (wasExpense) {
+          // Re-add expense (simplified; in real, you'd need full data)
+          debugPrint("⚠️ [rollback] Transaction restore for expense not fully implemented; manual intervention may be needed");
+        } else if (wasIncome) {
+          // Similar for income
+          debugPrint("⚠️ [rollback] Transaction restore for income not fully implemented; manual intervention may be needed");
+        }
+      }
+    } catch (e) {
+      debugPrint("⚠️ [rollback] Error during unmark rollback: $e");
+    }
+  }
+
+  /// Atomic operation: Delete habit
+  Future<bool> deleteHabit(dynamic habitKey) async {
+    debugPrint("🗑️ [deleteHabit] Starting atomic deletion for habit key: $habitKey");
+    final habitBox = Hive.box<Habit>(AppConstants.habits);
+    try {
+      final habit = habitBox.get(habitKey);
+      if (habit == null) {
+        debugPrint("❌ [deleteHabit] Habit not found for key: $habitKey");
+        return false;
+      }
+
+      // Optional: Clean up recent auto-transactions (within 1 day, matching description)
+      // This is cautious; adjust timeframe as needed
+      final dayAgo = DateTime.now().subtract(const Duration(days: 1));
+      final matchingDescription = '${habit.name} (Habit)';
+      final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+      final incomeBox = Hive.box<Income>(AppConstants.incomes);
+
+      // Find and delete matching expenses
+      final matchingExpenses = expenseBox.values.where((e) =>
+      e.date.isAfter(dayAgo) &&
+          e.description == matchingDescription &&
+          e.categoryKeys.any((k) => habit.categoryKeys.contains(k)));
+      for (final expense in matchingExpenses) {
+        final expenseKey = expenseBox.keyAt(expenseBox.values.toList().indexOf(expense));
+        await deleteExpense(expenseKey);
+        debugPrint("🗑️ [deleteHabit] Cleaned up auto-expense for ${habit.name}");
+      }
+
+      // Find and delete matching incomes
+      final matchingIncomes = incomeBox.values.where((i) =>
+      i.date.isAfter(dayAgo) &&
+          i.description == matchingDescription &&
+          i.categoryKeys.any((k) => habit.categoryKeys.contains(k)));
+      for (final income in matchingIncomes) {
+        final incomeKey = incomeBox.keyAt(incomeBox.values.toList().indexOf(income));
+        await deleteIncome(incomeKey, 'Habit');
+        debugPrint("🗑️ [deleteHabit] Cleaned up auto-income for ${habit.name}");
+      }
+
+      // Delete habit
+      await habitBox.delete(habitKey);
+      debugPrint("✅ [deleteHabit] Habit deleted: ${habit.name}");
+      return true;
+    } catch (e, st) {
+      debugPrint("❌ [deleteHabit] Atomic deletion failed: $e\n$st");
       return false;
     }
   }

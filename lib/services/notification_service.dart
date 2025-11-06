@@ -30,7 +30,7 @@ class _PendingNotification {
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
-  FlutterLocalNotificationsPlugin();
+      FlutterLocalNotificationsPlugin();
 
   static bool _isInitialized = false;
   static final List<_PendingNotification> _manualNotifications = [];
@@ -51,10 +51,10 @@ class NotificationService {
 
       // Android initialization
       const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
+          AndroidInitializationSettings('@mipmap/ic_launcher');
 
       final InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
+          InitializationSettings(android: initializationSettingsAndroid);
 
       // Initialize notifications plugin
       await _notificationsPlugin.initialize(
@@ -72,7 +72,6 @@ class NotificationService {
 
       _isInitialized = true;
       debugPrint('[INIT] Notification Service initialized successfully');
-
     } catch (e) {
       debugPrint('[ERROR] Failed to initialize Notification Service: $e');
     }
@@ -81,7 +80,9 @@ class NotificationService {
   static Future<void> createNotificationChannel() async {
     try {
       final androidImplementation = _notificationsPlugin
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
 
       await androidImplementation?.createNotificationChannel(
         const AndroidNotificationChannel(
@@ -104,6 +105,16 @@ class NotificationService {
         ),
       );
 
+      await androidImplementation?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'habit_detection',
+          'Habit Detection',
+          description: 'Notifications about detected habit patterns',
+          importance: Importance.high,
+          enableVibration: true,
+        ),
+      );
+
       debugPrint('[CHANNEL] Notification channels created successfully');
     } catch (e) {
       debugPrint('[ERROR] Failed to create notification channel: $e');
@@ -114,12 +125,17 @@ class NotificationService {
   static Future<bool> requestNotificationPermission() async {
     try {
       final androidImplementation = _notificationsPlugin
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
 
       // For Android 13+ (API 33+), we need to request notification permission
-      final bool? permissionGranted = await androidImplementation?.requestNotificationsPermission();
+      final bool? permissionGranted = await androidImplementation
+          ?.requestNotificationsPermission();
 
-      debugPrint('[PERMISSION] Notification permission granted: $permissionGranted');
+      debugPrint(
+        '[PERMISSION] Notification permission granted: $permissionGranted',
+      );
       return permissionGranted ?? false;
     } catch (e) {
       debugPrint('[ERROR] Failed to request notification permission: $e');
@@ -131,9 +147,12 @@ class NotificationService {
   static Future<bool> requestExactAlarmsPermission() async {
     try {
       final androidImplementation = _notificationsPlugin
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
 
-      final bool? granted = await androidImplementation?.requestExactAlarmsPermission();
+      final bool? granted = await androidImplementation
+          ?.requestExactAlarmsPermission();
       debugPrint('[PERMISSION] Exact alarms permission granted: $granted');
       return granted ?? false;
     } catch (e) {
@@ -157,7 +176,9 @@ class NotificationService {
     final now = tz.TZDateTime.now(tz.local);
 
     if (tzDate.isBefore(now)) {
-      debugPrint('[SCHEDULE] Scheduled time is in the past. Showing immediately.');
+      debugPrint(
+        '[SCHEDULE] Scheduled time is in the past. Showing immediately.',
+      );
       await showNotification(id: id, title: title, body: body);
       return;
     }
@@ -192,7 +213,6 @@ class NotificationService {
       // Verify scheduling
       final pending = await _notificationsPlugin.pendingNotificationRequests();
       debugPrint('[DEBUG] Total Pending Notifications: ${pending.length}');
-
     } catch (e) {
       debugPrint('[ERROR] Failed to schedule notification: $e');
       // Fallback: Use manual scheduling
@@ -263,12 +283,16 @@ class NotificationService {
     final delay = scheduledDate.difference(now);
 
     if (delay.isNegative) {
-      debugPrint('[SCHEDULE] Scheduled time is in the past. Showing immediately.');
+      debugPrint(
+        '[SCHEDULE] Scheduled time is in the past. Showing immediately.',
+      );
       await showNotification(id: id, title: title, body: body);
       return;
     }
 
-    debugPrint('[SCHEDULE] Manual scheduling - will show in ${delay.inSeconds} seconds');
+    debugPrint(
+      '[SCHEDULE] Manual scheduling - will show in ${delay.inSeconds} seconds',
+    );
 
     // Use Timer for manual scheduling (works in background)
     Timer(delay, () async {
@@ -310,9 +334,12 @@ class NotificationService {
   static Future<bool> areNotificationsEnabled() async {
     try {
       final androidImplementation = _notificationsPlugin
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
 
-      final bool? enabled = await androidImplementation?.areNotificationsEnabled();
+      final bool? enabled = await androidImplementation
+          ?.areNotificationsEnabled();
       return enabled ?? false;
     } catch (e) {
       debugPrint('[ERROR] Failed to check notification status: $e');

@@ -446,7 +446,7 @@ class _IncomePageState extends State<IncomePage> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    ...filteredIncomes.take(5).map((income) {
+                    ...filteredIncomes.toList().reversed.take(5).map((income) {
                       final categoryBox = Hive.box<Category>(AppConstants.categories);
                       String categoryName = 'Uncategorized';
                       if (income.categoryKeys.isNotEmpty) {
