@@ -59,11 +59,17 @@ class _HabitPageState extends State<HabitPage>
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
+        onRefresh: () {
+          HabitDetectionService.clearCache();
+        },
         actions: [
           IconButton(
             icon: const Icon(Icons.auto_awesome),
             tooltip: 'Detect Habits',
-            onPressed: _runHabitDetection,
+            onPressed: () {
+                HabitDetectionService.clearCache();
+                _runHabitDetection;
+              },
           ),
           IconButton(
             icon: const Icon(Icons.category),

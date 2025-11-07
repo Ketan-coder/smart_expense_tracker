@@ -115,6 +115,78 @@ class NotificationService {
         ),
       );
 
+      // Add these to your existing createNotificationChannel method
+      await androidImplementation?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'wallet_alerts',
+          'Wallet Alerts',
+          description: 'Notifications for wallet balance alerts',
+          importance: Importance.high,
+          enableVibration: true,
+        ),
+      );
+
+      await androidImplementation?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'transaction_alerts',
+          'Transaction Alerts',
+          description: 'Notifications for large transactions',
+          importance: Importance.defaultImportance,
+          enableVibration: true,
+        ),
+      );
+
+      await androidImplementation?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'budget_alerts',
+          'Budget Alerts',
+          description: 'Notifications for budget tracking',
+          importance: Importance.high,
+          enableVibration: true,
+        ),
+      );
+
+      await androidImplementation?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'habit_alerts',
+          'Habit Alerts',
+          description: 'Notifications for habit streaks and patterns',
+          importance: Importance.defaultImportance,
+          enableVibration: true,
+        ),
+      );
+
+      await androidImplementation?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'savings_alerts',
+          'Savings Alerts',
+          description: 'Notifications for savings milestones',
+          importance: Importance.high,
+          enableVibration: true,
+          playSound: true,
+        ),
+      );
+
+      await androidImplementation?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'summary_alerts',
+          'Financial Summary',
+          description: 'Daily and weekly financial summaries',
+          importance: Importance.low,
+          enableVibration: false,
+        ),
+      );
+
+      await androidImplementation?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'pattern_alerts',
+          'Spending Patterns',
+          description: 'Notifications about spending patterns',
+          importance: Importance.defaultImportance,
+          enableVibration: true,
+        ),
+      );
+
       debugPrint('[CHANNEL] Notification channels created successfully');
     } catch (e) {
       debugPrint('[ERROR] Failed to create notification channel: $e');

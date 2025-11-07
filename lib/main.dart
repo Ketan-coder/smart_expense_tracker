@@ -19,6 +19,14 @@ import 'services/biometric_auth.dart'; // Import your biometric service
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Continue with app initialization
+  final bool notificationState = await Helpers().getCurrentNotificationState() ?? false;
+  debugPrint('Notification state: $notificationState');
+
+  if (notificationState == true) {
+    await NotificationService.initialize();
+  }
+
   await Hive.initFlutter();
   // Register adapters
   Hive.registerAdapter(ExpenseAdapter());

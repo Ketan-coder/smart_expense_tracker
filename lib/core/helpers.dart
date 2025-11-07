@@ -117,6 +117,21 @@ class Helpers {
   List<String> getPaymentMethods() {
     return ["UPI", "Cash", "NEFT", "IMPS", "RTGS", "Card", "Online"];
   }
+
+  /// Check if current time is within specified notification hours
+  bool isWithinNotificationHours({int startHour = 20, int endHour = 22}) {
+    final now = DateTime.now();
+    final hour = now.hour;
+    final isWithinHours = hour >= startHour && hour <= endHour;
+
+    final startTime = startHour > 12 ? '${startHour - 12} PM' : '$startHour AM';
+    final endTime = endHour > 12 ? '${endHour - 12} PM' : '$endHour AM';
+
+    debugPrint("⏰ Current time: ${now.hour}:${now.minute.toString().padLeft(2, '0')}");
+    debugPrint("⏰ Within notification hours ($startTime - $endTime): $isWithinHours");
+
+    return isWithinHours;
+  }
   
   Future<String?> getCurrentCurrency() async {
     final prefs = await SharedPreferences.getInstance();
@@ -188,4 +203,25 @@ class Helpers {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('sms_parsing_enabled', state);
   }
+
+  Future<List<String>?> getDefaultExpenseCategory() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList('default_expense_categories') ?? [];
+  }
+
+  Future<void> setDefaultExpenseCategory(List<String> categories) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('default_expense_categories', categories);
+  }
+
+  Future<List<String>?> getDefaultIncomeCategory() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList('default_income_categories') ?? [];
+  }
+
+  Future<void> setDefaultIncomeCategory(List<String> categories) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('default_income_categories', categories);
+  }
+
 }

@@ -19,6 +19,7 @@ import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../services/biometric_auth.dart';
 import '../../services/habit_detection_service.dart';
+import '../../services/notification_helper.dart';
 import '../../services/privacy/adaptive_brightness_service.dart';
 import '../../services/privacy/gaze_detection_manager.dart';
 import '../../services/privacy/privacy_manager.dart';
@@ -71,6 +72,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
   // GazeDetectionManager? _gazeDetectionManager;
   bool _showWatcherAlert = false;
   Timer? _watcherAlertTimer;
+  List<String>? defaultExpenseCategories = [];
+  List<String>? defaultIncomeCategories = [];
+
 
   @override
   void initState() {
@@ -127,8 +131,6 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     debugPrint("🔒 Face detection: Disabled (enable in settings if needed)");
     debugPrint("🔒 ========================================");
   }
-
-
 
   void _initializeShakeDetection() {
     if (_shakeDetector != null) return; // Already initialized
@@ -187,41 +189,6 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     // Users must explicitly enable and start it via settings
   }
 
-// Add face detection handler:
-//   Future<void> _handleFaceDetection() async {
-//     if (_privacyManager.faceDetectionEnabled && _privacyManager.isPrivacyActive) {
-//       // Initialize if needed
-//       if (_gazeDetectionManager == null) {
-//         _gazeDetectionManager = GazeDetectionManager();
-//         final initialized = await _gazeDetectionManager!.initialize();
-//         if (!initialized) {
-//           debugPrint("❌ Could not initialize face detection");
-//           return;
-//         }
-//       }
-//
-//       // Setup callback
-//       _gazeDetectionManager!.onFaceCountChanged = (faceCount) {
-//         if (faceCount > 1 && mounted) {
-//           setState(() => _showWatcherAlert = true);
-//
-//           // Auto-hide alert after 3 seconds
-//           _watcherAlertTimer?.cancel();
-//           _watcherAlertTimer = Timer(const Duration(seconds: 3), () {
-//             if (mounted) setState(() => _showWatcherAlert = false);
-//           });
-//         } else if (faceCount <= 1 && mounted) {
-//           setState(() => _showWatcherAlert = false);
-//         }
-//       };
-//
-//       // Start detection
-//       await _gazeDetectionManager!.startDetection();
-//     } else {
-//       // Stop detection to save battery
-//       await _gazeDetectionManager?.stopDetection();
-//     }
-//   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -309,6 +276,13 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
         setState(() => _isAuthenticated = true);
         await _initializePlatformFeatures();
         await _initializeFirstTimeSetup();
+      }
+
+      // Check if current time is between 8 PM and 10 PM
+      if (Helpers().isWithinNotificationHours(startHour: 20, endHour: 22)) {
+        debugPrint("🔔 Triggering scheduled notifications...");
+        NotificationHelper().sendFinancialSummary();
+        NotificationHelper().checkSpendingPatterns();
       }
 
       debugPrint("🚀 App initialization complete");
@@ -532,6 +506,54 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     }
   }
 
+  Future<List<int>> _getDefaultExpenseCategoryKeys() async {
+    final defaultCategories = await Helpers().getDefaultExpenseCategory() ?? [];
+    if (defaultCategories.isEmpty) {
+      return [1, 2]; // Fallback to default keys
+    }
+
+    final categoryBox = Hive.box<Category>(AppConstants.categories);
+    final List<int> keys = [];
+
+    for (final categoryName in defaultCategories) {
+      final category = categoryBox.values.firstWhere(
+            (cat) => cat.name == categoryName,
+        orElse: () => Category(name: 'Other', type: 'Expense', color: '#808080', icon: 'category'),
+      );
+
+      final categoryKey = categoryBox.keyAt(categoryBox.values.toList().indexOf(category));
+      if (categoryKey != null) {
+        keys.add(categoryKey as int);
+      }
+    }
+
+    return keys.isNotEmpty ? keys : [1, 2]; // Fallback if no keys found
+  }
+
+  Future<List<int>> _getDefaultIncomeCategoryKeys() async {
+    final defaultCategories = await Helpers().getDefaultIncomeCategory() ?? [];
+    if (defaultCategories.isEmpty) {
+      return [1, 2]; // Fallback to default keys
+    }
+
+    final categoryBox = Hive.box<Category>(AppConstants.categories);
+    final List<int> keys = [];
+
+    for (final categoryName in defaultCategories) {
+      final category = categoryBox.values.firstWhere(
+            (cat) => cat.name == categoryName,
+        orElse: () => Category(name: 'Other', type: 'Income', color: '#808080', icon: 'category'),
+      );
+
+      final categoryKey = categoryBox.keyAt(categoryBox.values.toList().indexOf(category));
+      if (categoryKey != null) {
+        keys.add(categoryKey as int);
+      }
+    }
+
+    return keys.isNotEmpty ? keys : [3, 4]; // Fallback if no keys found
+  }
+
   void _startListening() {
     SmsListener.startListening(_onSmsReceived);
     setState(() => isListening = true);
@@ -565,14 +587,14 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
           amount: amount,
           description:description,
           method:method,
-          categoryKeys :[1, 2], // Default expense category keys
+          categoryKeys : await _getDefaultExpenseCategoryKeys(), // Default expense category keys
         );
       } else if (transaction['type'] == 'credit') {
         success = await UniversalHiveFunctions().addIncome(
           amount:  amount,
           description :description,
           method :method,
-          categoryKeys:[3, 4], // Default income category keys
+          categoryKeys: await _getDefaultIncomeCategoryKeys(), // Default income category keys
         );
       }
 
@@ -825,7 +847,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
           FloatingToolbarItem(icon: Icons.track_changes, label: 'Habits'),
           FloatingToolbarItem(icon: Icons.settings, label: 'Settings'),
         ],
-        primaryButton: _currentIndex != 5 ? Icon(Icons.add) : null,
+        primaryButton: _currentIndex != 4 ? Icon(
+            _currentIndex == 0 ? Icons.tune_rounded : Icons.add
+        ) : null,
         onPrimaryPressed: () {
           switch (_currentIndex) {
             case 0:

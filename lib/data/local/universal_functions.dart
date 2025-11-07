@@ -324,6 +324,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:hive_ce/hive.dart';
 import '../../core/app_constants.dart';
+import '../../services/notification_helper.dart';
 import '../model/category.dart';
 import '../model/expense.dart';
 import '../model/habit.dart';
@@ -416,6 +417,13 @@ class UniversalHiveFunctions {
       final expenseKey = await expenseBox.add(expense);
       savedExpense = expense;
       debugPrint("✅ [addExpense] Expense added successfully: $expense (key: $expenseKey)");
+
+      await NotificationHelper.checkWalletBalance(wallet, 'expense');
+      await NotificationHelper.notifyLargeTransaction(amount, 'expense', description);
+
+      // Check total balance for savings milestone
+      final totalBalance = await getTotalBalance();
+      await NotificationHelper.notifySavingsMilestone(totalBalance);
 
       return true;
 
@@ -766,6 +774,13 @@ class UniversalHiveFunctions {
       final incomeKey = await incomeBox.add(income);
       savedIncome = income;
       debugPrint("✅ [addIncome] Income added successfully: $income (key: $incomeKey)");
+
+      await NotificationHelper.checkWalletBalance(wallet, 'income');
+      await NotificationHelper.notifyLargeTransaction(amount, 'income', description);
+
+      // Check total balance for savings milestone
+      final totalBalance = await getTotalBalance();
+      await NotificationHelper.notifySavingsMilestone(totalBalance);
 
       return true;
 
@@ -1349,6 +1364,9 @@ class UniversalHiveFunctions {
         debugPrint("ℹ️ [markHabitComplete] Recent transaction found, skipping auto-add for ${habit.name}");
       }
 
+      // Notify about habit streak
+      await NotificationHelper.notifyHabitStreak(habit.name, habit.streakCount);
+
       return true;
     } catch (e, st) {
       debugPrint("❌ [markHabitComplete] Atomic operation failed: $e\n$st");
@@ -1619,4 +1637,6 @@ class UniversalHiveFunctions {
 
     return iconMap[iconName] ?? 0xe574; // Default to 'category' icon if not found
   }
+
+
 }

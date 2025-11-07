@@ -7,6 +7,7 @@ import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 // import '../widgets/bottom_nav_bar.dart'; // Not used in this file
 import '../../data/local/universal_functions.dart';
+import '../../services/privacy/privacy_manager.dart';
 import '../expenses/expense_listing_page.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/dialog.dart';
@@ -27,6 +28,7 @@ class CategoryPage extends StatefulWidget {
 }
 
 class _CategoryPageState extends State<CategoryPage> {
+  final PrivacyManager _categoryPagePrivacyManager = PrivacyManager();
   /// Add new category to Hive
   // Future<void> addCategory(
   //     String name,
@@ -386,6 +388,321 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
+  /// Shows bottom sheet to set default categories for SMS auto-parsing
+  Future<void> _showDefaultCategoriesSheet(context) async {
+    final categoryBox = Hive.box<Category>(AppConstants.categories);
+    final allCategories = categoryBox.values.toList();
+
+    // Get current default categories
+    final currentDefaultExpense = await Helpers().getDefaultExpenseCategory() ?? [];
+    final currentDefaultIncome = await Helpers().getDefaultIncomeCategory() ?? [];
+
+    // Create state variables
+    List<String> selectedExpenseCategories = List.from(currentDefaultExpense);
+    List<String> selectedIncomeCategories = List.from(currentDefaultIncome);
+
+    await BottomSheetUtil.show(
+      context: context,
+      title: 'Default Categories for SMS Parsing',
+      height: MediaQuery.of(context).size.height * 0.65,
+      child: StatefulBuilder(
+        builder: (context, setModalState) {
+
+          /// Filter categories by type
+          List<Category> getCategoriesByType(String type) {
+            return allCategories.where((cat) => cat.type.toLowerCase() == type.toLowerCase()).toList();
+          }
+
+          /// Toggle category selection
+          void toggleCategory(String categoryName, String type) {
+            setModalState(() {
+              if (type.toLowerCase() == 'expense') {
+                if (selectedExpenseCategories.contains(categoryName)) {
+                  selectedExpenseCategories.remove(categoryName);
+                } else {
+                  selectedExpenseCategories.add(categoryName);
+                }
+              } else {
+                if (selectedIncomeCategories.contains(categoryName)) {
+                  selectedIncomeCategories.remove(categoryName);
+                } else {
+                  selectedIncomeCategories.add(categoryName);
+                }
+              }
+            });
+          }
+
+          /// Save the selections
+          Future<void> saveDefaults() async {
+            await Helpers().setDefaultExpenseCategory(selectedExpenseCategories);
+            await Helpers().setDefaultIncomeCategory(selectedIncomeCategories);
+
+            if (context.mounted) {
+              Navigator.pop(context);
+              SnackBars.show(
+                context,
+                message: 'Default categories updated',
+                type: SnackBarType.success,
+              );
+            }
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Select which categories should be used when automatically creating expenses/income from SMS:',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
+
+              // Expense Categories Section
+              _buildCategorySection(
+                title: 'Expense Categories',
+                categories: getCategoriesByType('expense'),
+                selectedCategories: selectedExpenseCategories,
+                onToggle: (categoryName) => toggleCategory(categoryName, 'expense'),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Income Categories Section
+              _buildCategorySection(
+                title: 'Income Categories',
+                categories: getCategoriesByType('income'),
+                selectedCategories: selectedIncomeCategories,
+                onToggle: (categoryName) => toggleCategory(categoryName, 'income'),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Info Text
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'When SMS auto-parsing is enabled, transactions will be automatically assigned to these categories based on the transaction type.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Save Button
+              FilledButton(
+                onPressed: saveDefaults,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: const Text('Save Default Categories'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// Builds a category selection section
+  Widget _buildCategorySection({
+    required String title,
+    required List<Category> categories,
+    required List<String> selectedCategories,
+    required Function(String) onToggle,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        if (categories.isEmpty)
+          const Text(
+            'No categories found. Create some categories first.',
+            style: TextStyle(color: Colors.grey, fontSize: 14),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                ...categories.map((category) {
+                  final isSelected = selectedCategories.contains(category.name);
+                  final color = Helpers().hexToColor(category.color);
+                  final textColor = ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+                      ? Colors.white
+                      : Colors.black;
+
+                  return ListTile(
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        _getIconData(category.icon),
+                        color: textColor,
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(category.name),
+                    trailing: Checkbox(
+                      value: isSelected,
+                      onChanged: (value) => onToggle(category.name),
+                    ),
+                    onTap: () => onToggle(category.name),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Builds the default categories header section
+  Widget _buildDefaultCategoriesHeader() {
+    return FutureBuilder(
+      future: Future.wait([
+        Helpers().getDefaultExpenseCategory(),
+        Helpers().getDefaultIncomeCategory(),
+      ]),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox.shrink();
+        }
+
+        final defaultExpense = snapshot.data?[0] as List<String>? ?? [];
+        final defaultIncome = snapshot.data?[1] as List<String>? ?? [];
+
+        if (defaultExpense.isEmpty && defaultIncome.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Default Categories for SMS Parsing',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              if (defaultExpense.isNotEmpty) ...[
+                _buildDefaultCategoryList(
+                  title: 'Expense Categories:',
+                  categories: defaultExpense,
+                  type: 'Expense',
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              if (defaultIncome.isNotEmpty) ...[
+                _buildDefaultCategoryList(
+                  title: 'Income Categories:',
+                  categories: defaultIncome,
+                  type: 'Income',
+                ),
+              ],
+
+              const SizedBox(height: 8),
+              Text(
+                'These categories will be used for auto-parsing SMS transactions',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Builds a list of default categories for a specific type
+  Widget _buildDefaultCategoryList({
+    required String title,
+    required List<String> categories,
+    required String type,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: categories.map((categoryName) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: .3),
+                ),
+              ),
+              child: Text(
+                categoryName,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
 // Helper function to convert icon string to code
   // Helper function to convert icon string to IconData using Flutter's Icons
   IconData _getIconData(String iconName) {
@@ -474,8 +791,65 @@ class _CategoryPageState extends State<CategoryPage> {
             icon: const Icon(Icons.add_rounded),
             onPressed: () => _showAddEditCategorySheet(context),
           ),
+          // Set Default Categories
+          IconButton(
+            icon: const Icon(Icons.settings_suggest_rounded),
+            onPressed: () => _showDefaultCategoriesSheet(context),
+          ),
         ],
         // RESTORED: User's requested Container structure
+        // child: Container(
+        //   margin: const EdgeInsets.all(10),
+        //   padding: const EdgeInsets.all(10),
+        //   decoration: BoxDecoration(
+        //     borderRadius: BorderRadius.circular(25),
+        //     color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
+        //   ),
+        //   child: ValueListenableBuilder<Box<Category>>(
+        //     valueListenable:
+        //     Hive.box<Category>(AppConstants.categories).listenable(),
+        //     builder: (context, box, _) {
+        //       final categories = box.values.toList();
+        //       final categoryKeys = box.keys.toList();
+        //
+        //       if (categories.isEmpty) {
+        //         return _buildEmptyState(context);
+        //       }
+        //
+        //       // Use SingleChildScrollView + Column to correctly
+        //       // render a list inside the SimpleCustomAppBar's child
+        //       return SingleChildScrollView(
+        //         padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+        //         child: Column(
+        //           children: List.generate(categories.length, (index) {
+        //             final key = categoryKeys[index] as int;
+        //             final category = categories[index];
+        //             final color = Helpers().hexToColor(category.color);
+        //
+        //             return GestureDetector(
+        //               onTap: () {
+        //                 if (category.type.toLowerCase().contains('income')){
+        //                   Helpers.navigateTo(
+        //                     context,
+        //                     IncomeListingPage(filterByCategory: category.name),
+        //                   );
+        //                   return;
+        //                 } else if (category.type.toLowerCase().contains('expense')){
+        //                   Helpers.navigateTo(
+        //                     context,
+        //                     ExpenseListingPage(filterByCategory: category.name),
+        //                   );
+        //                   return;
+        //                 }
+        //               },
+        //               child: _buildCategoryTile(context, key, category, color),
+        //             );
+        //           }),
+        //         ),
+        //       );
+        //     },
+        //   ),
+        // ),
         child: Container(
           margin: const EdgeInsets.all(10),
           padding: const EdgeInsets.all(10),
@@ -494,35 +868,41 @@ class _CategoryPageState extends State<CategoryPage> {
                 return _buildEmptyState(context);
               }
 
-              // Use SingleChildScrollView + Column to correctly
-              // render a list inside the SimpleCustomAppBar's child
               return SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
                 child: Column(
-                  children: List.generate(categories.length, (index) {
-                    final key = categoryKeys[index] as int;
-                    final category = categories[index];
-                    final color = Helpers().hexToColor(category.color);
+                  children: [
+                    // Add the default categories header here
+                    GestureDetector(
+                        onTap: () => _showDefaultCategoriesSheet(context),
+                        child: _buildDefaultCategoriesHeader()),
 
-                    return GestureDetector(
-                      onTap: () {
-                        if (category.type.toLowerCase().contains('income')){
-                          Helpers.navigateTo(
-                            context,
-                            IncomeListingPage(filterByCategory: category.name),
-                          );
-                          return;
-                        } else if (category.type.toLowerCase().contains('expense')){
-                          Helpers.navigateTo(
-                            context,
-                            ExpenseListingPage(filterByCategory: category.name),
-                          );
-                          return;
-                        }
-                      },
-                      child: _buildCategoryTile(context, key, category, color),
-                    );
-                  }),
+                    // Rest of your categories list
+                    ...List.generate(categories.length, (index) {
+                      final key = categoryKeys[index] as int;
+                      final category = categories[index];
+                      final color = Helpers().hexToColor(category.color);
+
+                      return GestureDetector(
+                        onTap: () {
+                          if (category.type.toLowerCase().contains('income')){
+                            Helpers.navigateTo(
+                              context,
+                              IncomeListingPage(filterByCategory: category.name),
+                            );
+                            return;
+                          } else if (category.type.toLowerCase().contains('expense')){
+                            Helpers.navigateTo(
+                              context,
+                              ExpenseListingPage(filterByCategory: category.name),
+                            );
+                            return;
+                          }
+                        },
+                        child: _buildCategoryTile(context, key, category, color),
+                      );
+                    }),
+                  ],
                 ),
               );
             },
