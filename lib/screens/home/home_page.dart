@@ -1,3 +1,4 @@
+import 'package:expense_tracker/screens/home/income_listing_page.dart';
 import 'package:expense_tracker/screens/widgets/privacy_overlay_widget.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:hive_ce_flutter/adapters.dart';
@@ -11,6 +12,7 @@ import '../../data/model/income.dart';
 import '../../data/model/wallet.dart';
 import '../../data/model/recurring.dart';
 import '../../services/privacy/privacy_manager.dart';
+import '../expenses/expense_listing_page.dart';
 import '../reports/reports_page.dart';
 import '../widgets/bottom_sheet.dart';
 import 'package:flutter/material.dart';
@@ -770,50 +772,59 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 categoryName = category?.name ?? 'General';
               }
 
-              return Card(
-                elevation: 0,
-                color: colorScheme.surfaceContainer,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
-                ),
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: isIncome ? colorScheme.primaryContainer : colorScheme.errorContainer,
-                    child: Icon(
-                      isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-                      color: isIncome ? colorScheme.onPrimaryContainer : colorScheme.onErrorContainer,
-                    ),
+              return GestureDetector(
+                onTap: () {
+                  if (isIncome) {
+                    Helpers.navigateTo(context, IncomeListingPage());
+                  } else {
+                    Helpers.navigateTo(context, ExpenseListingPage());
+                  }
+                },
+                child: Card(
+                  elevation: 0,
+                  color: colorScheme.surfaceContainer,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
                   ),
-                  title: Text(
-                    t.description,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: isIncome ? colorScheme.primaryContainer : colorScheme.errorContainer,
+                      child: Icon(
+                        isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                        color: isIncome ? colorScheme.onPrimaryContainer : colorScheme.onErrorContainer,
+                      ),
                     ),
-                  ),
-                  subtitle: Text(
-                    '$categoryName • ${DateFormat('d MMM').format(t.date)}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+                    title: Text(
+                      t.description,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  trailing: PrivacyCurrency(
-                    amount: '${isIncome ? '+' : '-'} $_currentCurrency ${t.amount.toStringAsFixed(0)}',
-                    isPrivacyActive: isPrivate,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isIncome ? colorScheme.primary : colorScheme.error,
+                    subtitle: Text(
+                      '$categoryName • ${DateFormat('d MMM').format(t.date)}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
+                    trailing: PrivacyCurrency(
+                      amount: '${isIncome ? '+' : '-'} $_currentCurrency ${t.amount.toStringAsFixed(0)}',
+                      isPrivacyActive: isPrivate,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isIncome ? colorScheme.primary : colorScheme.error,
+                      ),
+                    ),
+                    // trailing: Text(
+                    //   '${isIncome ? '+' : '-'} $_currentCurrency ${t.amount.toStringAsFixed(0)}',
+                    //   // MODIFIED: Scaled down text
+                    //   style: theme.textTheme.bodyLarge?.copyWith(
+                    //     color: isIncome ? colorScheme.primary : colorScheme.error,
+                    //     fontWeight: FontWeight.bold,
+                    //   ),
+                    // ),
                   ),
-                  // trailing: Text(
-                  //   '${isIncome ? '+' : '-'} $_currentCurrency ${t.amount.toStringAsFixed(0)}',
-                  //   // MODIFIED: Scaled down text
-                  //   style: theme.textTheme.bodyLarge?.copyWith(
-                  //     color: isIncome ? colorScheme.primary : colorScheme.error,
-                  //     fontWeight: FontWeight.bold,
-                  //   ),
-                  // ),
                 ),
               );
             },

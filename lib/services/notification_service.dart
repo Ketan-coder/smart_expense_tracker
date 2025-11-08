@@ -6,6 +6,16 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+enum NotificationActionType {
+  openHome,
+  openExpense,
+  openIncome,
+  openReports,
+  openGoal,
+  openHabit,
+}
+
+
 class _PendingNotification {
   final int id;
   final String title;
@@ -35,6 +45,9 @@ class NotificationService {
   static bool _isInitialized = false;
   static final List<_PendingNotification> _manualNotifications = [];
 
+  static final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  static GlobalKey<NavigatorState> get navigatorKey => _navigatorKey;
+
   static Future<void> initialize() async {
     if (_isInitialized) {
       debugPrint('[INIT] Notification Service already initialized');
@@ -61,8 +74,10 @@ class NotificationService {
         initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
           debugPrint('[NOTIFICATION] Notification tapped: ${response.payload}');
+          _handleNotificationClick(response.payload);
         },
       );
+
 
       // Create notification channel FIRST
       await createNotificationChannel();
@@ -76,6 +91,38 @@ class NotificationService {
       debugPrint('[ERROR] Failed to initialize Notification Service: $e');
     }
   }
+
+  static void _handleNotificationClick(String? payload) {
+    if (payload == null) return;
+
+    // Delay a bit so navigation happens after context is ready
+    Future.delayed(const Duration(milliseconds: 300), () {
+      switch (payload) {
+        case 'open_expense_page':
+          _navigatorKey.currentState?.pushNamed('/expense');
+          break;
+        case 'open_income_page':
+          _navigatorKey.currentState?.pushNamed('/income');
+          break;
+        case 'open_reports_page':
+          _navigatorKey.currentState?.pushNamed('/reports');
+          break;
+        case 'open_goal_page':
+          _navigatorKey.currentState?.pushNamed('/goal');
+          break;
+        case 'open_habit_page':
+          _navigatorKey.currentState?.pushNamed('/habit');
+          break;
+        case 'open_home_page':
+          _navigatorKey.currentState?.pushNamed('/home');
+          break;
+        default:
+          _navigatorKey.currentState?.pushNamed('/home');
+          break;
+      }
+    });
+  }
+
 
   static Future<void> createNotificationChannel() async {
     try {
@@ -238,6 +285,7 @@ class NotificationService {
     required String title,
     required String body,
     required DateTime scheduledDate,
+    String payload = 'open_home_page',
   }) async {
     if (!_isInitialized) {
       debugPrint('[ERROR] Notification Service not initialized');
@@ -251,7 +299,7 @@ class NotificationService {
       debugPrint(
         '[SCHEDULE] Scheduled time is in the past. Showing immediately.',
       );
-      await showNotification(id: id, title: title, body: body);
+      await showNotification(id: id, title: title, body: body, payload: payload);
       return;
     }
 
@@ -305,6 +353,7 @@ class NotificationService {
     required String body,
     String channelId = 'reminder_channel',
     String channelName = 'Reminders',
+    String payload = 'open_expense_page',
   }) async {
     if (!_isInitialized) {
       debugPrint('[ERROR] Notification Service not initialized');
@@ -327,7 +376,7 @@ class NotificationService {
             playSound: true,
           ),
         ),
-        payload: 'shown_$id',
+        payload: payload ?? 'shown_$id',
       );
       debugPrint('[SHOW] Notification shown successfully → ID: $id');
     } catch (e) {

@@ -11,6 +11,7 @@ import '../../data/model/expense.dart';
 import '../widgets/bottom_sheet.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/privacy_overlay_widget.dart';
+import '../widgets/snack_bar.dart';
 
 class ExpenseListingPage extends StatefulWidget {
   final String? initialFilter, filterByCategory, filterByMethod;
@@ -738,7 +739,6 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
     final descController = TextEditingController(text: expense.description);
     final methodController = TextEditingController(text: expense.method);
     final selectedCategoryKeys = expense.categoryKeys.toSet();
-    int? selectedCategoryKey = expense.categoryKeys.isNotEmpty ? expense.categoryKeys.first : null;
 
     BottomSheetUtil.show(
       context: context,
@@ -756,7 +756,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration:  InputDecoration(
                   labelText: 'Amount',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                   prefixText: '$_currentCurrency ',
                 ),
               ),
@@ -776,26 +776,6 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                   border: OutlineInputBorder(),
                 ),
               ),
-              // const SizedBox(height: 16),
-              // DropdownButtonFormField<int>(
-              //   initialValue: selectedCategoryKey,
-              //   decoration: const InputDecoration(
-              //     labelText: 'Category',
-              //     border: OutlineInputBorder(),
-              //   ),
-              //   items: categories.map((cat) {
-              //     final key = categoryBox.keyAt(categories.indexOf(cat));
-              //     return DropdownMenuItem<int>(
-              //       value: key,
-              //       child: Text(cat.name),
-              //     );
-              //   }).toList(),
-              //   onChanged: (value) {
-              //     setModalState(() {
-              //       selectedCategoryKey = value;
-              //     });
-              //   },
-              // ),
               const SizedBox(height: 16),
               const Text(
                 "Selected Categories:",
@@ -812,7 +792,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                   final isSelected = selectedCategoryKeys.contains(catKey);
                   return ChoiceChip(
                     label: Text(category.name),
-                    backgroundColor: (Helpers().hexToColor(category.color)).withValues(alpha: .5),
+                    backgroundColor: (Helpers().hexToColor(category.color)).withOpacity(0.5),
                     selected: isSelected,
                     onSelected: (selected) {
                       setModalState(() {
@@ -830,9 +810,11 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
               FilledButton(
                 onPressed: () {
                   final amount = double.tryParse(amountController.text);
-                  if (amount == null || amount <= 0 || selectedCategoryKey == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Please fill all fields")),
+                  if (amount == null || amount <= 0 || selectedCategoryKeys.isEmpty) {
+                    SnackBars.show(
+                      context,
+                      message: "Please fill all fields and select at least one category",
+                      type: SnackBarType.warning,
                     );
                     return;
                   }
@@ -842,11 +824,17 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                     date: expense.date,
                     description: descController.text,
                     method: methodController.text,
-                    categoryKeys: [selectedCategoryKey!],
+                    categoryKeys: selectedCategoryKeys.toList(), // Use the multiple selection
                   );
 
                   UniversalHiveFunctions().updateExpense(expenseKey, newExpense);
                   Navigator.of(context).pop();
+
+                  SnackBars.show(
+                    context,
+                    message: "Expense updated successfully",
+                    type: SnackBarType.success,
+                  );
                 },
                 child: const Text('Save Changes'),
               ),

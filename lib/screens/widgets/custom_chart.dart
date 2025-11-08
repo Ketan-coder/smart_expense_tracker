@@ -842,7 +842,7 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
     double pointY = (widget.config.chartHeight - (point.value / widget.yAxisMax) * widget.config.chartHeight);
     pointY = pointY.clamp(0, widget.config.chartHeight);
     double stackY = pointY + topPadding;
-    double trophyTop = stackY - 22;
+    double trophyTop = stackY - 32;
     if (trophyTop < 0) trophyTop = 0;
 
     double trophySlot = _effectiveBarWidth + _effectiveSpacing;
@@ -954,7 +954,7 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
                       boxShadow: [BoxShadow(color: Colors.amber.withOpacity(0.6), blurRadius: 12, spreadRadius: 2)],
                     ),
                   ),
-                  Icon(Icons.emoji_events, color: Colors.amber.shade600, size: 18),
+                  Icon(Icons.emoji_events_outlined, color: Colors.amber.shade600, size: 18),
                 ],
               ),
             ),

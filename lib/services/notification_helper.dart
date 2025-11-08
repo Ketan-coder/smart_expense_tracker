@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:hive_ce/hive.dart';
 
 import '../core/app_constants.dart';
+import '../data/model/category.dart';
 import '../data/model/expense.dart';
 import '../data/model/income.dart';
 import '../data/model/wallet.dart';
@@ -20,6 +21,7 @@ class NotificationHelper {
           body: '${wallet.name} wallet is in negative: ${wallet.balance.toStringAsFixed(2)}',
           channelId: 'wallet_alerts',
           channelName: 'Wallet Alerts',
+          payload: 'open_home_page',
         );
         debugPrint("💰 [Notification] Negative balance alert for ${wallet.name}");
       }
@@ -30,6 +32,7 @@ class NotificationHelper {
           body: '${wallet.name} wallet is running low: ${wallet.balance.toStringAsFixed(2)}',
           channelId: 'wallet_alerts',
           channelName: 'Wallet Alerts',
+          payload: 'open_home_page',
         );
         debugPrint("💰 [Notification] Low balance warning for ${wallet.name}");
       }
@@ -48,6 +51,7 @@ class NotificationHelper {
           body: '${amount.toStringAsFixed(2)} - $description',
           channelId: 'transaction_alerts',
           channelName: 'Transaction Alerts',
+          payload: 'open_home_page',
         );
         debugPrint("💳 [Notification] Large $type alert: $amount");
       }
@@ -67,6 +71,7 @@ class NotificationHelper {
           body: 'You\'ve used $percentage% of your monthly budget',
           channelId: 'budget_alerts',
           channelName: 'Budget Alerts',
+          payload: 'open_reports_page',
         );
         debugPrint("📊 [Notification] Monthly budget alert: $percentage% used");
       }
@@ -85,6 +90,7 @@ class NotificationHelper {
           body: '$habitName: $streakCount days in a row! Keep going!',
           channelId: 'habit_alerts',
           channelName: 'Habit Alerts',
+          payload: 'open_habit_page',
         );
         debugPrint("🔥 [Notification] Habit streak: $habitName - $streakCount days");
       }
@@ -106,6 +112,7 @@ class NotificationHelper {
             body: 'You\'ve saved ₹${milestone.toStringAsFixed(0)}! Great job!',
             channelId: 'savings_alerts',
             channelName: 'Savings Alerts',
+            payload: 'open_income_page',
           );
           debugPrint("🎉 [Notification] Savings milestone: ₹$milestone");
           break;
@@ -152,6 +159,7 @@ class NotificationHelper {
         body: 'Today: ₹${todayExpenses.toStringAsFixed(0)} | Week: ₹${weeklyExpenses.toStringAsFixed(0)} | Total: ₹${totalBalance.toStringAsFixed(0)}',
         channelId: 'summary_alerts',
         channelName: 'Financial Summary',
+        payload: 'open_reports_page',
       );
 
       debugPrint("📈 [Notification] Daily summary sent");
@@ -164,6 +172,7 @@ class NotificationHelper {
   Future<void> checkSpendingPatterns() async {
     try {
       final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+      final categoryBox = Hive.box<Category>(AppConstants.categories);
       final now = DateTime.now();
       final monthStart = DateTime(now.year, now.month, 1);
 
@@ -173,24 +182,35 @@ class NotificationHelper {
           .toList();
 
       if (monthlyExpenses.length > 10) {
-        // Simple pattern: if more than 50% of expenses are in one category
         final categoryCounts = <String, double>{};
+
         for (final expense in monthlyExpenses) {
-          // You'd need to get category names here
-          // This is a simplified version
-          final category = expense.categoryKeys.isNotEmpty ? 'Category' : 'Unknown';
-          categoryCounts[category] = (categoryCounts[category] ?? 0) + expense.amount;
+          if (expense.categoryKeys.isEmpty) {
+            // If no categories, count as "Uncategorized"
+            categoryCounts['Uncategorized'] = (categoryCounts['Uncategorized'] ?? 0) + expense.amount;
+          } else {
+            // Distribute amount evenly across all categories for this expense
+            final amountPerCategory = expense.amount / expense.categoryKeys.length;
+
+            for (final categoryKey in expense.categoryKeys) {
+              final category = categoryBox.get(categoryKey);
+              final categoryName = category?.name ?? 'Unknown';
+              categoryCounts[categoryName] = (categoryCounts[categoryName] ?? 0) + amountPerCategory;
+            }
+          }
         }
 
         final total = categoryCounts.values.fold(0.0, (sum, amount) => sum + amount);
         for (final entry in categoryCounts.entries) {
-          if (entry.value / total > 0.5) {
+          final percentage = (entry.value / total * 100);
+          if (percentage > 50) {
             await NotificationService.showNotification(
               id: NotificationHelper._generateNotificationId('spending_pattern_${entry.key}'),
               title: '📊 Spending Pattern',
-              body: '${entry.key} makes up ${(entry.value / total * 100).toInt()}% of your spending this month',
+              body: '${entry.key} makes up ${percentage.toInt()}% of your spending this month',
               channelId: 'pattern_alerts',
               channelName: 'Spending Patterns',
+              payload: 'open_reports_page',
             );
             break;
           }

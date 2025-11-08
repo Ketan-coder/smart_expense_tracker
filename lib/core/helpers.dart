@@ -173,6 +173,16 @@ class Helpers {
     await prefs.setBool('darkThemeState', state);
   }
 
+  Future<bool?> getCurrentDynamicColorState() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('dynamicColorState') ?? false;
+  }
+
+  Future<void> setCurrentDynamicColorState(bool state) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('dynamicColorState', state);
+  }
+
   Future<bool?> getCurrentAutoThemeState() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('autoThemeState') ?? true;

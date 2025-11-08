@@ -892,6 +892,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _selectedLanguage = "English";
   bool _notificationState = true;
   bool _darkThemeState = false;
+  bool _dynamicColorState = false;
   bool _autoThemeState = true;
   bool _biometricState = false;
   bool _smsParsingState = true;
@@ -954,6 +955,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final smsParsingState = await Helpers().getCurrentSmsParsingState() ?? true;
     final currency = await Helpers().getCurrentCurrency() ?? '₹';
     final language = await Helpers().getCurrentLanguage() ?? 'English';
+    final dynamicColorState = await Helpers().getCurrentDynamicColorState() ?? true;
 
     if (mounted) {
       setState(() {
@@ -964,6 +966,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _smsParsingState = smsParsingState;
         _selectedCurrency = currency;
         _selectedLanguage = language;
+        _dynamicColorState = dynamicColorState;
       });
     }
   }
@@ -1158,6 +1161,33 @@ class _SettingsPageState extends State<SettingsPage> {
       SnackBars.show(
         context,
         message: value ? "Dark theme enabled. Restarting..." : "Light theme enabled. Restarting...",
+        type: SnackBarType.success,
+      );
+    }
+    _restartApp();
+  }
+
+  Future<void> _updateDynamicColorState(bool value) async {
+    final confirmed = await Dialogs.showConfirmation(
+      context: context,
+      title: value ? "Enable Dynamic Theme?" : "Disable Dynamic Theme?",
+      message: "The app needs to restart to apply theme changes.",
+      yesText: value ? "Enable" : "Disable",
+      noText: "Cancel",
+    );
+
+    if (confirmed != true) {
+      setState(() => _dynamicColorState = !value);
+      return;
+    }
+
+    setState(() => _dynamicColorState = value);
+    await Helpers().setCurrentDynamicColorState(value);
+
+    if (mounted) {
+      SnackBars.show(
+        context,
+        message: value ? "Dynamic theme enabled. Restarting..." : "Dynamic theme disabled. Restarting...",
         type: SnackBarType.success,
       );
     }
@@ -1711,8 +1741,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 8),
 
-
-
                 // Auto Theme
                 ListTile(
                   leading: const Icon(Icons.brightness_auto),
@@ -1735,6 +1763,18 @@ class _SettingsPageState extends State<SettingsPage> {
                       onChanged: _updateDarkThemeState,
                     ),
                   ),
+
+                const SizedBox(height: 8),
+
+                ListTile(
+                  leading: const Icon(Icons.palette),
+                  title: const Text("Dynamic Colors"),
+                  subtitle: const Text("Use device wallpaper colors"),
+                  trailing: Switch(
+                    value: _dynamicColorState,
+                    onChanged: _updateDynamicColorState,
+                  ),
+                ),
 
                 const Divider(),
 

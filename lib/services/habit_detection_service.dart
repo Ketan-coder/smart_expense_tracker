@@ -255,6 +255,7 @@ class HabitDetectionService {
       body: 'We noticed you ${pattern['name']} ${pattern['frequency']}. Track it as a habit?',
       channelId: 'habit_detection',
       channelName: 'Habit Detection',
+      payload: 'open_habit_page',
     );
 
     // Mark as notified

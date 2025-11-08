@@ -11,11 +11,13 @@ import '../../data/model/category.dart';
 class AddEditHabitSheet extends StatefulWidget {
   final Habit? habit;
   final dynamic habitKey;
+  final bool hideTitle;
 
   const AddEditHabitSheet({
     super.key,
     this.habit,
     this.habitKey,
+    this.hideTitle = false,
   });
 
   @override
@@ -83,12 +85,12 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
     final categories = categoryBox.values.toList();
 
     return Container(
-      margin: EdgeInsets.only(top: 50),
+      margin: EdgeInsets.only(top: !widget.hideTitle ? 50 : 0),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
         left: 16,
         right: 16,
-        top: 16,
+        top: !widget.hideTitle ? 16 : 0,
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -96,21 +98,22 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Header
-            Row(
-              children: [
-                Text(
-                  widget.habit == null ? 'Create Habit' : 'Edit Habit',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+            if (!widget.hideTitle)
+              Row(
+                children: [
+                  Text(
+                    widget.habit == null ? 'Create Habit' : 'Edit Habit',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             const SizedBox(height: 16),
 
             // Name

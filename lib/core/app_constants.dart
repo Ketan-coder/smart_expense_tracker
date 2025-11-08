@@ -5,4 +5,5 @@ class AppConstants {
   static final String categories = 'categories';
   static final String recurrings = 'recurrings';
   static final String wallets = 'wallets';
+  static final String goals = 'goals';
 }

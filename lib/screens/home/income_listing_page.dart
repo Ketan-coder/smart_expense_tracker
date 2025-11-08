@@ -840,8 +840,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
     final amountController = TextEditingController(text: income.amount.toString());
     final descController = TextEditingController(text: income.description);
     String selectedMethod = income.method ?? 'UPI';
-    final List<int> selectedCategoryKeys = income.categoryKeys.isNotEmpty ? income.categoryKeys : [];
-    int? selectedCategoryKey = income.categoryKeys.isNotEmpty ? income.categoryKeys.first : null;
+    final selectedCategoryKeys = income.categoryKeys.toSet(); // Use Set for multiple selection
 
     BottomSheetUtil.show(
       context: context,
@@ -859,7 +858,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration:  InputDecoration(
                   labelText: 'Amount',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                   prefixText: '$_currentCurrency ',
                 ),
               ),
@@ -873,7 +872,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                initialValue: selectedMethod,
+                value: selectedMethod,
                 decoration: const InputDecoration(
                   labelText: 'Source',
                   border: OutlineInputBorder(),
@@ -887,26 +886,6 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                   });
                 },
               ),
-              // const SizedBox(height: 16),
-              // DropdownButtonFormField<int>(
-              //   initialValue: selectedCategoryKey,
-              //   decoration: const InputDecoration(
-              //     labelText: 'Category',
-              //     border: OutlineInputBorder(),
-              //   ),
-              //   items: categories.map((cat) {
-              //     final key = categoryBox.keyAt(categories.indexOf(cat));
-              //     return DropdownMenuItem<int>(
-              //       value: key,
-              //       child: Text(cat.name),
-              //     );
-              //   }).toList(),
-              //   onChanged: (value) {
-              //     setModalState(() {
-              //       selectedCategoryKey = value;
-              //     });
-              //   },
-              // ),
               const SizedBox(height: 16),
               const Text(
                 "Selected Categories:",
@@ -923,7 +902,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                   final isSelected = selectedCategoryKeys.contains(catKey);
                   return ChoiceChip(
                     label: Text(category.name),
-                    backgroundColor: (Helpers().hexToColor(category.color)).withValues(alpha: .5),
+                    backgroundColor: (Helpers().hexToColor(category.color)).withOpacity(0.5),
                     selected: isSelected,
                     onSelected: (selected) {
                       setModalState(() {
@@ -941,10 +920,10 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
               FilledButton(
                 onPressed: () {
                   final amount = double.tryParse(amountController.text);
-                  if (amount == null || amount <= 0 || selectedCategoryKey == null) {
+                  if (amount == null || amount <= 0 || selectedCategoryKeys.isEmpty) {
                     SnackBars.show(
                       context,
-                      message: "Please fill all fields",
+                      message: "Please fill all fields and select at least one category",
                       type: SnackBarType.warning,
                     );
                     return;
@@ -955,11 +934,17 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                     date: income.date,
                     description: descController.text,
                     method: selectedMethod,
-                    categoryKeys: [selectedCategoryKey!],
+                    categoryKeys: selectedCategoryKeys.toList(), // Use the multiple selection
                   );
 
                   UniversalHiveFunctions().updateIncome(incomeKey, newIncome, selectedMethod);
                   Navigator.of(context).pop();
+
+                  SnackBars.show(
+                    context,
+                    message: "Income updated successfully",
+                    type: SnackBarType.success,
+                  );
                 },
                 child: const Text('Save Changes'),
               ),

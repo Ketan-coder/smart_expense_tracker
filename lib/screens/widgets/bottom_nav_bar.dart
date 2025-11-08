@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:expense_tracker/core/app_constants.dart';
 import 'package:expense_tracker/data/model/wallet.dart';
 import 'package:expense_tracker/data/model/recurring.dart';
+import 'package:expense_tracker/screens/goals/goal_page.dart';
 import 'package:expense_tracker/screens/habit_screen.dart';
 import 'package:expense_tracker/screens/home/income_page.dart';
 import 'package:expense_tracker/screens/settings/settings_page.dart';
@@ -28,8 +29,10 @@ import '../../services/privacy/shake_detector.dart';
 import '../../services/sms_service.dart';
 import '../add_edit_habit_bottom_sheet.dart';
 import '../expenses/expense_page.dart';
+import '../goals/add_edit_goal_sheet.dart';
 import '../home/category_page.dart';
 import '../home/home_page.dart';
+import '../transaction_page.dart';
 import 'battery_info_widget.dart';
 import 'floating_toolbar.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -49,9 +52,10 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
   final List<Widget> _tabs = const [
     HomePage(),
-    ExpensePage(),
-    IncomePage(),
-    // CategoryPage(),
+    TransactionsPage(),
+    // ExpensePage(),
+    // IncomePage(),
+    GoalsPage(),
     HabitPage(),
     SettingsPage(),
   ];
@@ -176,7 +180,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
       if (_privacyManager.isPrivacyActive) {
         _brightnessService.dimForPrivacy();
       } else {
-        _brightnessService.restoreBrightness();
+        _brightnessService.resetToSystem();
       }
     }
 
@@ -841,9 +845,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
       floatingActionButton: FloatingToolbar(
         items: [
           FloatingToolbarItem(icon: Icons.home, label: 'Home'),
-          FloatingToolbarItem(icon: Icons.money_off, label: 'Expenses'),
-          FloatingToolbarItem(icon: Icons.monetization_on, label: 'Incomes'),
-          // FloatingToolbarItem(icon: Icons.category, label: 'Categories'),
+          FloatingToolbarItem(icon: Icons.money_off, label: 'Transaction'),
+          // FloatingToolbarItem(icon: Icons.monetization_on, label: 'Incomes'),
+          FloatingToolbarItem(icon: Icons.flag_outlined, label: 'Goals'),
           FloatingToolbarItem(icon: Icons.track_changes, label: 'Habits'),
           FloatingToolbarItem(icon: Icons.settings, label: 'Settings'),
         ],
@@ -856,27 +860,35 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               _showReportsAddMenu(context);
               break;
             case 1:
-              _showAddExpenseSheet();
+              _showAddTransactionSheet();
               break;
             case 2:
-              _showAddIncomeSheet();
-              break;
+              _showAddGoalSheet();
+            // case 2:
+            //   _showAddIncomeSheet();
+            //   break;
             // case 3:
             //   _showAddCategorySheet();
             //   break;
             case 3:
-              showModalBottomSheet(
+              BottomSheetUtil.show(
                 context: context,
-                isScrollControlled: true,
-                builder: (context) => const AddEditHabitSheet(),
+                title: 'Add New Habit',
+                height: MediaQuery.of(context).size.height / 1.35,
+                child: AddEditHabitSheet(hideTitle: true,),
               );
+              // showModalBottomSheet(
+              //   context: context,
+              //   isScrollControlled: true,
+              //   builder: (context) => const AddEditHabitSheet(),
+              // );
               break;
             case 4:
-              SnackBars.show(
-                context,
-                message: "Under Development",
-                type: SnackBarType.info,
-              );
+              // SnackBars.show(
+              //   context,
+              //   message: "Under Development",
+              //   type: SnackBarType.info,
+              // );
               break;
           }
         },
@@ -898,6 +910,19 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     debugPrint("🔋 Screenshot Protection: ${_privacyManager.screenshotProtectionEnabled}");
     debugPrint("🔋 ========================================");
   }
+
+  // ======================================
+  // GOAL MENU
+  // ======================================
+  void _showAddGoalSheet() {
+    BottomSheetUtil.show(
+      context: context,
+      title: 'Create New Goal',
+      height: MediaQuery.of(context).size.height / 1.35,
+      child: AddEditGoalSheet(),
+    );
+  }
+
 
   // ========================================
   // REPORTS PAGE MENU
@@ -1595,6 +1620,152 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
   // ========================================
   // ADD EXPENSE SHEET
   // ========================================
+
+
+  void _showAddTransactionSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(16),
+        child: Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Add Transaction',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Expense Option
+                _buildTransactionOption(
+                  context,
+                  title: 'Add Expense',
+                  subtitle: 'Record money spent',
+                  icon: Icons.arrow_upward_rounded,
+                  iconColor: Theme.of(context).colorScheme.error,
+                  backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showAddExpenseSheet();
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // Income Option
+                _buildTransactionOption(
+                  context,
+                  title: 'Add Income',
+                  subtitle: 'Record money received',
+                  icon: Icons.arrow_downward_rounded,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showAddIncomeSheet();
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransactionOption(
+      BuildContext context, {
+        required String title,
+        required String subtitle,
+        required IconData icon,
+        required Color iconColor,
+        required Color backgroundColor,
+        required VoidCallback onTap,
+      }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Icon
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: backgroundColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // Text Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Chevron
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   void _showAddExpenseSheet() {
     final addController = TextEditingController();

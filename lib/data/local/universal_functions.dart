@@ -324,9 +324,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:hive_ce/hive.dart';
 import '../../core/app_constants.dart';
+import '../../services/goal_service.dart';
 import '../../services/notification_helper.dart';
 import '../model/category.dart';
 import '../model/expense.dart';
+import '../model/goal.dart';
 import '../model/habit.dart';
 import '../model/income.dart';
 import '../model/wallet.dart';
@@ -1011,6 +1013,36 @@ class UniversalHiveFunctions {
       }
     } catch (e) {
       debugPrint("⚠️ [rollback] Error during income delete rollback: $e");
+    }
+  }
+
+  /// Add income with automatic goal allocation
+  Future<bool> addIncomeWithGoalAllocation({
+    required double amount,
+    required String description,
+    required String method,
+    required List<int> categoryKeys,
+    List<int>? goalKeys, // Specific goals to allocate to
+    DateTime? date,
+  }) async {
+    return await GoalService().addIncomeAndAllocateToGoals(
+      amount: amount,
+      description: description,
+      method: method,
+      categoryKeys: categoryKeys,
+      date: date,
+      goalKeys: goalKeys,
+    );
+  }
+
+  /// Get goals for allocation suggestions
+  Future<List<Goal>> getGoalsForAllocation() async {
+    try {
+      final goalService = GoalService();
+      return await goalService.getActiveGoals();
+    } catch (e) {
+      debugPrint("❌ [UniversalHiveFunctions] Error getting goals for allocation: $e");
+      return [];
     }
   }
 

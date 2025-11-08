@@ -1,4 +1,5 @@
 import 'package:expense_tracker/data/local/universal_functions.dart';
+import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/custom_app_bar.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:flutter/material.dart';
@@ -639,20 +640,35 @@ class _HabitPageState extends State<HabitPage>
   }
 
   void _showHabitDetails(Habit habit, dynamic key) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => AddEditHabitSheet(habit: habit, habitKey: key),
+    BottomSheetUtil.show(
+        context: context,
+        title: 'Edit Habit Details',
+        height: MediaQuery.of(context).size.height / 1.35,
+        child: AddEditHabitSheet(habit: habit, habitKey: key, hideTitle: true,),
     );
+    // showModalBottomSheet(
+    //   context: context,
+    //   isScrollControlled: true,
+    //   builder: (context) => AddEditHabitSheet(habit: habit, habitKey: key),
+    // );
   }
 
   void _showAddHabitSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => const AddEditHabitSheet(),
+    BottomSheetUtil.show(
+        context: context,
+        title: 'Add New Habit',
+        height: MediaQuery.of(context).size.height / 1.35,
+        child: AddEditHabitSheet(hideTitle: true,)
     );
   }
+
+  // void _showAddHabitSheet() {
+  //   showModalBottomSheet(
+  //     context: context,
+  //     isScrollControlled: true,
+  //     builder: (context) => const AddEditHabitSheet(),
+  //   );
+  // }
 
   Future<void> _runHabitDetection() async {
     SnackBars.show(
