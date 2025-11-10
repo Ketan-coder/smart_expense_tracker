@@ -58,6 +58,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
 
+    // Listen to tab changes to handle showcase
+    _tabController.addListener(_onTabChanged);
+
     // Default: This Month
     final now = DateTime.now();
     _startDate = DateTime(now.year, now.month, 1);
@@ -67,8 +70,23 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     _checkAndShowShowcase();
   }
 
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) {
+      // Pause showcase during tab animation
+      if (_showcaseController.isActive) {
+        // Wait for tab animation to complete
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            setState(() {}); // Trigger rebuild after tab change
+          }
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _showcaseController.dispose();
     _scrollController.dispose();
@@ -77,9 +95,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
   Future<void> _checkAndShowShowcase() async {
     final shouldShow = await ShowcaseHelper.shouldShow('reports_screen');
-    if (shouldShow) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      _startShowcase();
+    if (shouldShow && mounted) {
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (mounted) _startShowcase();
     }
   }
 
@@ -96,7 +114,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         key: _tabKey,
         title: 'Multiple Views',
         description: 'Switch between Overview, Categories, Trends, and Insights tabs for comprehensive financial reports',
-        scrollController: _scrollController,
+        scrollController: null, // No scrolling needed for tab bar
+        targetShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       if (!kIsWeb)
         ShowcaseStep(
@@ -112,85 +131,115 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
   Future<void> _loadInitialData() async {
     if (mounted) setState(() => _isLoading = true);
-    _currentCurrency = await Helpers().getCurrentCurrency() ?? 'INR';
+    try {
+      _currentCurrency = await Helpers().getCurrentCurrency() ?? 'INR';
+    } catch (e) {
+      debugPrint('Error loading currency: $e');
+      _currentCurrency = 'INR';
+    }
     if (mounted) setState(() => _isLoading = false);
   }
 
   List<Expense> _getFilteredExpenses(DateTime start, DateTime end) {
-    final expenseBox = Hive.box<Expense>(AppConstants.expenses);
-    return expenseBox.values.where((e) {
-      return e.date.isAfter(start.subtract(const Duration(days: 1))) &&
-          e.date.isBefore(end.add(const Duration(days: 1)));
-    }).toList();
+    try {
+      final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+      return expenseBox.values.where((e) {
+        return e.date.isAfter(start.subtract(const Duration(days: 1))) &&
+            e.date.isBefore(end.add(const Duration(days: 1)));
+      }).toList();
+    } catch (e) {
+      debugPrint('Error filtering expenses: $e');
+      return [];
+    }
   }
 
   List<Income> _getFilteredIncomes(DateTime start, DateTime end) {
-    final incomeBox = Hive.box<Income>(AppConstants.incomes);
-    return incomeBox.values.where((i) {
-      return i.date.isAfter(start.subtract(const Duration(days: 1))) &&
-          i.date.isBefore(end.add(const Duration(days: 1)));
-    }).toList();
+    try {
+      final incomeBox = Hive.box<Income>(AppConstants.incomes);
+      return incomeBox.values.where((i) {
+        return i.date.isAfter(start.subtract(const Duration(days: 1))) &&
+            i.date.isBefore(end.add(const Duration(days: 1)));
+      }).toList();
+    } catch (e) {
+      debugPrint('Error filtering incomes: $e');
+      return [];
+    }
   }
 
   Map<String, double> _getCategoryBreakdown(List<Expense> expenses) {
-    final categoryBox = Hive.box<Category>(AppConstants.categories);
-    Map<String, double> breakdown = {};
+    try {
+      final categoryBox = Hive.box<Category>(AppConstants.categories);
+      Map<String, double> breakdown = {};
 
-    for (var expense in expenses) {
-      if (expense.categoryKeys.isNotEmpty) {
-        final category = categoryBox.get(expense.categoryKeys.first);
-        final name = category?.name ?? 'Uncategorized';
-        breakdown[name] = (breakdown[name] ?? 0) + expense.amount;
-      } else {
-        breakdown['Uncategorized'] = (breakdown['Uncategorized'] ?? 0) + expense.amount;
+      for (var expense in expenses) {
+        if (expense.categoryKeys.isNotEmpty) {
+          final category = categoryBox.get(expense.categoryKeys.first);
+          final name = category?.name ?? 'Uncategorized';
+          breakdown[name] = (breakdown[name] ?? 0.0) + expense.amount;
+        } else {
+          breakdown['Uncategorized'] = (breakdown['Uncategorized'] ?? 0.0) + expense.amount;
+        }
       }
-    }
 
-    return Map.fromEntries(
-        breakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value))
-    );
+      return Map.fromEntries(
+          breakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value))
+      );
+    } catch (e) {
+      debugPrint('Error getting category breakdown: $e');
+      return {};
+    }
   }
 
   Map<DateTime, double> _getDailyExpenses(List<Expense> expenses) {
-    final Map<DateTime, double> daily = {};
-    final daysDiff = _endDate.difference(_startDate).inDays + 1;
+    try {
+      final Map<DateTime, double> daily = {};
+      final daysDiff = _endDate.difference(_startDate).inDays + 1;
 
-    for (int i = 0; i < daysDiff; i++) {
-      final date = DateTime(_startDate.year, _startDate.month, _startDate.day + i);
-      daily[date] = 0;
-    }
-
-    for (var expense in expenses) {
-      final day = DateTime(expense.date.year, expense.date.month, expense.date.day);
-      if (daily.containsKey(day)) {
-        daily[day] = daily[day]! + expense.amount;
+      for (int i = 0; i < daysDiff; i++) {
+        final date = DateTime(_startDate.year, _startDate.month, _startDate.day + i);
+        daily[date] = 0.0;
       }
-    }
 
-    return Map.fromEntries(
-      daily.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
-    );
+      for (var expense in expenses) {
+        final day = DateTime(expense.date.year, expense.date.month, expense.date.day);
+        if (daily.containsKey(day)) {
+          daily[day] = (daily[day] ?? 0.0) + expense.amount;
+        }
+      }
+
+      return Map.fromEntries(
+        daily.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+      );
+    } catch (e) {
+      debugPrint('Error getting daily expenses: $e');
+      return {};
+    }
   }
 
   Map<DateTime, double> _getDailyIncomes(List<Income> incomes) {
-    final Map<DateTime, double> daily = {};
-    final daysDiff = _endDate.difference(_startDate).inDays + 1;
+    try {
+      final Map<DateTime, double> daily = {};
+      final daysDiff = _endDate.difference(_startDate).inDays + 1;
 
-    for (int i = 0; i < daysDiff; i++) {
-      final date = DateTime(_startDate.year, _startDate.month, _startDate.day + i);
-      daily[date] = 0;
-    }
-
-    for (var income in incomes) {
-      final day = DateTime(income.date.year, income.date.month, income.date.day);
-      if (daily.containsKey(day)) {
-        daily[day] = daily[day]! + income.amount;
+      for (int i = 0; i < daysDiff; i++) {
+        final date = DateTime(_startDate.year, _startDate.month, _startDate.day + i);
+        daily[date] = 0.0;
       }
-    }
 
-    return Map.fromEntries(
-      daily.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
-    );
+      for (var income in incomes) {
+        final day = DateTime(income.date.year, income.date.month, income.date.day);
+        if (daily.containsKey(day)) {
+          daily[day] = (daily[day] ?? 0.0) + income.amount;
+        }
+      }
+
+      return Map.fromEntries(
+        daily.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+      );
+    } catch (e) {
+      debugPrint('Error getting daily incomes: $e');
+      return {};
+    }
   }
 
   @override
@@ -245,7 +294,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                         final incomes = _getFilteredIncomes(_startDate, _endDate);
 
                         return SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.72, // Fixed height for Column
+                          height: MediaQuery.of(context).size.height * 0.72,
                           child: Column(
                             children: [
                               // Date Range Display
@@ -352,7 +401,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     final totalIncome = incomes.fold(0.0, (sum, i) => sum + i.amount);
     final netSavings = totalIncome - totalExpense;
     final daysDiff = _endDate.difference(_startDate).inDays + 1;
-    final avgDailyExpense = daysDiff > 0 ? totalExpense / daysDiff : 0;
+    final avgDailyExpense = daysDiff > 0 ? totalExpense / daysDiff : 0.0;
 
     final recurringTotal = recurringBox.values.fold(0.0, (sum, r) => sum + r.amount);
 
@@ -444,7 +493,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                       icon: const Icon(Icons.arrow_forward, size: 16),
                       label: const Text('View All Expenses'),
                     ),
-                    Spacer(),
+                    const Spacer(),
                     TextButton.icon(
                       onPressed: () => Helpers.navigateTo(context, const IncomeListingPage()),
                       icon: const Icon(Icons.arrow_forward, size: 16),
@@ -489,7 +538,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             _buildEmptyCard('No expenses to categorize', theme, colorScheme)
           else
             ...categoryBreakdown.entries.map((entry) {
-              final percentage = totalExpense > 0 ? (entry.value / totalExpense * 100) : 0;
+              final percentage = totalExpense > 0 ? (entry.value / totalExpense * 100) : 0.0;
               final expensesInCategory = expenses.where((e) {
                 if (e.categoryKeys.isEmpty) return entry.key == 'Uncategorized';
                 final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -500,7 +549,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               return _buildCategoryCard(
                 entry.key,
                 entry.value,
-                percentage as double,
+                percentage,
                 expensesInCategory.length,
                 theme,
                 colorScheme,
@@ -616,17 +665,17 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   Widget _buildInsightsTab(List<Expense> expenses, List<Income> incomes, ThemeData theme, ColorScheme colorScheme) {
     final totalExpense = expenses.fold(0.0, (sum, e) => sum + e.amount);
     final totalIncome = incomes.fold(0.0, (sum, i) => sum + i.amount);
-    final savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome * 100) : 0;
+    final savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome * 100) : 0.0;
 
     final daysDiff = _endDate.difference(_startDate).inDays + 1;
-    final avgDailyExpense = daysDiff > 0 ? totalExpense / daysDiff : 0;
-    final avgDailyIncome = daysDiff > 0 ? totalIncome / daysDiff : 0;
+    final avgDailyExpense = daysDiff > 0 ? totalExpense / daysDiff : 0.0;
+    final avgDailyIncome = daysDiff > 0 ? totalIncome / daysDiff : 0.0;
 
     final categoryBreakdown = _getCategoryBreakdown(expenses);
     final topCategory = categoryBreakdown.isNotEmpty ? categoryBreakdown.entries.first : null;
     final topCategoryPercent = totalExpense > 0 && topCategory != null
         ? (topCategory.value / totalExpense * 100)
-        : 0;
+        : 0.0;
 
     return SingleChildScrollView(
       controller: _scrollController,
@@ -635,7 +684,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Financial Health Score - MOVED TO TOP
-          _buildHealthScoreCard(savingsRate as double, theme, colorScheme),
+          _buildHealthScoreCard(savingsRate, theme, colorScheme),
 
           const SizedBox(height: 16),
           Text('Financial Insights', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
@@ -760,7 +809,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         padding: const EdgeInsets.all(16),
         child: Column(
           children: categoryBreakdown.entries.take(5).map((entry) {
-            final percentage = (entry.value / totalExpense * 100);
+            final percentage = totalExpense > 0 ? (entry.value / totalExpense * 100) : 0.0;
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(
@@ -1063,17 +1112,15 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       healthIcon = Icons.error_outline;
     }
 
-    // Make "Needs Attention" card more prominent
     final isNeedsAttention = savingsRate < 0;
 
     return Card(
       elevation: isNeedsAttention ? 4 : 0,
-      // color: isNeedsAttention ? healthColor.withValues(alpha: .25) : colorScheme.surfaceContainer,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isNeedsAttention ? healthColor : colorScheme.outlineVariant.withValues(alpha: .3),
+          color: isNeedsAttention ? healthColor : colorScheme.outlineVariant.withOpacity(0.3),
           width: isNeedsAttention ? 2 : 1,
         ),
       ),
@@ -1163,19 +1210,23 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   }
 
   Future<void> _selectDateRange() async {
-    final now = DateTime.now();
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(now.year - 5),
-      lastDate: DateTime(now.year + 5),
-      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
-    );
+    try {
+      final now = DateTime.now();
+      final picked = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(now.year - 5),
+        lastDate: DateTime(now.year + 5),
+        initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+      );
 
-    if (picked != null) {
-      setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
-      });
+      if (picked != null && mounted) {
+        setState(() {
+          _startDate = picked.start;
+          _endDate = picked.end;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error selecting date range: $e');
     }
   }
 
@@ -1229,7 +1280,6 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       final totalIncome = incomes.fold(0.0, (sum, i) => sum + i.amount);
       final netSavings = totalIncome - totalExpense;
 
-      // Load custom fonts to support various currency symbols (add these to pubspec.yaml under assets)
       final ByteData baseFontData = await rootBundle.load('assets/fonts/NotoSans.ttf');
       final ByteData boldFontData = await rootBundle.load('assets/fonts/NotoSans.ttf');
       final pw.Font baseFont = pw.Font.ttf(baseFontData);
@@ -1241,7 +1291,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         pw.MultiPage(
           theme: pw.ThemeData.withFont(base: baseFont, bold: boldFont),
           pageFormat: PdfPageFormat.a4,
-          margin: pw.EdgeInsets.all(32),
+          margin: const pw.EdgeInsets.all(32),
           header: (context) => pw.Column(
             children: [
               pw.Text(
@@ -1251,149 +1301,90 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               pw.SizedBox(height: 8),
               pw.Text(
                 'Period: ${DateFormat('d MMM yyyy').format(_startDate)} - ${DateFormat('d MMM yyyy').format(_endDate)}',
-                style: pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
+                style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
               ),
               pw.SizedBox(height: 20),
             ],
           ),
           footer: (context) => pw.Container(
             alignment: pw.Alignment.centerRight,
-            margin: pw.EdgeInsets.only(top: 20),
+            margin: const pw.EdgeInsets.only(top: 20),
             child: pw.Text(
               'Page ${context.pageNumber} of ${context.pagesCount}',
-              style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+              style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
             ),
           ),
           build: (context) => [
-            // Summary Section
             pw.Header(level: 1, child: pw.Text('Summary')),
             pw.SizedBox(height: 10),
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
               columnWidths: {
-                0: pw.FlexColumnWidth(3),
-                1: pw.FlexColumnWidth(2),
+                0: const pw.FlexColumnWidth(3),
+                1: const pw.FlexColumnWidth(2),
               },
               children: [
                 pw.TableRow(
-                  decoration: pw.BoxDecoration(color: PdfColors.grey200),
+                  decoration: const pw.BoxDecoration(color: PdfColors.grey200),
                   children: [
                     pw.Padding(
-                      padding: pw.EdgeInsets.all(8),
-                      child: pw.Text(
-                        'Metric',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                      ),
+                      padding: const pw.EdgeInsets.all(8),
+                      child: pw.Text('Metric', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     ),
                     pw.Padding(
-                      padding: pw.EdgeInsets.all(8),
-                      child: pw.Text(
-                        'Amount',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        textAlign: pw.TextAlign.right,
-                      ),
+                      padding: const pw.EdgeInsets.all(8),
+                      child: pw.Text('Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right),
                     ),
                   ],
                 ),
                 pw.TableRow(
                   children: [
-                    pw.Padding(padding: pw.EdgeInsets.all(8), child: pw.Text('Total Income')),
-                    pw.Padding(
-                      padding: pw.EdgeInsets.all(8),
-                      child: pw.Text(
-                        '$_currentCurrency ${totalIncome.toStringAsFixed(2)}',
-                        textAlign: pw.TextAlign.right,
-                      ),
-                    ),
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Total Income')),
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${totalIncome.toStringAsFixed(2)}', textAlign: pw.TextAlign.right)),
                   ],
                 ),
                 pw.TableRow(
                   children: [
-                    pw.Padding(padding: pw.EdgeInsets.all(8), child: pw.Text('Total Expenses')),
-                    pw.Padding(
-                      padding: pw.EdgeInsets.all(8),
-                      child: pw.Text(
-                        '$_currentCurrency ${totalExpense.toStringAsFixed(2)}',
-                        textAlign: pw.TextAlign.right,
-                      ),
-                    ),
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Total Expenses')),
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${totalExpense.toStringAsFixed(2)}', textAlign: pw.TextAlign.right)),
                   ],
                 ),
                 pw.TableRow(
                   children: [
-                    pw.Padding(padding: pw.EdgeInsets.all(8), child: pw.Text('Net Savings')),
-                    pw.Padding(
-                      padding: pw.EdgeInsets.all(8),
-                      child: pw.Text(
-                        '$_currentCurrency ${netSavings.toStringAsFixed(2)}',
-                        textAlign: pw.TextAlign.right,
-                      ),
-                    ),
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Net Savings')),
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${netSavings.toStringAsFixed(2)}', textAlign: pw.TextAlign.right)),
                   ],
                 ),
               ],
             ),
             pw.SizedBox(height: 30),
 
-            // Category Breakdown
             pw.Header(level: 1, child: pw.Text('Expense by Category')),
             pw.SizedBox(height: 10),
             if (categoryBreakdown.isNotEmpty)
               pw.Table(
                 border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
                 columnWidths: {
-                  0: pw.FlexColumnWidth(3),
-                  1: pw.FlexColumnWidth(2),
-                  2: pw.FlexColumnWidth(2),
+                  0: const pw.FlexColumnWidth(3),
+                  1: const pw.FlexColumnWidth(2),
+                  2: const pw.FlexColumnWidth(2),
                 },
                 children: [
                   pw.TableRow(
-                    decoration: pw.BoxDecoration(color: PdfColors.grey200),
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey200),
                     children: [
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Category',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Amount',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                          textAlign: pw.TextAlign.right,
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Percentage',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                          textAlign: pw.TextAlign.right,
-                        ),
-                      ),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Category', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Percentage', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
                     ],
                   ),
                   ...categoryBreakdown.entries.map((e) {
-                    final percentage = totalExpense > 0 ? (e.value / totalExpense * 100) : 0;
+                    final percentage = totalExpense > 0 ? (e.value / totalExpense * 100) : 0.0;
                     return pw.TableRow(
                       children: [
-                        pw.Padding(padding: pw.EdgeInsets.all(8), child: pw.Text(e.key)),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            '$_currentCurrency ${e.value.toStringAsFixed(2)}',
-                            textAlign: pw.TextAlign.right,
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            '${percentage.toStringAsFixed(1)}%',
-                            textAlign: pw.TextAlign.right,
-                          ),
-                        ),
+                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(e.key)),
+                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${e.value.toStringAsFixed(2)}', textAlign: pw.TextAlign.right)),
+                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('${percentage.toStringAsFixed(1)}%', textAlign: pw.TextAlign.right)),
                       ],
                     );
                   }),
@@ -1401,51 +1392,25 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               ),
             pw.SizedBox(height: 30),
 
-            // Recent Transactions
             pw.Header(level: 1, child: pw.Text('Recent Transactions')),
             pw.SizedBox(height: 10),
             if (expenses.isNotEmpty)
               pw.Table(
                 border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
                 columnWidths: {
-                  0: pw.FlexColumnWidth(2),
-                  1: pw.FlexColumnWidth(3),
-                  2: pw.FlexColumnWidth(2),
-                  3: pw.FlexColumnWidth(2),
+                  0: const pw.FlexColumnWidth(2),
+                  1: const pw.FlexColumnWidth(3),
+                  2: const pw.FlexColumnWidth(2),
+                  3: const pw.FlexColumnWidth(2),
                 },
                 children: [
                   pw.TableRow(
-                    decoration: pw.BoxDecoration(color: PdfColors.grey200),
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey200),
                     children: [
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Date',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Description',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Category',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Amount',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                          textAlign: pw.TextAlign.right,
-                        ),
-                      ),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Date', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Description', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Category', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
                     ],
                   ),
                   ...expenses.take(20).map((e) {
@@ -1457,19 +1422,10 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                     }
                     return pw.TableRow(
                       children: [
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(DateFormat('d MMM yyyy').format(e.date)),
-                        ),
-                        pw.Padding(padding: pw.EdgeInsets.all(8), child: pw.Text(e.description)),
-                        pw.Padding(padding: pw.EdgeInsets.all(8), child: pw.Text(categoryName)),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            '$_currentCurrency ${e.amount.toStringAsFixed(2)}',
-                            textAlign: pw.TextAlign.right,
-                          ),
-                        ),
+                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(DateFormat('d MMM yyyy').format(e.date))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(e.description)),
+                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(categoryName)),
+                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${e.amount.toStringAsFixed(2)}', textAlign: pw.TextAlign.right)),
                       ],
                     );
                   }),
@@ -1489,116 +1445,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         SnackBars.show(context, message: 'PDF report generated successfully!', type: SnackBarType.success);
       }
     } catch (e) {
+      debugPrint('Error generating PDF: $e');
       if (mounted) {
         SnackBars.show(context, message: 'Error generating PDF: $e', type: SnackBarType.error);
       }
     }
   }
-
-  // Future<void> _exportAsPDF() async {
-  //   try {
-  //     SnackBars.show(context, message: 'Generating PDF report...', type: SnackBarType.info);
-  //
-  //     final expenses = _getFilteredExpenses(_startDate, _endDate);
-  //     final incomes = _getFilteredIncomes(_startDate, _endDate);
-  //     final categoryBreakdown = _getCategoryBreakdown(expenses);
-  //
-  //     final totalExpense = expenses.fold(0.0, (sum, e) => sum + e.amount);
-  //     final totalIncome = incomes.fold(0.0, (sum, i) => sum + i.amount);
-  //     final netSavings = totalIncome - totalExpense;
-  //
-  //     final pdf = pw.Document();
-  //
-  //     pdf.addPage(
-  //       pw.MultiPage(
-  //         build: (context) => [
-  //           // Header
-  //           pw.Header(
-  //             level: 0,
-  //             child: pw.Text(
-  //               'Financial Report',
-  //               style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
-  //             ),
-  //           ),
-  //           pw.SizedBox(height: 20),
-  //
-  //           // Date Range
-  //           pw.Text(
-  //             'Period: ${DateFormat('d MMM yyyy').format(_startDate)} - ${DateFormat('d MMM yyyy').format(_endDate)}',
-  //             style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
-  //           ),
-  //           pw.SizedBox(height: 20),
-  //
-  //           // Summary Section
-  //           pw.Header(level: 1, child: pw.Text('Summary')),
-  //           pw.SizedBox(height: 10),
-  //           pw.Table.fromTextArray(
-  //             headers: ['Metric', 'Amount'],
-  //             data: [
-  //               ['Total Income', '$_currentCurrency ${totalIncome.toStringAsFixed(2)}'],
-  //               ['Total Expenses', '$_currentCurrency ${totalExpense.toStringAsFixed(2)}'],
-  //               ['Net Savings', '$_currentCurrency ${netSavings.toStringAsFixed(2)}'],
-  //             ],
-  //           ),
-  //           pw.SizedBox(height: 20),
-  //
-  //           // Category Breakdown
-  //           pw.Header(level: 1, child: pw.Text('Expense by Category')),
-  //           pw.SizedBox(height: 10),
-  //           if (categoryBreakdown.isNotEmpty)
-  //             pw.Table.fromTextArray(
-  //               headers: ['Category', 'Amount', 'Percentage'],
-  //               data: categoryBreakdown.entries.map((e) {
-  //                 final percentage = totalExpense > 0 ? (e.value / totalExpense * 100) : 0;
-  //                 return [
-  //                   e.key,
-  //                   '$_currentCurrency ${e.value.toStringAsFixed(2)}',
-  //                   '${percentage.toStringAsFixed(1)}%',
-  //                 ];
-  //               }).toList(),
-  //             ),
-  //           pw.SizedBox(height: 20),
-  //
-  //           // Recent Transactions
-  //           pw.Header(level: 1, child: pw.Text('Recent Transactions')),
-  //           pw.SizedBox(height: 10),
-  //           if (expenses.isNotEmpty)
-  //             pw.Table.fromTextArray(
-  //               headers: ['Date', 'Description', 'Category', 'Amount'],
-  //               data: expenses.take(20).map((e) {
-  //                 final categoryBox = Hive.box<Category>(AppConstants.categories);
-  //                 String categoryName = 'Uncategorized';
-  //                 if (e.categoryKeys.isNotEmpty) {
-  //                   final category = categoryBox.get(e.categoryKeys.first);
-  //                   categoryName = category?.name ?? 'General';
-  //                 }
-  //                 return [
-  //                   DateFormat('d MMM yyyy').format(e.date),
-  //                   e.description,
-  //                   categoryName,
-  //                   '$_currentCurrency ${e.amount.toStringAsFixed(2)}',
-  //                 ];
-  //               }).toList(),
-  //             ),
-  //         ],
-  //       ),
-  //     );
-  //
-  //     final output = await getTemporaryDirectory();
-  //     final file = File('${output.path}/financial_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf');
-  //     await file.writeAsBytes(await pdf.save());
-  //
-  //     await Share.shareXFiles([XFile(file.path)], text: 'Financial Report');
-  //
-  //     if (mounted) {
-  //       SnackBars.show(context, message: 'PDF report generated successfully!', type: SnackBarType.success);
-  //     }
-  //   } catch (e) {
-  //     if (mounted) {
-  //       SnackBars.show(context, message: 'Error generating PDF: $e', type: SnackBarType.error);
-  //     }
-  //   }
-  // }
 
   Future<void> _exportAsCSV() async {
     try {
@@ -1606,16 +1458,11 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
       final expenses = _getFilteredExpenses(_startDate, _endDate);
       final incomes = _getFilteredIncomes(_startDate, _endDate);
-
       final categoryBox = Hive.box<Category>(AppConstants.categories);
 
-      // Build CSV content
       StringBuffer csv = StringBuffer();
-
-      // Header
       csv.writeln('Date,Type,Description,Category,Amount,Method');
 
-      // Add income transactions
       for (var income in incomes) {
         String categoryName = 'Uncategorized';
         if (income.categoryKeys.isNotEmpty) {
@@ -1625,7 +1472,6 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         csv.writeln('${DateFormat('yyyy-MM-dd').format(income.date)},Income,"${income.description}","$categoryName",${income.amount},${income.method ?? 'N/A'}');
       }
 
-      // Add expense transactions
       for (var expense in expenses) {
         String categoryName = 'Uncategorized';
         if (expense.categoryKeys.isNotEmpty) {
@@ -1645,6 +1491,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         SnackBars.show(context, message: 'CSV file generated successfully!', type: SnackBarType.success);
       }
     } catch (e) {
+      debugPrint('Error generating CSV: $e');
       if (mounted) {
         SnackBars.show(context, message: 'Error generating CSV: $e', type: SnackBarType.error);
       }
@@ -1652,7 +1499,6 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   }
 }
 
-// ShowcaseView widget wrapper
 class ShowcaseView extends StatelessWidget {
   final GlobalKey showcaseKey;
   final ShowcaseController controller;

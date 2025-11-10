@@ -68,7 +68,7 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(0),
         child: Form(
           key: _formKey,
           child: Column(

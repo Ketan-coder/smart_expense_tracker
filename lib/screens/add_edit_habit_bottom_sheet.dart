@@ -88,8 +88,8 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
       margin: EdgeInsets.only(top: !widget.hideTitle ? 50 : 0),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
+        // left: 16,
+        // right: 16,
         top: !widget.hideTitle ? 16 : 0,
       ),
       child: SingleChildScrollView(

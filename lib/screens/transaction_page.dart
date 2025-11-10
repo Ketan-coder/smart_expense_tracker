@@ -338,7 +338,7 @@ class _TransactionsPageState extends State<TransactionsPage>
       body: SimpleCustomAppBar(
         title: "Transactions",
         hasContent: true,
-        expandedHeight: MediaQuery.of(context).size.height * 0.25,
+        expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         actions: [
           IconButton(

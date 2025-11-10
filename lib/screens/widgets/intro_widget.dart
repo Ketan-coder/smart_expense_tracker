@@ -9,6 +9,7 @@ class ShowcaseStep {
   final ShapeBorder? targetShape;
   final ScrollController? scrollController;
   final Duration scrollDuration;
+  final bool skipScrolling; // New: Skip scrolling for fixed elements like TabBar
 
   ShowcaseStep({
     required this.key,
@@ -17,6 +18,7 @@ class ShowcaseStep {
     this.targetShape,
     this.scrollController,
     this.scrollDuration = const Duration(milliseconds: 500),
+    this.skipScrolling = false,
   });
 }
 
@@ -65,10 +67,10 @@ class ShowcaseOverlay extends StatefulWidget {
   final Widget child;
 
   const ShowcaseOverlay({
-    Key? key,
+    super.key,
     required this.controller,
     required this.child,
-  }) : super(key: key);
+  }) : super();
 
   @override
   State<ShowcaseOverlay> createState() => _ShowcaseOverlayState();
@@ -161,6 +163,7 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
   Rect? _targetRect;
+  bool _isCalculating = true;
 
   @override
   void initState() {
@@ -176,7 +179,6 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeOutBack),
     );
-    _animController.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _calculateTargetPosition();
@@ -187,56 +189,66 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
   void didUpdateWidget(_ShowcaseLayer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.step != widget.step) {
+      setState(() => _isCalculating = true);
       _animController.reset();
-      _animController.forward();
       _calculateTargetPosition();
     }
   }
 
-  void _calculateTargetPosition() {
-    // Wait a frame to ensure layout is complete
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final RenderBox? renderBox =
-      widget.step.key.currentContext?.findRenderObject() as RenderBox?;
+  void _calculateTargetPosition() async {
+    // Give extra time for tab animations to complete
+    await Future.delayed(const Duration(milliseconds: 100));
 
-      if (renderBox != null && renderBox.hasSize) {
-        final position = renderBox.localToGlobal(Offset.zero);
-        final screenHeight = MediaQuery.of(context).size.height;
+    if (!mounted) return;
 
-        // Check if widget is off-screen or partially visible
-        final isOffScreen = position.dy < 0 || position.dy > screenHeight;
-        final isPartiallyVisible = position.dy < 100 || position.dy > screenHeight - 200;
+    final RenderBox? renderBox =
+    widget.step.key.currentContext?.findRenderObject() as RenderBox?;
 
-        if ((isOffScreen || isPartiallyVisible) && widget.step.scrollController != null) {
-          // Widget needs scrolling
-          _scrollToTarget();
-        } else {
-          // Widget is visible, update rect
-          if (mounted) {
-            setState(() {
-              _targetRect = position & renderBox.size;
-            });
-          }
-        }
+    if (renderBox != null && renderBox.hasSize) {
+      final position = renderBox.localToGlobal(Offset.zero);
+      final screenHeight = MediaQuery.of(context).size.height;
+
+      // Check if scrolling is needed (and not skipped)
+      final isOffScreen = position.dy < 0 || position.dy > screenHeight;
+      final isPartiallyVisible = position.dy < 100 || position.dy > screenHeight - 200;
+      final needsScrolling = (isOffScreen || isPartiallyVisible) &&
+          widget.step.scrollController != null &&
+          !widget.step.skipScrolling;
+
+      if (needsScrolling) {
+        await _scrollToTarget();
       } else {
-        // Widget not rendered yet, try scrolling after delay
-        if (widget.step.scrollController != null) {
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted) _scrollToTarget();
+        // Widget is visible or scrolling skipped, update rect immediately
+        if (mounted) {
+          setState(() {
+            _targetRect = position & renderBox.size;
+            _isCalculating = false;
           });
+          _animController.forward();
         }
       }
-    });
+    } else {
+      // Widget not rendered yet
+      if (widget.step.scrollController != null && !widget.step.skipScrolling) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted) await _scrollToTarget();
+      } else {
+        // Try again after a short delay
+        await Future.delayed(const Duration(milliseconds: 200));
+        if (mounted) _calculateTargetPosition();
+      }
+    }
   }
 
   Future<void> _scrollToTarget() async {
     final scrollController = widget.step.scrollController;
     if (scrollController == null || !scrollController.hasClients) {
       debugPrint('⚠ [Showcase] ScrollController not available');
+      // Still show the showcase even if scrolling fails
+      await _fallbackPosition();
       return;
     }
 
-    // Wait for context to be available
     await Future.delayed(const Duration(milliseconds: 100));
 
     final RenderBox? renderBox =
@@ -246,55 +258,60 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
       try {
         final position = renderBox.localToGlobal(Offset.zero);
         final screenHeight = MediaQuery.of(context).size.height;
-
-        debugPrint('🔍 [Showcase] Widget position: ${position.dy}, Screen height: $screenHeight');
-        debugPrint('🔍 [Showcase] Current scroll offset: ${scrollController.offset}');
-
-        // Calculate target scroll position to center the widget
         final currentScrollOffset = scrollController.offset;
         final widgetOffsetFromTop = position.dy;
-        final targetPosition = currentScrollOffset + widgetOffsetFromTop - (screenHeight / 2) + (renderBox.size.height / 2);
+        final targetPosition = currentScrollOffset +
+            widgetOffsetFromTop -
+            (screenHeight / 2) +
+            (renderBox.size.height / 2);
 
         final clampedTarget = targetPosition.clamp(
           scrollController.position.minScrollExtent,
           scrollController.position.maxScrollExtent,
         );
 
-        debugPrint('🔍 [Showcase] Scrolling to: $clampedTarget');
-
-        // Scroll to make widget visible
         await scrollController.animateTo(
           clampedTarget,
           duration: widget.step.scrollDuration,
           curve: Curves.easeInOutCubic,
         );
 
-        // Wait for scroll to complete and layout to settle
         await Future.delayed(const Duration(milliseconds: 300));
 
-        // Recalculate position after scroll
         if (mounted) {
           final newRenderBox = widget.step.key.currentContext?.findRenderObject() as RenderBox?;
           if (newRenderBox != null && newRenderBox.hasSize) {
             final newPosition = newRenderBox.localToGlobal(Offset.zero);
             setState(() {
               _targetRect = newPosition & newRenderBox.size;
+              _isCalculating = false;
             });
-            debugPrint('✅ [Showcase] Widget now at position: ${newPosition.dy}');
+            _animController.forward();
           }
         }
       } catch (e) {
-        debugPrint('⚠ [Showcase] Error scrolling to target: $e');
-        // If scrolling fails, try to show widget anyway
-        if (mounted) {
-          setState(() {
-            final position = renderBox.localToGlobal(Offset.zero);
-            _targetRect = position & renderBox.size;
-          });
-        }
+        debugPrint('⚠ [Showcase] Error scrolling: $e');
+        await _fallbackPosition();
       }
     } else {
-      debugPrint('⚠ [Showcase] RenderBox not available for scrolling');
+      await _fallbackPosition();
+    }
+  }
+
+  Future<void> _fallbackPosition() async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+
+    final RenderBox? renderBox =
+    widget.step.key.currentContext?.findRenderObject() as RenderBox?;
+
+    if (renderBox != null && renderBox.hasSize && mounted) {
+      final position = renderBox.localToGlobal(Offset.zero);
+      setState(() {
+        _targetRect = position & renderBox.size;
+        _isCalculating = false;
+      });
+      _animController.forward();
     }
   }
 
@@ -306,8 +323,7 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
 
   @override
   Widget build(BuildContext context) {
-    if (_targetRect == null) {
-      // Show loading state while scrolling/finding widget
+    if (_isCalculating || _targetRect == null) {
       return Container(
         color: Colors.black.withOpacity(0.85),
         child: Center(
@@ -320,8 +336,7 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
       );
     }
 
-    // Get primary color from your AppColors
-    final primaryColor = Theme.of(context).primaryColor; // Replace with AppColors.primaryLightColor
+    final primaryColor = Theme.of(context).primaryColor;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -329,7 +344,7 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
         color: Colors.transparent,
         child: Stack(
           children: [
-            // Faded background with transparent hole
+            // Background with transparent hole
             CustomPaint(
               size: MediaQuery.of(context).size,
               painter: _HighlightPainter(
@@ -339,7 +354,7 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
               ),
             ),
 
-            // Pulsing ring animation around target
+            // Pulsing ring animation
             Positioned(
               left: _targetRect!.left - 12,
               top: _targetRect!.top - 12,
@@ -350,7 +365,7 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
               ),
             ),
 
-            // Description card with modern design
+            // Description card
             Positioned(
               left: 20,
               right: 20,
@@ -503,7 +518,7 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
     final screenHeight = MediaQuery.of(context).size.height;
     final targetBottom = _targetRect!.bottom;
 
-    if (screenHeight - targetBottom > 300) {
+    if (screenHeight - targetBottom > 320) {
       return targetBottom + 30;
     } else {
       return _targetRect!.top - 280;
@@ -596,7 +611,7 @@ class _RingPainter extends CustomPainter {
   bool shouldRepaint(_RingPainter oldDelegate) => true;
 }
 
-/// Custom painter for the highlight effect with TRANSPARENT hole
+/// Custom painter for the highlight effect
 class _HighlightPainter extends CustomPainter {
   final Rect targetRect;
   final ShapeBorder targetShape;
@@ -610,15 +625,14 @@ class _HighlightPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Create a layer for proper transparency
     canvas.saveLayer(Rect.largest, Paint());
 
-    // Draw semi-transparent background
+    // Semi-transparent background
     final backgroundPaint = Paint()
       ..color = Colors.black.withOpacity(0.85);
     canvas.drawRect(Offset.zero & size, backgroundPaint);
 
-    // Cut out the target area with CLEAR blend mode
+    // Cut out target area
     final holePaint = Paint()
       ..blendMode = BlendMode.clear;
 
@@ -626,10 +640,9 @@ class _HighlightPainter extends CustomPainter {
     final path = targetShape.getOuterPath(expandedRect);
     canvas.drawPath(path, holePaint);
 
-    // Restore to apply the layer
     canvas.restore();
 
-    // Draw glowing border around target
+    // Glowing border
     final glowPaint = Paint()
       ..color = primaryColor.withOpacity(0.6)
       ..style = PaintingStyle.stroke
@@ -637,7 +650,7 @@ class _HighlightPainter extends CustomPainter {
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     canvas.drawPath(path, glowPaint);
 
-    // Draw solid border
+    // Solid border
     final borderPaint = Paint()
       ..color = primaryColor
       ..style = PaintingStyle.stroke
@@ -653,10 +666,9 @@ class _HighlightPainter extends CustomPainter {
 
 /// Helper to check if showcase should be shown
 class ShowcaseHelper {
-  static const String keyPrefix = 'showcase_seen';
+  static const String _keyPrefix = 'showcase_seen_';
 
-  /// Set this to true during development to always show showcase
-  /// This bypasses SharedPreferences completely for easier testing
+  /// Set to true during development to always show showcase
   static bool debugMode = false;
 
   static Future<bool> shouldShow(String screenId) async {
@@ -665,21 +677,30 @@ class ShowcaseHelper {
       return true;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final hasSeenBefore = prefs.getBool('$keyPrefix$screenId') ?? false;
-    debugPrint('🔍 [Showcase] shouldShow("$screenId") - Has seen before: $hasSeenBefore');
-    return !hasSeenBefore;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasSeenBefore = prefs.getBool('$_keyPrefix$screenId') ?? false;
+      debugPrint('🔍 [Showcase] shouldShow("$screenId") - Has seen before: $hasSeenBefore');
+      return !hasSeenBefore;
+    } catch (e) {
+      debugPrint('⚠ [Showcase] Error checking shouldShow: $e');
+      return false;
+    }
   }
 
   static Future<void> markAsShown(String screenId) async {
     if (debugMode) {
-      debugPrint('🔍 [Showcase Debug] markAsShown("$screenId") - DEBUG MODE: Skipping save to SharedPreferences');
+      debugPrint('🔍 [Showcase Debug] markAsShown("$screenId") - DEBUG MODE: Skipping save');
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('$keyPrefix$screenId', true);
-    debugPrint('✅ [Showcase] markAsShown("$screenId") - Saved to SharedPreferences');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('$_keyPrefix$screenId', true);
+      debugPrint('✅ [Showcase] markAsShown("$screenId") - Saved to SharedPreferences');
+    } catch (e) {
+      debugPrint('⚠ [Showcase] Error marking as shown: $e');
+    }
   }
 
   static Future<void> reset(String screenId) async {
@@ -688,23 +709,30 @@ class ShowcaseHelper {
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('$keyPrefix$screenId');
-    debugPrint('🗑 [Showcase] reset("$screenId") - Removed from SharedPreferences');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('$_keyPrefix$screenId');
+      debugPrint('🗑 [Showcase] reset("$screenId") - Removed from SharedPreferences');
+    } catch (e) {
+      debugPrint('⚠ [Showcase] Error resetting: $e');
+    }
   }
 
-  /// Reset all showcases (useful for testing)
   static Future<void> resetAll() async {
     if (debugMode) {
       debugPrint('🔍 [Showcase Debug] resetAll() - DEBUG MODE: Nothing to reset');
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys().where((key) => key.startsWith(keyPrefix));
-    for (final key in keys) {
-      await prefs.remove(key);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys().where((key) => key.startsWith(_keyPrefix));
+      for (final key in keys) {
+        await prefs.remove(key);
+      }
+      debugPrint('🗑 [Showcase] resetAll() - Removed ${keys.length} showcases');
+    } catch (e) {
+      debugPrint('⚠ [Showcase] Error resetting all: $e');
     }
-    debugPrint('🗑 [Showcase] resetAll() - Removed ${keys.length} showcases');
   }
 }
