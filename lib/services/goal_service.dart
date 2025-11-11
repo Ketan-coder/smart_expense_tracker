@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/app_constants.dart';
 import '../data/model/category.dart';
 import '../data/model/goal.dart';
@@ -15,6 +16,15 @@ class GoalService {
 
   static const String _goalChannel = 'goal_alerts';
 
+  // Battery optimization: Throttle notifications
+  static const Duration _notificationCooldown = Duration(hours: 4);
+  final Map<String, DateTime> _lastNotificationTime = {};
+
+  // Cache for frequently accessed data
+  List<int>? _cachedGoalCategoryKeys;
+  DateTime? _cacheTime;
+  static const Duration _cacheExpiry = Duration(hours: 1);
+
   /// Add a new goal
   Future<bool> addGoal(Goal goal) async {
     try {
@@ -23,8 +33,8 @@ class GoalService {
 
       debugPrint("🎯 [GoalService] Goal added: ${goal.name}");
 
-      // Schedule progress notifications
-      await _scheduleGoalNotifications(goal);
+      // Schedule ONLY essential notifications (not frequent ones)
+      await _scheduleEssentialGoalNotifications(goal);
 
       return true;
     } catch (e, st) {
@@ -67,8 +77,8 @@ class GoalService {
       if (success) {
         debugPrint("✅ [GoalService] Income transaction created for goal installment");
 
-        // Check and send progress notifications
-        await _checkGoalProgress(goal);
+        // Check progress with throttling
+        await _checkGoalProgressThrottled(goal);
 
         return true;
       } else {
@@ -91,7 +101,7 @@ class GoalService {
     required String method,
     required List<int> categoryKeys,
     DateTime? date,
-    List<int>? goalKeys, // Specific goals to allocate to
+    List<int>? goalKeys,
   }) async {
     try {
       // First create the income transaction
@@ -118,11 +128,9 @@ class GoalService {
           if (goal != null && !goal.isCompleted) {
             final allocationAmount = remainingAmount.clamp(0, goal.remainingAmount);
             if (allocationAmount > 0) {
-              await addGoalInstallment(
-                goalKey,
-                allocationAmount as double,
-                description: "Income Allocation: $description",
-              );
+              // Don't create duplicate income - just update goal
+              goal.addInstallment(allocationAmount as double);
+              await Hive.box<Goal>(AppConstants.goals).put(goalKey, goal);
               remainingAmount -= allocationAmount;
             }
           }
@@ -156,77 +164,91 @@ class GoalService {
     }
   }
 
-  /// Check goal progress and send notifications
+  /// Check goal progress with throttling (battery optimization)
+  Future<void> _checkGoalProgressThrottled(Goal goal) async {
+    final notificationKey = 'goal_${goal.name}_progress';
+
+    // Check if we've sent a notification recently
+    if (_lastNotificationTime.containsKey(notificationKey)) {
+      final timeSinceLastNotification = DateTime.now().difference(_lastNotificationTime[notificationKey]!);
+      if (timeSinceLastNotification < _notificationCooldown) {
+        debugPrint("⏱️ [GoalService] Notification throttled for ${goal.name}");
+        return;
+      }
+    }
+
+    await _checkGoalProgress(goal);
+    _lastNotificationTime[notificationKey] = DateTime.now();
+  }
+
+  /// Check goal progress and send ONLY important notifications
   Future<void> _checkGoalProgress(Goal goal) async {
     final progress = goal.progressPercentage;
     final remaining = goal.remainingAmount;
     final daysLeft = goal.daysRemaining;
 
-    // Milestone notifications
+    // ONLY send critical notifications to save battery
     if (progress >= 100 && !goal.isCompleted) {
       await _sendGoalCompletionNotification(goal);
-    } else if (progress >= 75) {
+    } else if (progress >= 75 && !await _hasSeenMilestone(goal, 75)) {
       await _sendGoalProgressNotification(
-          goal,
-          "Almost There! 🎯",
-          "Only ${remaining.toStringAsFixed(0)} left for ${goal.name} (${progress.toInt()}% complete)"
+        goal,
+        "Almost There! 🎯",
+        "Only ₹${remaining.toStringAsFixed(0)} left for ${goal.name}",
       );
-    } else if (progress >= 50) {
+      await _markMilestoneSeen(goal, 75);
+    } else if (daysLeft <= 3 && progress < 90) {
+      // Critical deadline warning
       await _sendGoalProgressNotification(
-          goal,
-          "Halfway There! 🚀",
-          "You're 50% towards your goal: ${goal.name}"
-      );
-    } else if (progress >= 25) {
-      await _sendGoalProgressNotification(
-          goal,
-          "Great Start! 👍",
-          "You've saved 25% for ${goal.name}. Keep going!"
-      );
-    }
-
-    // Deadline warnings
-    if (daysLeft <= 7 && daysLeft > 0) {
-      await _sendGoalProgressNotification(
-          goal,
-          "Goal Deadline Approaching ⏰",
-          "Only $daysLeft days left for ${goal.name}. ${remaining.toStringAsFixed(0)} remaining."
+        goal,
+        "Urgent: Goal Deadline ⏰",
+        "Only $daysLeft days left for ${goal.name}. ₹${remaining.toStringAsFixed(0)} remaining.",
       );
     } else if (daysLeft <= 0 && !goal.isCompleted) {
       await _sendGoalProgressNotification(
-          goal,
-          "Goal Deadline Passed ❌",
-          "Your goal '${goal.name}' deadline has passed. ${remaining.toStringAsFixed(0)} still needed."
-      );
-    }
-
-    // Low progress warnings
-    if (daysLeft < (goal.totalDays * 0.3) && progress < 30) {
-      await _sendGoalProgressNotification(
-          goal,
-          "Goal Behind Schedule 📉",
-          "Your goal '${goal.name}' is behind schedule. Consider increasing your installments."
+        goal,
+        "Goal Deadline Passed ❌",
+        "${goal.name} deadline passed. Consider extending or adjusting your goal.",
       );
     }
   }
 
-  /// Schedule regular goal notifications
-  Future<void> _scheduleGoalNotifications(Goal goal) async {
-    // Weekly progress notifications
-    await NotificationService.scheduleNotification(
-      id: _generateGoalNotificationId(goal, 'weekly'),
-      title: "Goal Progress Update 📊",
-      body: "Check your progress for '${goal.name}'. Current: ${goal.progressPercentage.toInt()}%",
-      scheduledDate: DateTime.now().add(Duration(days: 7)),
-    );
+  /// Schedule ONLY essential notifications (not frequent ones)
+  Future<void> _scheduleEssentialGoalNotifications(Goal goal) async {
+    // Only schedule deadline reminder (not weekly/monthly)
+    if (goal.daysRemaining > 7) {
+      final reminderDate = goal.targetDate.subtract(const Duration(days: 7));
+      if (reminderDate.isAfter(DateTime.now())) {
+        await NotificationService.scheduleNotification(
+          id: _generateGoalNotificationId(goal, 'deadline_reminder'),
+          title: "Goal Deadline Approaching 📅",
+          body: "1 week left for '${goal.name}'. Current progress: ${goal.progressPercentage.toInt()}%",
+          scheduledDate: reminderDate,
+        );
+      }
+    }
+  }
 
-    // Monthly progress notifications
-    await NotificationService.scheduleNotification(
-      id: _generateGoalNotificationId(goal, 'monthly'),
-      title: "Monthly Goal Review 📈",
-      body: "Monthly update for '${goal.name}'. ${goal.remainingAmount.toStringAsFixed(0)} remaining.",
-      scheduledDate: DateTime.now().add(Duration(days: 30)),
-    );
+  /// Check if milestone notification was already sent
+  Future<bool> _hasSeenMilestone(Goal goal, int milestone) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'goal_${goal.name}_milestone_$milestone';
+      return prefs.getBool(key) ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Mark milestone as seen
+  Future<void> _markMilestoneSeen(Goal goal, int milestone) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'goal_${goal.name}_milestone_$milestone';
+      await prefs.setBool(key, true);
+    } catch (e) {
+      debugPrint("❌ Error marking milestone: $e");
+    }
   }
 
   /// Send goal progress notification
@@ -253,8 +275,15 @@ class GoalService {
     );
   }
 
-  /// Get category keys for goal-related transactions
+  /// Get category keys for goal-related transactions (with caching)
   Future<List<int>> _getGoalCategoryKeys() async {
+    // Return cached value if still valid
+    if (_cachedGoalCategoryKeys != null &&
+        _cacheTime != null &&
+        DateTime.now().difference(_cacheTime!) < _cacheExpiry) {
+      return _cachedGoalCategoryKeys!;
+    }
+
     try {
       final categoryBox = Hive.box<Category>(AppConstants.categories);
       final goalCategory = categoryBox.values.firstWhere(
@@ -263,15 +292,24 @@ class GoalService {
               (cat) => cat.type.toLowerCase() == 'income',
         ),
       );
-      return [categoryBox.keyAt(categoryBox.values.toList().indexOf(goalCategory)) as int];
+      final categoryKey = categoryBox.keyAt(categoryBox.values.toList().indexOf(goalCategory)) as int;
+
+      // Cache the result
+      _cachedGoalCategoryKeys = [categoryKey];
+      _cacheTime = DateTime.now();
+
+      return _cachedGoalCategoryKeys!;
     } catch (e) {
-      debugPrint("⚠️ [GoalService] Error getting goal category, using first income category");
+      debugPrint("⚠️ [GoalService] Error getting goal category, using fallback");
       final categoryBox = Hive.box<Category>(AppConstants.categories);
       final incomeCategories = categoryBox.values.where((cat) => cat.type.toLowerCase() == 'income').toList();
       if (incomeCategories.isNotEmpty) {
-        return [categoryBox.keyAt(categoryBox.values.toList().indexOf(incomeCategories.first)) as int];
+        final key = [categoryBox.keyAt(categoryBox.values.toList().indexOf(incomeCategories.first)) as int];
+        _cachedGoalCategoryKeys = key;
+        _cacheTime = DateTime.now();
+        return key;
       }
-      return [1]; // Fallback to first category
+      return [1];
     }
   }
 
@@ -319,6 +357,16 @@ class GoalService {
   Future<bool> deleteGoal(int key) async {
     try {
       final goalBox = Hive.box<Goal>(AppConstants.goals);
+      final goal = goalBox.get(key);
+
+      // Clear milestone tracking
+      if (goal != null) {
+        final prefs = await SharedPreferences.getInstance();
+        for (int milestone in [25, 50, 75]) {
+          await prefs.remove('goal_${goal.name}_milestone_$milestone');
+        }
+      }
+
       await goalBox.delete(key);
       debugPrint("✅ [GoalService] Goal deleted");
       return true;
@@ -343,7 +391,12 @@ class GoalService {
       case 'monthly':
         return dailyAmount * 30;
       default:
-        return dailyAmount * 30; // Default to monthly
+        return dailyAmount * 30;
     }
+  }
+
+  /// Clear notification cache (call when app starts)
+  void clearNotificationCache() {
+    _lastNotificationTime.clear();
   }
 }

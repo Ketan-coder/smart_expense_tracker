@@ -35,8 +35,10 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
   Color _selectedColor = const Color(0xFFFF6B6B);
   String _selectedIcon = 'track_changes';
   String? _selectedTime;
+  String _selectedMethod = 'UPI'; // Fixed: removed space
 
   final List<String> _frequencies = ['daily', 'weekly', 'monthly'];
+  final List<String> _methods = Helpers().getPaymentMethods().toSet().toList(); // Fixed: remove duplicates
   final List<String> _types = ['expense', 'income', 'custom'];
 
   final List<Map<String, dynamic>> _availableIcons = [
@@ -61,6 +63,7 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
       _descriptionController.text = widget.habit!.description;
       _selectedFrequency = widget.habit!.frequency;
       _selectedType = widget.habit!.type;
+      _selectedMethod = widget.habit!.selectedMethod ?? 'UPI'; // Fixed: handle null case
       _selectedCategories = List.from(widget.habit!.categoryKeys);
       _selectedColor = Helpers().hexToColor(widget.habit!.color);
       _selectedIcon = widget.habit!.icon;
@@ -88,8 +91,6 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
       margin: EdgeInsets.only(top: !widget.hideTitle ? 50 : 0),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
-        // left: 16,
-        // right: 16,
         top: !widget.hideTitle ? 16 : 0,
       ),
       child: SingleChildScrollView(
@@ -153,7 +154,7 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
                       prefixIcon: Icon(Icons.repeat),
                     ),
                     items: _frequencies.map((freq) {
-                      return DropdownMenuItem(
+                      return DropdownMenuItem<String>( // Fixed: added type
                         value: freq,
                         child: Text(freq.toUpperCase()),
                       );
@@ -175,7 +176,7 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
                       prefixIcon: Icon(Icons.category),
                     ),
                     items: _types.map((type) {
-                      return DropdownMenuItem(
+                      return DropdownMenuItem<String>( // Fixed: added type
                         value: type,
                         child: Text(type.toUpperCase()),
                       );
@@ -189,6 +190,30 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
                 ),
               ],
             ),
+
+            const SizedBox(height: 16),
+
+            // Payment Method Dropdown - FIXED
+            DropdownButtonFormField<String>(
+              value: _selectedMethod,
+              decoration: const InputDecoration(
+                labelText: 'Default Method',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.credit_card),
+              ),
+              items: _methods.map((method) {
+                return DropdownMenuItem<String>(
+                  value: method,
+                  child: Text(method), // Fixed: removed .toUpperCase() to match values
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _selectedMethod = value);
+                }
+              },
+            ),
+
             const SizedBox(height: 16),
 
             // Amount (optional)
@@ -463,6 +488,7 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
       color: Helpers().colorToHex(_selectedColor),
       isAutoDetected: widget.habit?.isAutoDetected ?? false,
       detectionConfidence: widget.habit?.detectionConfidence ?? 0,
+      selectedMethod: _selectedMethod, // Fixed: use the state variable
     );
 
     if (widget.habitKey != null) {

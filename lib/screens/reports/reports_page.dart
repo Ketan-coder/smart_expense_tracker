@@ -247,89 +247,86 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return ShowcaseOverlay(
-      controller: _showcaseController,
-      child: Scaffold(
-        body: SimpleCustomAppBar(
-          title: "Financial Reports",
-          hasContent: true,
-          expandedHeight: MediaQuery.of(context).size.height * 0.35,
-          centerTitle: true,
-          onRefresh: _loadInitialData,
-          actions: [
+    return Scaffold(
+      body: SimpleCustomAppBar(
+        title: "Financial Reports",
+        hasContent: true,
+        expandedHeight: MediaQuery.of(context).size.height * 0.35,
+        centerTitle: true,
+        onRefresh: _loadInitialData,
+        actions: [
+          IconButton(
+            key: _dateRangeKey,
+            icon: const Icon(Icons.calendar_month_rounded),
+            onPressed: _selectDateRange,
+          ),
+          if (!kIsWeb)
             IconButton(
-              key: _dateRangeKey,
-              icon: const Icon(Icons.calendar_month_rounded),
-              onPressed: _selectDateRange,
+              key: _exportKey,
+              icon: const Icon(Icons.file_download_outlined),
+              onPressed: _showExportOptions,
             ),
-            if (!kIsWeb)
-              IconButton(
-                key: _exportKey,
-                icon: const Icon(Icons.file_download_outlined),
-                onPressed: _showExportOptions,
-              ),
-          ],
-          child: Container(
-            margin: const EdgeInsets.all(8),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
-            ),
-            child: _isLoading
-                ? const SizedBox(
-              height: 200,
-              child: Center(child: CircularProgressIndicator()),
-            )
-                : ValueListenableBuilder(
-              valueListenable: Hive.box<Expense>(AppConstants.expenses).listenable(),
-              builder: (context, expenseBox, _) {
-                return ValueListenableBuilder(
-                  valueListenable: Hive.box<Income>(AppConstants.incomes).listenable(),
-                  builder: (context, incomeBox, _) {
-                    return ValueListenableBuilder(
-                      valueListenable: Hive.box<Recurring>(AppConstants.recurrings).listenable(),
-                      builder: (context, recurringBox, _) {
-                        final expenses = _getFilteredExpenses(_startDate, _endDate);
-                        final incomes = _getFilteredIncomes(_startDate, _endDate);
+        ],
+        child: Container(
+          margin: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+            height: 200,
+            child: Center(child: CircularProgressIndicator()),
+          )
+              : ValueListenableBuilder(
+            valueListenable: Hive.box<Expense>(AppConstants.expenses).listenable(),
+            builder: (context, expenseBox, _) {
+              return ValueListenableBuilder(
+                valueListenable: Hive.box<Income>(AppConstants.incomes).listenable(),
+                builder: (context, incomeBox, _) {
+                  return ValueListenableBuilder(
+                    valueListenable: Hive.box<Recurring>(AppConstants.recurrings).listenable(),
+                    builder: (context, recurringBox, _) {
+                      final expenses = _getFilteredExpenses(_startDate, _endDate);
+                      final incomes = _getFilteredIncomes(_startDate, _endDate);
 
-                        return SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.72,
-                          child: Column(
-                            children: [
-                              // Date Range Display
-                              _buildDateRangeDisplay(theme, colorScheme),
+                      return SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.72,
+                        child: Column(
+                          children: [
+                            // Date Range Display
+                            _buildDateRangeDisplay(theme, colorScheme),
 
-                              // Tab Bar
-                              ShowcaseView(
-                                showcaseKey: _tabKey,
-                                controller: _showcaseController,
-                                child: _buildTabBar(theme, colorScheme),
+                            // Tab Bar
+                            ShowcaseView(
+                              showcaseKey: _tabKey,
+                              controller: _showcaseController,
+                              child: _buildTabBar(theme, colorScheme),
+                            ),
+
+                            // Tab Content
+                            Expanded(
+                              child: TabBarView(
+                                controller: _tabController,
+                                children: [
+                                  _buildInsightsTab(expenses, incomes, theme, colorScheme),
+                                  _buildOverviewTab(expenses, incomes, recurringBox, theme, colorScheme),
+                                  _buildCategoriesTab(expenses, theme, colorScheme),
+                                  _buildTrendsTab(expenses, incomes, theme, colorScheme),
+                                ],
                               ),
+                            ),
 
-                              // Tab Content
-                              Expanded(
-                                child: TabBarView(
-                                  controller: _tabController,
-                                  children: [
-                                    _buildInsightsTab(expenses, incomes, theme, colorScheme),
-                                    _buildOverviewTab(expenses, incomes, recurringBox, theme, colorScheme),
-                                    _buildCategoriesTab(expenses, theme, colorScheme),
-                                    _buildTrendsTab(expenses, incomes, theme, colorScheme),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(height: 40),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
+                            const SizedBox(height: 40),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              );
+            },
           ),
         ),
       ),

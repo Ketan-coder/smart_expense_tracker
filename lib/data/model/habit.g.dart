@@ -35,13 +35,14 @@ class HabitAdapter extends TypeAdapter<Habit> {
       isAutoDetected: fields[15] == null ? false : fields[15] as bool,
       detectionConfidence: fields[16] == null ? 0 : (fields[16] as num).toInt(),
       notes: fields[17] as String?,
+      selectedMethod: fields[18] == null ? 'UPI' : fields[18] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Habit obj) {
     writer
-      ..writeByte(18)
+      ..writeByte(19)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -77,7 +78,9 @@ class HabitAdapter extends TypeAdapter<Habit> {
       ..writeByte(16)
       ..write(obj.detectionConfidence)
       ..writeByte(17)
-      ..write(obj.notes);
+      ..write(obj.notes)
+      ..writeByte(18)
+      ..write(obj.selectedMethod);
   }
 
   @override

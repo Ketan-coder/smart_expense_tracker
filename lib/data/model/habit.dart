@@ -58,6 +58,9 @@ class Habit {
   @HiveField(17)
   String? notes; // Additional notes (optional)
 
+  @HiveField(18)
+  String selectedMethod;
+
   Habit({
     required this.name,
     required this.description,
@@ -77,6 +80,7 @@ class Habit {
     this.isAutoDetected = false,
     this.detectionConfidence = 0,
     this.notes,
+    this.selectedMethod = 'UPI',
   }) : completionHistory = completionHistory ?? [];
 
   /// Mark habit as completed for today

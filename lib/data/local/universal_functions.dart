@@ -1366,7 +1366,7 @@ class UniversalHiveFunctions {
       // Step 5: Add transaction if missing
       if (!hasRecentTransaction && habit.targetAmount != null && habit.targetAmount! > 0) {
         final amount = habit.targetAmount!;
-        final method = 'Habit';  // Default method for auto-habits
+        final method = 'UPI';  // Default method for auto-habits
         final desc = matchingDescription;
 
         if (isExpense) {
