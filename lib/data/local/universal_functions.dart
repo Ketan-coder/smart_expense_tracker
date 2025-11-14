@@ -331,6 +331,7 @@ import '../model/expense.dart';
 import '../model/goal.dart';
 import '../model/habit.dart';
 import '../model/income.dart';
+import '../model/loan.dart';
 import '../model/wallet.dart';
 
 class UniversalHiveFunctions {

@@ -10,6 +10,7 @@ import 'package:expense_tracker/screens/settings/settings_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/privacy_overlay_widget.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
+import 'package:expense_tracker/screens/widgets/transaction_sheet.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -604,12 +605,19 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
       if (mounted && success) {
         final isCredit = transaction['type'] == 'credit';
-        SnackBars.show(
-          context,
-          message: '${isCredit ? '✅ Income' : '💸 Expense'}: $_currentCurrency $amount',
-          type: isCredit ? SnackBarType.success : SnackBarType.error,
-          behavior: SnackBarBehavior.floating,
+        TransactionSheet.show(
+          context: context,
+          isIncome: isCredit,
+          amount: amount,
+          currency: _currentCurrency,
+          description: description,
         );
+        // SnackBars.show(
+        //   context,
+        //   message: '${isCredit ? '✅ Income' : '💸 Expense'}: $_currentCurrency $amount',
+        //   type: isCredit ? SnackBarType.success : SnackBarType.error,
+        //   behavior: SnackBarBehavior.floating,
+        // );
         debugPrint("📨 ✅ Transaction saved successfully");
       } else {
         debugPrint("📨 ❌ Failed to save transaction");
@@ -1865,7 +1873,14 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
                   if (success && context.mounted) {
                     Navigator.pop(context);
-                    SnackBars.show(context, message: "Expense Added", type: SnackBarType.success);
+                    // SnackBars.show(context, message: "Expense Added", type: SnackBarType.success);
+                    TransactionSheet.show(
+                      context: context,
+                      isIncome: false,
+                      amount: amount,
+                      currency: _currentCurrency,
+                      description: '',
+                    );
                   }
                 },
                 child: const Text("Save"),
@@ -1978,7 +1993,14 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
                   if (success && context.mounted) {
                     Navigator.pop(context);
-                    SnackBars.show(context, message: "Income Added", type: SnackBarType.success);
+                    // SnackBars.show(context, message: "Income Added", type: SnackBarType.success);
+                    TransactionSheet.show(
+                      context: context,
+                      isIncome: true,
+                      amount: amount,
+                      currency: _currentCurrency,
+                      description: '',
+                    );
                   }
                 },
                 child: const Text("Save"),

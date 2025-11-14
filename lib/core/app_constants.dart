@@ -6,4 +6,8 @@ class AppConstants {
   static final String recurrings = 'recurrings';
   static final String wallets = 'wallets';
   static final String goals = 'goals';
+  static const String loans = 'loans';
+
+// ---------------- Icon ----------------------------
+  static const String successSendLottieJsonPath = 'assets/icons/SuccessSendLottie.json';
 }
