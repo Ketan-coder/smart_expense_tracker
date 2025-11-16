@@ -1,16 +1,10 @@
 import 'package:expense_tracker/core/app_constants.dart';
-import 'package:expense_tracker/screens/expenses/expense_page.dart';
-import 'package:expense_tracker/screens/goals/goal_page.dart';
 import 'package:expense_tracker/screens/habit_screen.dart';
-import 'package:expense_tracker/screens/home/home_page.dart';
-import 'package:expense_tracker/screens/home/income_page.dart';
 import 'package:expense_tracker/screens/reports/reports_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_nav_bar.dart';
-import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:expense_tracker/services/notification_service.dart';
 import 'package:expense_tracker/services/recurring_scheduler.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'core/helpers.dart';
 import 'data/model/category.dart';
@@ -21,11 +15,11 @@ import 'data/model/income.dart';
 import 'data/model/recurring.dart';
 import 'data/model/wallet.dart';
 import 'package:dynamic_color/dynamic_color.dart';
-import 'services/biometric_auth.dart'; // Import your biometric service
+// Import your biometric service
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   // Continue with app initialization
   final bool notificationState = await Helpers().getCurrentNotificationState() ?? false;

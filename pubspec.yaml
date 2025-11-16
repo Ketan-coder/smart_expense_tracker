@@ -58,6 +58,7 @@ dependencies:
   google_mlkit_face_detection: ^0.13.1
   camera: ^0.11.3
   lottie: ^3.3.2
+  timezone: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -111,6 +112,11 @@ flutter:
   assets:
     - assets/fonts/NotoSans.ttf
     - assets/icons/
+    - assets/icons/IndiaRupeeCoin.json
+    - assets/icons/Cellphone.json
+    - assets/icons/SuccessSendLottie.json
+    - assets/icons/MoneyRainDashboard.json
+
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

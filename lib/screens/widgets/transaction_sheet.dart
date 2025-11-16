@@ -1,9 +1,8 @@
 // utils/transaction_sheet.dart
 import 'package:expense_tracker/core/app_constants.dart';
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
-
 import 'dynamic_lottie_colors.dart';
+import 'celebration_overlay.dart';
 
 class TransactionSheet {
   static void show({
@@ -13,12 +12,14 @@ class TransactionSheet {
     required String currency,
     String? description,
   }) {
-    // Auto close after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-    });
+    // Show celebration overlay for big income (1000+ rupees)
+    CelebrationOverlay.showIfNeeded(
+      context: context,
+      amount: amount,
+      isIncome: isIncome,
+      threshold: 15000,
+      duration: const Duration(seconds: 3),
+    );
 
     showModalBottomSheet(
       context: context,
@@ -35,7 +36,7 @@ class TransactionSheet {
   }
 }
 
-class _TransactionSheetContent extends StatelessWidget {
+class _TransactionSheetContent extends StatefulWidget {
   final bool isIncome;
   final double amount;
   final String currency;
@@ -47,6 +48,22 @@ class _TransactionSheetContent extends StatelessWidget {
     required this.currency,
     this.description,
   });
+
+  @override
+  State<_TransactionSheetContent> createState() => _TransactionSheetContentState();
+}
+
+class _TransactionSheetContentState extends State<_TransactionSheetContent> {
+  @override
+  void initState() {
+    super.initState();
+    // Auto close after 3 seconds using the sheet's own context
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,51 +87,68 @@ class _TransactionSheetContent extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Animated Check Icon
+            // Animated Icon
             Container(
               width: 80,
               height: 80,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isIncome
-                    ? colorScheme.primaryContainer
-                    : colorScheme.errorContainer,
+                color: Colors.transparent,
               ),
               child: DynamicLottieColors(
-                assetPath: AppConstants.successSendLottieJsonPath,
-                isIncome: isIncome,
+                assetPath: widget.isIncome
+                    ? AppConstants.spinningIndianRupeeCoin
+                    : AppConstants.successSendLottieJsonPath,
+                isIncome: widget.isIncome,
                 size: 60,
+                applyDynamicColors: !widget.isIncome,
+                // For expense animation, use custom delegates
+                customDelegates: !widget.isIncome
+                    ? LottieColorDelegates.successSendDelegates(
+                  primaryColor: colorScheme.error,
+                  containerColor: colorScheme.errorContainer,
+                )
+                    : null,
               ),
             ),
 
             const SizedBox(height: 16),
 
-            // Title
-            Text(
-              isIncome ? 'Income Added!' : 'Expense Recorded!',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
-              ),
+            // Title with extra flair for big amounts
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.isIncome && widget.amount >= 15000)
+                  const Text('🎉 ', style: TextStyle(fontSize: 20)),
+                Text(
+                  widget.isIncome ? 'Income Added!' : 'Expense Recorded!',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                if (widget.isIncome && widget.amount >= 15000)
+                  const Text(' 🎉', style: TextStyle(fontSize: 20)),
+              ],
             ),
 
             const SizedBox(height: 8),
 
             // Amount
             Text(
-              '$currency ${amount.toStringAsFixed(2)}',
+              '${widget.currency} ${widget.amount.toStringAsFixed(2)}',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: isIncome
+                color: widget.isIncome
                     ? colorScheme.primary
                     : colorScheme.error,
               ),
             ),
 
-            if (description != null) ...[
+            if (widget.description != null) ...[
               const SizedBox(height: 8),
               Text(
-                description!,
+                widget.description!,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -163,15 +197,20 @@ class _CountdownIndicatorState extends State<_CountdownIndicator>
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 4,
-      child: LinearProgressIndicator(
-        value: _controller.value,
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-        valueColor: AlwaysStoppedAnimation<Color>(
-          Theme.of(context).colorScheme.primary,
-        ),
-      ),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return SizedBox(
+          height: 4,
+          child: LinearProgressIndicator(
+            value: _controller.value,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        );
+      },
     );
   }
 }

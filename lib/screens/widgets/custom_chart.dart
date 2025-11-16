@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -138,13 +137,13 @@ class CustomBarChart<T> extends StatefulWidget {
   final String? emptyMessage;
 
   const CustomBarChart({
-    Key? key,
+    super.key,
     required this.data,
     required this.getDate,
     required this.getValue,
     this.config = const ChartConfig(),
     this.emptyMessage = "No data available for this period.",
-  }) : super(key: key);
+  });
 
   // Factory for simple use with date/value getters.
   factory CustomBarChart.simple({
@@ -431,7 +430,7 @@ class _CustomBarChartState<T> extends State<CustomBarChart<T>> {
                   value: _currentConfig.isBarChart,
                   onChanged: _toggleChartType,
                   dense: true,
-                  activeColor: _currentConfig.primaryColor.withValues(alpha: 0.8),
+                  activeThumbColor: _currentConfig.primaryColor.withValues(alpha: 0.8),
                   activeTrackColor: _currentConfig.primaryColor.withValues(alpha: 0.2),
                   inactiveThumbColor: Helpers().isLightMode(context) ? Colors.grey.shade400 : Colors.grey.shade600,
                   inactiveTrackColor: Helpers().isLightMode(context) ? Colors.grey.shade300 : Colors.grey.shade800,
@@ -444,7 +443,7 @@ class _CustomBarChartState<T> extends State<CustomBarChart<T>> {
                   value: _currentConfig.isAscending,
                   onChanged: _toggleSortOrder,
                   dense: true,
-                  activeColor: _currentConfig.primaryColor.withValues(alpha: 0.8),
+                  activeThumbColor: _currentConfig.primaryColor.withValues(alpha: 0.8),
                   activeTrackColor: _currentConfig.primaryColor.withValues(alpha: 0.2),
                   inactiveThumbColor: Helpers().isLightMode(context) ? Colors.grey.shade400 : Colors.grey.shade600,
                   inactiveTrackColor: Helpers().isLightMode(context) ? Colors.grey.shade300 : Colors.grey.shade800,
@@ -457,7 +456,7 @@ class _CustomBarChartState<T> extends State<CustomBarChart<T>> {
                   value: _currentConfig.isScrollable,
                   onChanged: _toggleScrollable,
                   dense: true,
-                  activeColor: _currentConfig.primaryColor.withValues(alpha: 0.8),
+                  activeThumbColor: _currentConfig.primaryColor.withValues(alpha: 0.8),
                   activeTrackColor: _currentConfig.primaryColor.withValues(alpha: 0.2),
                   inactiveThumbColor: Helpers().isLightMode(context) ? Colors.grey.shade400 : Colors.grey.shade600,
                   inactiveTrackColor: Helpers().isLightMode(context) ? Colors.grey.shade300 : Colors.grey.shade800,

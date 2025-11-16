@@ -3,7 +3,6 @@ import 'package:expense_tracker/screens/home/income_listing_page.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:hive_ce_flutter/adapters.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
@@ -22,7 +21,6 @@ import '../widgets/intro_widget.dart';
 import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
 import '../../data/model/income.dart';
-import '../../data/model/wallet.dart';
 import '../../data/model/recurring.dart';
 
 enum ReportTab { overview, categories, trends, insights }

@@ -62,6 +62,7 @@ class SnackBars {
               message,
               style: TextStyle(color: foregroundColor),
               overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ),
           if (actionLabel != null && onAction != null)...[

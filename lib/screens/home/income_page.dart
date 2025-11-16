@@ -4,7 +4,6 @@ import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
-import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../data/model/income.dart';
 import '../../services/privacy/privacy_manager.dart';

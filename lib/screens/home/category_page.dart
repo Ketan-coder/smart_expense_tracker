@@ -191,7 +191,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
               // Category Type
               DropdownButtonFormField<String>(
-                value: selectedType,
+                initialValue: selectedType,
                 decoration: const InputDecoration(
                   labelText: 'Category Type',
                   border: OutlineInputBorder(),
@@ -330,7 +330,7 @@ class _CategoryPageState extends State<CategoryPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -480,7 +480,7 @@ class _CategoryPageState extends State<CategoryPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
@@ -566,7 +566,7 @@ class _CategoryPageState extends State<CategoryPage> {
                     ),
                     onTap: () => onToggle(category.name),
                   );
-                }).toList(),
+                }),
               ],
             ),
           ),
@@ -586,8 +586,8 @@ class _CategoryPageState extends State<CategoryPage> {
           return const SizedBox.shrink();
         }
 
-        final defaultExpense = snapshot.data?[0] as List<String>? ?? [];
-        final defaultIncome = snapshot.data?[1] as List<String>? ?? [];
+        final defaultExpense = snapshot.data?[0] ?? [];
+        final defaultIncome = snapshot.data?[1] ?? [];
 
         if (defaultExpense.isEmpty && defaultIncome.isEmpty) {
           return const SizedBox.shrink();

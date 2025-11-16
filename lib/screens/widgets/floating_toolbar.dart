@@ -319,7 +319,7 @@ class FloatingToolbar extends StatefulWidget {
   final VoidCallback? onPrimaryPressed;
 
   const FloatingToolbar({
-    Key? key,
+    super.key,
     required this.items,
     this.onItemTapped,
     this.selectedIndex = 0,
@@ -334,7 +334,7 @@ class FloatingToolbar extends StatefulWidget {
     this.animationDuration = const Duration(milliseconds: 300),
     this.primaryButton,
     this.onPrimaryPressed,
-  }) : super(key: key);
+  });
 
   @override
   State<FloatingToolbar> createState() => _FloatingToolbarState();
@@ -589,9 +589,9 @@ class FloatingBottomToolbar extends StatelessWidget {
   final FloatingToolbar toolbar;
 
   const FloatingBottomToolbar({
-    Key? key,
+    super.key,
     required this.toolbar,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

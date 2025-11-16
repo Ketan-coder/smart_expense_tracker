@@ -3,14 +3,12 @@ import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/custom_app_bar.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:flutter/material.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/habit.dart';
 import '../../data/model/category.dart';
 import '../../services/habit_detection_service.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'add_edit_habit_bottom_sheet.dart';
 import 'home/category_page.dart';
 
@@ -100,7 +98,7 @@ class _HabitPageState extends State<HabitPage>
                 decoration: BoxDecoration(
                   color: Theme.of(
                     context,
-                  ).colorScheme.surfaceVariant.withOpacity(0.5),
+                  ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TabBar(
@@ -108,10 +106,10 @@ class _HabitPageState extends State<HabitPage>
                   indicatorSize: TabBarIndicatorSize.tab,
                   dividerColor: Colors.transparent,
                   indicator: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
+                    color: Theme.of(context).colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  labelColor: Colors.white,
+                  labelColor: Colors.black,
                   unselectedLabelColor: Theme.of(context).colorScheme.onSurface,
                   tabs: const [
                     Tab(text: 'Active'),
@@ -502,7 +500,7 @@ class _HabitPageState extends State<HabitPage>
             decoration: BoxDecoration(
               color: Theme.of(
                 context,
-              ).colorScheme.surfaceVariant.withOpacity(0.3),
+              ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
@@ -548,7 +546,7 @@ class _HabitPageState extends State<HabitPage>
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: Theme.of(context).colorScheme.outline.withOpacity(0.2),

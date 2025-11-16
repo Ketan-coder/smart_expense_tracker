@@ -10,4 +10,7 @@ class AppConstants {
 
 // ---------------- Icon ----------------------------
   static const String successSendLottieJsonPath = 'assets/icons/SuccessSendLottie.json';
+  static const String cellphoneJsonPath = 'assets/icons/Cellphone.json';
+  static const String spinningIndianRupeeCoin = 'assets/icons/IndiaRupeeCoin.json';
+  static const String moneyRainDashboardJsonPath = 'assets/icons/MoneyRainDashboard.json';
 }

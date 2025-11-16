@@ -5,7 +5,6 @@ import 'package:expense_tracker/data/model/wallet.dart';
 import 'package:expense_tracker/data/model/recurring.dart';
 import 'package:expense_tracker/screens/goals/goal_page.dart';
 import 'package:expense_tracker/screens/habit_screen.dart';
-import 'package:expense_tracker/screens/home/income_page.dart';
 import 'package:expense_tracker/screens/settings/settings_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/privacy_overlay_widget.dart';
@@ -23,18 +22,14 @@ import '../../services/biometric_auth.dart';
 import '../../services/habit_detection_service.dart';
 import '../../services/notification_helper.dart';
 import '../../services/privacy/adaptive_brightness_service.dart';
-import '../../services/privacy/gaze_detection_manager.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../../services/privacy/secure_window_manager.dart';
 import '../../services/privacy/shake_detector.dart';
 import '../../services/sms_service.dart';
 import '../add_edit_habit_bottom_sheet.dart';
-import '../expenses/expense_page.dart';
 import '../goals/add_edit_goal_sheet.dart';
-import '../home/category_page.dart';
 import '../home/home_page.dart';
 import '../transaction_page.dart';
-import 'battery_info_widget.dart';
 import 'floating_toolbar.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
@@ -75,7 +70,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
   ShakeDetector? _shakeDetector; // Make nullable, only create if needed
   final AdaptiveBrightnessService _brightnessService = AdaptiveBrightnessService();
   // GazeDetectionManager? _gazeDetectionManager;
-  bool _showWatcherAlert = false;
+  final bool _showWatcherAlert = false;
   Timer? _watcherAlertTimer;
   List<String>? defaultExpenseCategories = [];
   List<String>? defaultIncomeCategories = [];
@@ -892,6 +887,13 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               // );
               break;
             case 4:
+              // TransactionSheet.show(
+              //   context: context,
+              //   isIncome: true,
+              //   amount: 1500,
+              //   currency: _currentCurrency,
+              //   description: 'Income Added',
+              // );
               // SnackBars.show(
               //   context,
               //   message: "Under Development",
@@ -1397,7 +1399,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedInterval,
+                  initialValue: selectedInterval,
                   decoration: const InputDecoration(
                     labelText: 'Frequency',
                     border: OutlineInputBorder(),
@@ -1811,7 +1813,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: selectedType,
+                initialValue: selectedType,
                 decoration: const InputDecoration(
                   labelText: "Payment Method",
                   border: OutlineInputBorder(),
@@ -1932,7 +1934,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: selectedType,
+                initialValue: selectedType,
                 decoration: const InputDecoration(
                   labelText: "Payment Method",
                   border: OutlineInputBorder(),
@@ -2091,7 +2093,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
               // Category Type Selection
               DropdownButtonFormField<String>(
-                value: selectedCategoryType,
+                initialValue: selectedCategoryType,
                 decoration: const InputDecoration(
                   labelText: "Category Type",
                   border: OutlineInputBorder(),
@@ -2241,7 +2243,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(

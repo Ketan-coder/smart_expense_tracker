@@ -252,10 +252,10 @@ class _GoalsPageState extends State<GoalsPage>
                             fontSize: 18,
                           ),
                         ),
-                        if (goal.description != null && goal.description!.isNotEmpty) ...[
+                        if (goal.description.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
-                            goal.description!,
+                            goal.description,
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.grey.shade600,
                               fontSize: 14,

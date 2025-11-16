@@ -1,877 +1,20 @@
-// import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
-// import 'package:flutter/material.dart';
-// import 'package:flutter/services.dart';
-// import 'package:shared_preferences/shared_preferences.dart';
-//
-// import '../../core/helpers.dart';
-// import '../../services/notification_service.dart';
-// import '../../services/biometric_auth.dart';
-// import '../widgets/custom_app_bar.dart';
-// import '../widgets/dialog.dart';
-// import '../widgets/snack_bar.dart';
-//
-// class SettingsPage extends StatefulWidget {
-//   const SettingsPage({super.key});
-//
-//   @override
-//   State<SettingsPage> createState() => _SettingsPageState();
-// }
-//
-// class _SettingsPageState extends State<SettingsPage> {
-//   String _selectedCurrency = "USD";
-//   String _selectedLanguage = "English";
-//   bool _notificationState = true;
-//   bool _darkThemeState = false;
-//   bool _autoThemeState = true;
-//   bool _biometricState = false;
-//   bool _smsParsingState = true;
-//   String _biometricType = "Biometric";
-//   bool _isLoadingBiometric = false;
-//
-//   // Currency and language lists remain the same...
-//   final List<Map<String, String>> _currencies = [
-//     {"code": "USD", "name": "US Dollar", "symbol": "\$"},
-//     {"code": "EUR", "name": "Euro", "symbol": "€"},
-//     {"code": "INR", "name": "Indian Rupee", "symbol": "₹"},
-//     {"code": "GBP", "name": "British Pound", "symbol": "£"},
-//     {"code": "JPY", "name": "Japanese Yen", "symbol": "¥"},
-//     {"code": "AUD", "name": "Australian Dollar", "symbol": "A\$"},
-//     {"code": "CAD", "name": "Canadian Dollar", "symbol": "C\$"},
-//     {"code": "CHF", "name": "Swiss Franc", "symbol": "CHF"},
-//     {"code": "CNY", "name": "Chinese Yuan", "symbol": "¥"},
-//     {"code": "HKD", "name": "Hong Kong Dollar", "symbol": "HK\$"},
-//     {"code": "NZD", "name": "New Zealand Dollar", "symbol": "NZ\$"},
-//     {"code": "RUB", "name": "Russian Ruble", "symbol": "₽"},
-//     {"code": "SGD", "name": "Singapore Dollar", "symbol": "S\$"},
-//     {"code": "ZAR", "name": "South African Rand", "symbol": "R"},
-//     {"code": "SEK", "name": "Swedish Krona", "symbol": "kr"},
-//     {"code": "AED", "name": "UAE Dirham", "symbol": "د.إ"},
-//   ];
-//
-//   final List<Map<String, String>> _languages = [
-//     {"code": "en", "name": "English", "nativeName": "English"},
-//     {"code": "hi", "name": "Hindi", "nativeName": "हिन्दी"},
-//     {"code": "ta", "name": "Tamil", "nativeName": "தமிழ்"},
-//     {"code": "te", "name": "Telugu", "nativeName": "తెలుగు"},
-//     {"code": "kn", "name": "Kannada", "nativeName": "ಕನ್ನಡ"},
-//     {"code": "ml", "name": "Malayalam", "nativeName": "മലയാളം"},
-//     {"code": "bn", "name": "Bengali", "nativeName": "বাংলা"},
-//     {"code": "gu", "name": "Gujarati", "nativeName": "ગુજરાતી"},
-//     {"code": "mr", "name": "Marathi", "nativeName": "मराठी"},
-//     {"code": "pa", "name": "Punjabi", "nativeName": "ਪੰਜਾਬੀ"},
-//   ];
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _loadAllPreferences();
-//     _checkBiometricType();
-//   }
-//
-//   Future<void> _loadAllPreferences() async {
-//     final notificationState = await Helpers().getCurrentNotificationState() ?? false;
-//     final darkThemeState = await Helpers().getCurrentDarkThemeState() ?? false;
-//     final autoThemeState = await Helpers().getCurrentAutoThemeState() ?? true;
-//     final biometricState = await Helpers().getCurrentBiometricState() ?? false;
-//     final smsParsingState = await Helpers().getCurrentSmsParsingState() ?? true;
-//     final currency = await Helpers().getCurrentCurrency() ?? '₹';
-//     final language = await Helpers().getCurrentLanguage() ?? 'English';
-//
-//     if (mounted) {
-//       setState(() {
-//         _notificationState = notificationState;
-//         _darkThemeState = darkThemeState;
-//         _autoThemeState = autoThemeState;
-//         _biometricState = biometricState;
-//         _smsParsingState = smsParsingState;
-//         _selectedCurrency = currency;
-//         _selectedLanguage = language;
-//       });
-//     }
-//   }
-//
-//   Future<void> _checkBiometricType() async {
-//     final biometricAuth = BiometricAuth();
-//     final typeString = await biometricAuth.getBiometricTypeString();
-//     if (mounted) {
-//       setState(() {
-//         _biometricType = typeString;
-//       });
-//     }
-//   }
-//
-//   Future<void> _updateNotificationState(bool value) async {
-//     if (!value) {
-//       final confirmed = await Dialogs.showConfirmation(
-//         context: context,
-//         title: "Disable Notifications?",
-//         message: "You will not receive any notifications. The app needs to restart.",
-//         yesText: "Disable",
-//         noText: "Cancel",
-//       );
-//
-//       if (confirmed != true) {
-//         setState(() => _notificationState = true);
-//         return;
-//       }
-//     }
-//
-//     setState(() => _notificationState = value);
-//     await Helpers().setCurrentNotificationState(value);
-//
-//     if (value) {
-//       await NotificationService.initialize();
-//       if (mounted) {
-//         SnackBars.show(context, message: "Notifications enabled", type: SnackBarType.success);
-//       }
-//     } else {
-//       await NotificationService.cancelAllNotifications();
-//       if (mounted) {
-//         SnackBars.show(context, message: "Notifications disabled. Restarting...", type: SnackBarType.warning);
-//       }
-//       _restartApp();
-//     }
-//   }
-//
-//   Future<void> _updateDarkThemeState(bool value) async {
-//     final confirmed = await Dialogs.showConfirmation(
-//       context: context,
-//       title: value ? "Enable Dark Theme?" : "Disable Dark Theme?",
-//       message: "The app needs to restart to apply theme changes.",
-//       yesText: value ? "Enable" : "Disable",
-//       noText: "Cancel",
-//     );
-//
-//     if (confirmed != true) {
-//       setState(() => _darkThemeState = !value);
-//       return;
-//     }
-//
-//     setState(() => _darkThemeState = value);
-//     await Helpers().setCurrentDarkThemeState(value);
-//     await Helpers().setCurrentAutoThemeState(false);
-//
-//     if (mounted) {
-//       SnackBars.show(
-//         context,
-//         message: value ? "Dark theme enabled. Restarting..." : "Light theme enabled. Restarting...",
-//         type: SnackBarType.success,
-//       );
-//     }
-//     _restartApp();
-//   }
-//
-//   Future<void> _updateAutoThemeState(bool value) async {
-//     final confirmed = await Dialogs.showConfirmation(
-//       context: context,
-//       title: value ? "Enable Auto Theme?" : "Disable Auto Theme?",
-//       message: "The app needs to restart to apply theme changes.",
-//       yesText: value ? "Enable" : "Disable",
-//       noText: "Cancel",
-//     );
-//
-//     if (confirmed != true) {
-//       setState(() => _autoThemeState = !value);
-//       return;
-//     }
-//
-//     setState(() => _autoThemeState = value);
-//     await Helpers().setCurrentAutoThemeState(value);
-//
-//     if (mounted) {
-//       SnackBars.show(
-//         context,
-//         message: value ? "Auto theme enabled. Restarting..." : "Auto theme disabled. Restarting...",
-//         type: SnackBarType.success,
-//       );
-//     }
-//     _restartApp();
-//   }
-//
-//   Future<void> _updateBiometricState(bool value) async {
-//     if (_isLoadingBiometric) return;
-//
-//     setState(() => _isLoadingBiometric = true);
-//
-//     try {
-//       debugPrint("🔐 ========================================");
-//       debugPrint("🔐 Updating biometric state to: $value");
-//
-//       final biometricAuth = BiometricAuth();
-//
-//       if (value) {
-//         // ENABLING biometric
-//         debugPrint("🔐 Checking if biometric is available...");
-//
-//         final isAvailable = await biometricAuth.isBiometricAvailable();
-//         debugPrint("🔐 Biometric available: $isAvailable");
-//
-//         if (!isAvailable) {
-//           if (mounted) {
-//             SnackBars.show(
-//               context,
-//               message: "Biometric authentication is not available on this device",
-//               type: SnackBarType.error,
-//               behavior: SnackBarBehavior.floating,
-//             );
-//           }
-//           setState(() {
-//             _biometricState = false;
-//             _isLoadingBiometric = false;
-//           });
-//           return;
-//         }
-//
-//         final hasEnrolled = await biometricAuth.hasEnrolledBiometrics();
-//         debugPrint("🔐 Has enrolled biometrics: $hasEnrolled");
-//
-//         if (!hasEnrolled) {
-//           if (mounted) {
-//             SnackBars.show(
-//               context,
-//               message: "Please enroll fingerprint or face ID in device settings first",
-//               type: SnackBarType.warning,
-//               behavior: SnackBarBehavior.floating,
-//             );
-//           }
-//           setState(() {
-//             _biometricState = false;
-//             _isLoadingBiometric = false;
-//           });
-//           return;
-//         }
-//
-//         debugPrint("🔐 Attempting authentication...");
-//         final authResponse = await biometricAuth.biometricAuthenticate(
-//           reason: 'Authenticate to enable biometric login',
-//         );
-//
-//         debugPrint("🔐 Auth result: ${authResponse.result}");
-//
-//         if (authResponse.isSuccess) {
-//           // Success - enable biometric
-//           setState(() => _biometricState = true);
-//           await Helpers().setCurrentBiometricState(true);
-//
-//           if (mounted) {
-//             SnackBars.show(
-//               context,
-//               message: "✅ $_biometricType enabled successfully",
-//               type: SnackBarType.success,
-//               behavior: SnackBarBehavior.floating,
-//             );
-//           }
-//         } else if (authResponse.isCancelled) {
-//           // User cancelled
-//           setState(() => _biometricState = false);
-//           if (mounted) {
-//             SnackBars.show(
-//               context,
-//               message: "Biometric authentication cancelled",
-//               type: SnackBarType.info,
-//               behavior: SnackBarBehavior.floating,
-//             );
-//           }
-//         } else {
-//           // Failed or error
-//           setState(() => _biometricState = false);
-//           if (mounted) {
-//             SnackBars.show(
-//               context,
-//               message: authResponse.message ?? "Authentication failed",
-//               type: SnackBarType.error,
-//               behavior: SnackBarBehavior.floating,
-//             );
-//           }
-//         }
-//       } else {
-//         // DISABLING biometric
-//         final confirmed = await Dialogs.showConfirmation(
-//           context: context,
-//           title: "Disable $_biometricType?",
-//           message: "You will no longer need biometric authentication to access the app.",
-//           yesText: "Disable",
-//           noText: "Cancel",
-//         );
-//
-//         if (confirmed != true) {
-//           setState(() {
-//             _biometricState = true;
-//             _isLoadingBiometric = false;
-//           });
-//           return;
-//         }
-//
-//         setState(() => _biometricState = false);
-//         await Helpers().setCurrentBiometricState(false);
-//
-//         if (mounted) {
-//           SnackBars.show(
-//             context,
-//             message: "$_biometricType disabled. Restarting...",
-//             type: SnackBarType.success,
-//             behavior: SnackBarBehavior.floating,
-//           );
-//         }
-//         _restartApp();
-//       }
-//     } catch (e) {
-//       debugPrint("❌ Error in biometric update: $e");
-//       setState(() => _biometricState = false);
-//       if (mounted) {
-//         SnackBars.show(
-//           context,
-//           message: "Error updating biometric settings",
-//           type: SnackBarType.error,
-//           behavior: SnackBarBehavior.floating,
-//         );
-//       }
-//     } finally {
-//       if (mounted) {
-//         setState(() => _isLoadingBiometric = false);
-//       }
-//       debugPrint("🔐 ========================================");
-//     }
-//   }
-//
-//   Future<void> _updateSmsParsingState(bool value) async {
-//     final confirmed = await Dialogs.showConfirmation(
-//       context: context,
-//       title: value ? "Enable SMS Parsing?" : "Disable SMS Parsing?",
-//       message: "The app needs to restart to apply changes.",
-//       yesText: value ? "Enable" : "Disable",
-//       noText: "Cancel",
-//     );
-//
-//     if (confirmed != true) {
-//       setState(() => _smsParsingState = !value);
-//       return;
-//     }
-//
-//     setState(() => _smsParsingState = value);
-//     await Helpers().setCurrentSmsParsingState(value);
-//
-//     // Also update SharedPreferences for SmsReceiver
-//     final prefs = await SharedPreferences.getInstance();
-//     await prefs.setBool('sms_parsing_enabled', value);
-//
-//     if (mounted) {
-//       SnackBars.show(
-//         context,
-//         message: value ? "SMS parsing enabled. Restarting..." : "SMS parsing disabled. Restarting...",
-//         type: SnackBarType.success,
-//       );
-//     }
-//     _restartApp();
-//   }
-//
-//   void _restartApp() {
-//     Future.delayed(const Duration(milliseconds: 1500), () {
-//       SystemNavigator.pop();
-//     });
-//   }
-//
-//   void _showCurrencySearchSheet() {
-//     BottomSheetUtil.show(
-//       context: context,
-//       title: 'Select Currency',
-//       height: MediaQuery.sizeOf(context).height * 0.6,
-//       child: CurrencySearchSheet(
-//         currencies: _currencies,
-//         selectedCurrency: _selectedCurrency,
-//         onCurrencySelected: (currencyCode, currencySymbol) async {
-//           final confirmed = await Dialogs.showConfirmation(
-//             context: context,
-//             title: "Change Currency?",
-//             message: "Changing currency to $currencyCode. The app needs to restart.",
-//             yesText: "Change",
-//             noText: "Cancel",
-//           );
-//
-//           if (confirmed == true) {
-//             setState(() => _selectedCurrency = currencyCode);
-//             await Helpers().setCurrentCurrency(currencySymbol);
-//             if (mounted) {
-//               Navigator.pop(context);
-//               SnackBars.show(
-//                 context,
-//                 message: "Currency changed to $currencyCode. Restarting...",
-//                 type: SnackBarType.success,
-//               );
-//             }
-//             _restartApp();
-//           }
-//         },
-//       ),
-//     );
-//   }
-//
-//   void _showLanguageSearchSheet() {
-//     BottomSheetUtil.show(
-//       context: context,
-//       title: 'Select Language',
-//       height: MediaQuery.sizeOf(context).height * 0.6,
-//       child: LanguageSearchSheet(
-//         languages: _languages,
-//         selectedLanguage: _selectedLanguage,
-//         onLanguageSelected: (languageName) async {
-//           final confirmed = await Dialogs.showConfirmation(
-//             context: context,
-//             title: "Change Language?",
-//             message: "Changing language to $languageName. The app needs to restart.",
-//             yesText: "Change",
-//             noText: "Cancel",
-//           );
-//
-//           if (confirmed == true) {
-//             setState(() => _selectedLanguage = languageName);
-//             await Helpers().setCurrentLanguage(_selectedLanguage);
-//             if (mounted) {
-//               SnackBars.show(
-//                 context,
-//                 message: "Language changed to $languageName. Restarting...",
-//                 type: SnackBarType.success,
-//               );
-//             }
-//             _restartApp();
-//           }
-//         },
-//       ),
-//     );
-//   }
-//
-//   Future<void> _showClearDataDialog() async {
-//     final confirmed = await Dialogs.showConfirmation(
-//       context: context,
-//       title: "Clear All Data?",
-//       message: "This will delete all expenses, incomes, wallets, and settings. This action cannot be undone.",
-//       yesText: "Clear All",
-//       noText: "Cancel",
-//     );
-//
-//     if (confirmed == true) {
-//       await _clearAllData();
-//     }
-//   }
-//
-//   Future<void> _clearAllData() async {
-//     final prefs = await SharedPreferences.getInstance();
-//     await prefs.clear();
-//     await _loadAllPreferences();
-//
-//     if (mounted) {
-//       SnackBars.show(
-//         context,
-//         message: "All data cleared. Restarting...",
-//         type: SnackBarType.success,
-//       );
-//       _restartApp();
-//     }
-//   }
-//
-//   String get _currentLanguageNativeName {
-//     final language = _languages.firstWhere(
-//           (lang) => lang["name"] == _selectedLanguage,
-//       orElse: () => _languages.first,
-//     );
-//     return language["nativeName"]!;
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final currentCurrency = _currencies.firstWhere(
-//           (curr) => curr["code"] == _selectedCurrency,
-//       orElse: () => _currencies.first,
-//     );
-//
-//     return Scaffold(
-//       body: SimpleCustomAppBar(
-//         title: "Settings",
-//         hasContent: true,
-//         expandedHeight: MediaQuery.of(context).size.height * 0.35,
-//         centerTitle: true,
-//         child: Container(
-//           margin: const EdgeInsets.all(10),
-//           padding: const EdgeInsets.all(10),
-//           decoration: BoxDecoration(
-//             borderRadius: BorderRadius.circular(25),
-//             color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
-//           ),
-//           child: SingleChildScrollView(
-//             child: Column(
-//               children: [
-//                 // Notifications
-//                 ListTile(
-//                   leading: const Icon(Icons.notifications),
-//                   title: const Text("Notifications"),
-//                   subtitle: const Text("Enable app notifications"),
-//                   trailing: Switch(
-//                     value: _notificationState,
-//                     onChanged: _updateNotificationState,
-//                   ),
-//                 ),
-//
-//                 // SMS Parsing
-//                 ListTile(
-//                   leading: const Icon(Icons.sms),
-//                   title: const Text("SMS Auto-Parsing"),
-//                   subtitle: Text(
-//                     _smsParsingState
-//                         ? "Automatically track expenses from SMS"
-//                         : "Disabled (saves battery)",
-//                   ),
-//                   trailing: Switch(
-//                     value: _smsParsingState,
-//                     onChanged: _updateSmsParsingState,
-//                   ),
-//                 ),
-//
-//                 // Biometric Authentication
-//                 ListTile(
-//                   leading: _isLoadingBiometric
-//                       ? const SizedBox(
-//                     width: 24,
-//                     height: 24,
-//                     child: CircularProgressIndicator(strokeWidth: 2),
-//                   )
-//                       : Icon(
-//                     _biometricType == "Face ID"
-//                         ? Icons.face
-//                         : Icons.fingerprint,
-//                   ),
-//                   title: Text("$_biometricType Authentication"),
-//                   subtitle: Text(
-//                     _biometricState
-//                         ? "Enabled - Lock screen on app start"
-//                         : "Disabled",
-//                   ),
-//                   trailing: Switch(
-//                     value: _biometricState,
-//                     onChanged: _isLoadingBiometric ? null : _updateBiometricState,
-//                   ),
-//                 ),
-//
-//                 const Divider(),
-//
-//                 // Auto Theme
-//                 ListTile(
-//                   leading: const Icon(Icons.brightness_auto),
-//                   title: const Text("Auto Theme"),
-//                   subtitle: const Text("Follow system theme settings"),
-//                   trailing: Switch(
-//                     value: _autoThemeState,
-//                     onChanged: _updateAutoThemeState,
-//                   ),
-//                 ),
-//
-//                 // Dark Mode (only show if auto theme is off)
-//                 if (!_autoThemeState)
-//                   ListTile(
-//                     leading: const Icon(Icons.dark_mode),
-//                     title: const Text("Dark Mode"),
-//                     subtitle: const Text("Use dark theme"),
-//                     trailing: Switch(
-//                       value: _darkThemeState,
-//                       onChanged: _updateDarkThemeState,
-//                     ),
-//                   ),
-//
-//                 const Divider(),
-//
-//                 // Change Currency
-//                 ListTile(
-//                   leading: const Icon(Icons.currency_exchange),
-//                   title: const Text("Currency"),
-//                   subtitle: Text("${currentCurrency["code"]} - ${currentCurrency["name"]}"),
-//                   trailing: Text(
-//                     currentCurrency["symbol"]!,
-//                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-//                   ),
-//                   onTap: _showCurrencySearchSheet,
-//                 ),
-//
-//                 // Change Language
-//                 ListTile(
-//                   leading: const Icon(Icons.language),
-//                   title: const Text("Language"),
-//                   subtitle: Text(_currentLanguageNativeName),
-//                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-//                   onTap: _showLanguageSearchSheet,
-//                 ),
-//
-//                 const Divider(),
-//
-//                 // Clear All Data
-//                 ListTile(
-//                   leading: const Icon(Icons.delete_forever, color: Colors.red),
-//                   title: const Text("Clear All Data", style: TextStyle(color: Colors.red)),
-//                   subtitle: const Text("Delete all expenses, incomes, and settings"),
-//                   onTap: _showClearDataDialog,
-//                 ),
-//                 const SizedBox(height: 90,),
-//               ],
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-//
-// // Currency Search Sheet
-// class CurrencySearchSheet extends StatefulWidget {
-//   final List<Map<String, String>> currencies;
-//   final String selectedCurrency;
-//   final Function(String, String) onCurrencySelected;
-//
-//   const CurrencySearchSheet({
-//     super.key,
-//     required this.currencies,
-//     required this.selectedCurrency,
-//     required this.onCurrencySelected,
-//   });
-//
-//   @override
-//   State<CurrencySearchSheet> createState() => _CurrencySearchSheetState();
-// }
-//
-// class _CurrencySearchSheetState extends State<CurrencySearchSheet> {
-//   late List<Map<String, String>> _filteredCurrencies;
-//   final TextEditingController _searchController = TextEditingController();
-//   String _currentSelectedCurrency = '';
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _currentSelectedCurrency = widget.selectedCurrency;
-//     _filteredCurrencies = widget.currencies;
-//     _searchController.addListener(_onSearchChanged);
-//   }
-//
-//   void _onSearchChanged() {
-//     setState(() {
-//       final query = _searchController.text.toLowerCase();
-//       _filteredCurrencies = query.isEmpty
-//           ? widget.currencies
-//           : widget.currencies.where((currency) {
-//         return currency["code"]!.toLowerCase().contains(query) ||
-//             currency["name"]!.toLowerCase().contains(query) ||
-//             currency["symbol"]!.toLowerCase().contains(query);
-//       }).toList();
-//     });
-//   }
-//
-//   @override
-//   void dispose() {
-//     _searchController.dispose();
-//     super.dispose();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final selectedData = widget.currencies.firstWhere(
-//           (curr) => curr["code"] == _currentSelectedCurrency,
-//       orElse: () => widget.currencies.first,
-//     );
-//
-//     return Padding(
-//       padding: const EdgeInsets.all(16),
-//       child: Column(
-//         mainAxisSize: MainAxisSize.min,
-//         children: [
-//           Container(
-//             padding: const EdgeInsets.all(12),
-//             decoration: BoxDecoration(
-//               color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-//               borderRadius: BorderRadius.circular(8),
-//               border: Border.all(color: Theme.of(context).colorScheme.primary),
-//             ),
-//             child: Row(
-//               children: [
-//                 Text(selectedData["symbol"]!, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-//                 const SizedBox(width: 12),
-//                 Expanded(
-//                   child: Column(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       Text(selectedData["name"]!, style: const TextStyle(fontWeight: FontWeight.bold)),
-//                       Text(selectedData["code"]!),
-//                     ],
-//                   ),
-//                 ),
-//                 const Icon(Icons.check, color: Colors.green),
-//               ],
-//             ),
-//           ),
-//           const SizedBox(height: 16),
-//           TextField(
-//             controller: _searchController,
-//             decoration: const InputDecoration(
-//               hintText: "Search currency...",
-//               prefixIcon: Icon(Icons.search),
-//               border: OutlineInputBorder(),
-//             ),
-//           ),
-//           const SizedBox(height: 16),
-//           Flexible(
-//             child: _filteredCurrencies.isEmpty
-//                 ? const Center(child: Text("No currencies found"))
-//                 : ListView.builder(
-//               shrinkWrap: true,
-//               itemCount: _filteredCurrencies.length,
-//               itemBuilder: (context, index) {
-//                 final currency = _filteredCurrencies[index];
-//                 final isSelected = currency["code"] == _currentSelectedCurrency;
-//                 return ListTile(
-//                   leading: Text(currency["symbol"]!, style: const TextStyle(fontSize: 20)),
-//                   title: Text(currency["name"]!),
-//                   subtitle: Text(currency["code"]!),
-//                   trailing: isSelected ? const Icon(Icons.check, color: Colors.green) : null,
-//                   onTap: () {
-//                     setState(() => _currentSelectedCurrency = currency["code"]!);
-//                     widget.onCurrencySelected(currency["code"]!, currency['symbol']!);
-//                   },
-//                   tileColor: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.05) : null,
-//                 );
-//               },
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-//
-// // Language Search Sheet
-// class LanguageSearchSheet extends StatefulWidget {
-//   final List<Map<String, String>> languages;
-//   final String selectedLanguage;
-//   final Function(String) onLanguageSelected;
-//
-//   const LanguageSearchSheet({
-//     super.key,
-//     required this.languages,
-//     required this.selectedLanguage,
-//     required this.onLanguageSelected,
-//   });
-//
-//   @override
-//   State<LanguageSearchSheet> createState() => _LanguageSearchSheetState();
-// }
-//
-// class _LanguageSearchSheetState extends State<LanguageSearchSheet> {
-//   late List<Map<String, String>> _filteredLanguages;
-//   final TextEditingController _searchController = TextEditingController();
-//   String _currentSelectedLanguage = '';
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _currentSelectedLanguage = widget.selectedLanguage;
-//     _filteredLanguages = widget.languages;
-//     _searchController.addListener(_onSearchChanged);
-//   }
-//
-//   void _onSearchChanged() {
-//     setState(() {
-//       final query = _searchController.text.toLowerCase();
-//       _filteredLanguages = query.isEmpty
-//           ? widget.languages
-//           : widget.languages.where((language) {
-//         return language["name"]!.toLowerCase().contains(query) ||
-//             language["nativeName"]!.toLowerCase().contains(query);
-//       }).toList();
-//     });
-//   }
-//
-//   @override
-//   void dispose() {
-//     _searchController.dispose();
-//     super.dispose();
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final selectedData = widget.languages.firstWhere(
-//           (lang) => lang["name"] == _currentSelectedLanguage,
-//       orElse: () => widget.languages.first,
-//     );
-//
-//     return Padding(
-//       padding: const EdgeInsets.all(16),
-//       child: Column(
-//         mainAxisSize: MainAxisSize.min,
-//         children: [
-//           Container(
-//             padding: const EdgeInsets.all(12),
-//             decoration: BoxDecoration(
-//               color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-//               borderRadius: BorderRadius.circular(8),
-//               border: Border.all(color: Theme.of(context).colorScheme.primary),
-//             ),
-//             child: Row(
-//               children: [
-//                 const Icon(Icons.language, size: 24),
-//                 const SizedBox(width: 12),
-//                 Expanded(
-//                   child: Column(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       Text(selectedData["name"]!, style: const TextStyle(fontWeight: FontWeight.bold)),
-//                       Text(selectedData["nativeName"]!),
-//                     ],
-//                   ),
-//                 ),
-//                 const Icon(Icons.check, color: Colors.green),
-//               ],
-//             ),
-//           ),
-//           const SizedBox(height: 16),
-//           TextField(
-//             controller: _searchController,
-//             decoration: const InputDecoration(
-//               hintText: "Search language...",
-//               prefixIcon: Icon(Icons.search),
-//               border: OutlineInputBorder(),
-//             ),
-//           ),
-//           const SizedBox(height: 16),
-//           Flexible(
-//             child: _filteredLanguages.isEmpty
-//                 ? const Center(child: Text("No languages found"))
-//                 : ListView.builder(
-//               shrinkWrap: true,
-//               itemCount: _filteredLanguages.length,
-//               itemBuilder: (context, index) {
-//                 final language = _filteredLanguages[index];
-//                 final isSelected = language["name"] == _currentSelectedLanguage;
-//                 return ListTile(
-//                   leading: const Icon(Icons.language),
-//                   title: Text(language["name"]!),
-//                   subtitle: Text(language["nativeName"]!),
-//                   trailing: isSelected ? const Icon(Icons.check, color: Colors.green) : null,
-//                   onTap: () {
-//                     setState(() => _currentSelectedLanguage = language["name"]!);
-//                     widget.onLanguageSelected(language["name"]!);
-//                   },
-//                   tileColor: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.05) : null,
-//                 );
-//               },
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
+import '../../data/model/category.dart';
+import '../../data/model/expense.dart';
+import '../../data/model/goal.dart';
+import '../../data/model/habit.dart';
+import '../../data/model/income.dart';
+import '../../data/model/loan.dart';
+import '../../data/model/recurring.dart' show Recurring;
+import '../../data/model/wallet.dart';
 import '../../services/notification_service.dart';
 import '../../services/biometric_auth.dart';
 import '../../services/privacy/privacy_manager.dart';
@@ -1487,18 +630,85 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _clearAllData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    await _loadAllPreferences();
+  // Future<void> _clearAllData() async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   await prefs.clear();
+  //   await _loadAllPreferences();
+  //
+  //   if (mounted) {
+  //     SnackBars.show(
+  //       context,
+  //       message: "All data cleared. Restarting...",
+  //       type: SnackBarType.success,
+  //     );
+  //     _restartApp();
+  //   }
+  // }
 
-    if (mounted) {
-      SnackBars.show(
-        context,
-        message: "All data cleared. Restarting...",
-        type: SnackBarType.success,
+  Future<void> _clearAllData() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
       );
-      _restartApp();
+
+      // Clear SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      // Clear Hive boxes (simple method - just clear contents)
+      await _clearHiveBoxes();
+
+      // Close loading indicator
+      if (mounted) Navigator.of(context).pop();
+
+      if (mounted) {
+        SnackBars.show(
+          context,
+          message: "All data cleared successfully",
+          type: SnackBarType.success,
+        );
+
+        // Refresh the current page
+        setState(() {});
+      }
+    } catch (e) {
+      // Close loading indicator
+      if (mounted) Navigator.of(context).pop();
+
+      debugPrint('Error clearing data: ${e.toString()}');
+      if (mounted) {
+        SnackBars.show(
+          context,
+          message: "Error clearing data",
+          type: SnackBarType.error,
+        );
+      }
+    }
+  }
+
+  Future<void> _clearHiveBoxes() async {
+    try {
+      await Hive.box<Expense>(AppConstants.expenses).clear();
+      await Hive.box<Income>(AppConstants.incomes).clear();
+      await Hive.box<Category>(AppConstants.categories).clear();
+      await Hive.box<Wallet>(AppConstants.wallets).clear();
+      await Hive.box<Recurring>(AppConstants.recurrings).clear();
+      await Hive.box<Goal>(AppConstants.goals).clear();
+      await Hive.box<Habit>(AppConstants.habits).clear();
+
+      // If loans exist
+      if (Hive.isBoxOpen(AppConstants.loans)) {
+        await Hive.box<Loan>(AppConstants.loans).clear();
+      }
+
+      debugPrint("✔ All boxes cleared");
+    } catch (e) {
+      debugPrint("❌ Error while clearing: $e");
     }
   }
 

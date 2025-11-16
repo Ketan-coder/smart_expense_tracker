@@ -63,7 +63,7 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
       _descriptionController.text = widget.habit!.description;
       _selectedFrequency = widget.habit!.frequency;
       _selectedType = widget.habit!.type;
-      _selectedMethod = widget.habit!.selectedMethod ?? 'UPI'; // Fixed: handle null case
+      _selectedMethod = widget.habit!.selectedMethod;
       _selectedCategories = List.from(widget.habit!.categoryKeys);
       _selectedColor = Helpers().hexToColor(widget.habit!.color);
       _selectedIcon = widget.habit!.icon;
@@ -147,7 +147,7 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedFrequency,
+                    initialValue: _selectedFrequency,
                     decoration: const InputDecoration(
                       labelText: 'Frequency',
                       border: OutlineInputBorder(),
@@ -169,7 +169,7 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedType,
+                    initialValue: _selectedType,
                     decoration: const InputDecoration(
                       labelText: 'Type',
                       border: OutlineInputBorder(),
@@ -195,7 +195,7 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
 
             // Payment Method Dropdown - FIXED
             DropdownButtonFormField<String>(
-              value: _selectedMethod,
+              initialValue: _selectedMethod,
               decoration: const InputDecoration(
                 labelText: 'Default Method',
                 border: OutlineInputBorder(),

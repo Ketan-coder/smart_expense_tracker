@@ -512,7 +512,6 @@ class _TransactionsPageState extends State<TransactionsPage>
                           valueUnit: "$_currentCurrency ",
                           highlightHighest: true,
                           highlightMode: isExpense ? HighlightMode.lowest : HighlightMode.highest,
-                          isAscending: true,
                           showToggleSwitch: true,
                         ),
                       ),
@@ -608,7 +607,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                   ),
                 );
               }),
-              const SizedBox(height: 90),
+              const SizedBox(height: 30),
             ],
           ),
         );

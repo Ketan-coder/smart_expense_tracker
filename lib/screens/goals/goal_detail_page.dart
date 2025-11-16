@@ -1,7 +1,5 @@
 // screens/goals/goal_detail_page.dart
 import 'package:flutter/material.dart';
-import 'package:hive_ce_flutter/hive_flutter.dart';
-import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/goal.dart';
 import '../../services/goal_service.dart';
@@ -92,7 +90,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                 child: CircularProgressIndicator(
                   value: goal.progressPercentage / 100,
                   strokeWidth: 8,
-                  backgroundColor: colorScheme.surfaceVariant,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
                   color: _getProgressColor(goal.progressPercentage),
                 ),
               ),

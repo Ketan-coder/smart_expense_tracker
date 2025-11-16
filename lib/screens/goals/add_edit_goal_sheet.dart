@@ -160,7 +160,7 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _selectedCategory,
+                      initialValue: _selectedCategory,
                       decoration: const InputDecoration(
                         labelText: 'Category',
                         border: OutlineInputBorder(),
@@ -181,7 +181,7 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _selectedPriority,
+                      initialValue: _selectedPriority,
                       decoration: const InputDecoration(
                         labelText: 'Priority',
                         border: OutlineInputBorder(),
@@ -208,7 +208,7 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _selectedWallet,
+                      initialValue: _selectedWallet,
                       decoration: const InputDecoration(
                         labelText: 'Wallet',
                         border: OutlineInputBorder(),
@@ -229,7 +229,7 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _selectedFrequency,
+                      initialValue: _selectedFrequency,
                       decoration: const InputDecoration(
                         labelText: 'Frequency',
                         border: OutlineInputBorder(),
