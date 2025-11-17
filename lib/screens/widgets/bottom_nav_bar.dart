@@ -30,6 +30,7 @@ import '../add_edit_habit_bottom_sheet.dart';
 import '../goals/add_edit_goal_sheet.dart';
 import '../home/home_page.dart';
 import '../transaction_page.dart';
+import 'battery_info_widget.dart';
 import 'floating_toolbar.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
