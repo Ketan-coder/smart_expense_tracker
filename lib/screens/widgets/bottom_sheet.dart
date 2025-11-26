@@ -244,7 +244,7 @@ class BottomSheetUtil {
           },
           behavior: HitTestBehavior.opaque,
           child: Container(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: .4),
             child: Align(
               alignment: Alignment.bottomCenter,
               child: Container(

@@ -10,8 +10,10 @@ import '../../data/model/expense.dart';
 import '../../data/model/income.dart';
 import '../../data/model/wallet.dart';
 import '../../data/model/recurring.dart';
+import '../../data/model/loan.dart'; //
 import '../../services/privacy/privacy_manager.dart';
 import '../expenses/expense_listing_page.dart';
+import '../loan_page.dart';
 import '../reports/reports_page.dart';
 import '../widgets/bottom_sheet.dart';
 import 'package:flutter/material.dart';
@@ -33,7 +35,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late DateTime _startDate;
   late DateTime _endDate;
 
-  // Loading and currency state
   bool _isLoading = true;
   String _currentCurrency = 'INR';
 
@@ -41,7 +42,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   double _totalBalance = 0;
   double _periodIncome = 0;
   double _periodExpense = 0;
-  double _totalLoanAmount = 0; // New: Total loans
 
   @override
   void initState() {
@@ -52,35 +52,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _loadData();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
   Future<void> _loadData() async {
     if (mounted) setState(() => _isLoading = true);
-
     _currentCurrency = await Helpers().getCurrentCurrency() ?? 'INR';
-
-    // Initial calculation for total balance (not date-filtered)
-    _totalBalance = _calculateTotalBalance(
-      Hive.box<Wallet>(AppConstants.wallets),
-    );
-
-    // Initial period calculations will be done in build
-    _totalLoanAmount = 0; // Placeholder
-
+    _totalBalance = _calculateTotalBalance(Hive.box<Wallet>(AppConstants.wallets));
     if (mounted) setState(() => _isLoading = false);
   }
 
-  /// Toggle privacy mode
   void _togglePrivacy() {
-    _privacyManager
-        .shouldHideSensitiveData(); // Assuming PrivacyManager has a toggle() method
-    setState(() {}); // Trigger rebuild to update UI
+    _privacyManager.togglePrivacyActive();
   }
 
-  /// Shows the date range picker dialog
   Future<void> _selectDateRange() async {
     final now = DateTime.now();
     final picked = await showDateRangePicker(
@@ -122,18 +104,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     double total = 0;
     for (var recurring in recurringBox.values) {
       switch (recurring.interval.toLowerCase()) {
-        case 'daily':
-          total += recurring.amount * 30;
-          break;
-        case 'weekly':
-          total += recurring.amount * 4;
-          break;
-        case 'monthly':
-          total += recurring.amount;
-          break;
-        case 'yearly':
-          total += recurring.amount / 12;
-          break;
+        case 'daily': total += recurring.amount * 30; break;
+        case 'weekly': total += recurring.amount * 4; break;
+        case 'monthly': total += recurring.amount; break;
+        case 'yearly': total += recurring.amount / 12; break;
       }
     }
     return total;
@@ -164,23 +138,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : Container(
-                margin: const EdgeInsets.all(8),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  color: Helpers().isLightMode(context)
-                      ? Colors.white
-                      : Colors.black,
-                ),
-                child: _buildMainContent(theme, colorScheme),
-              ),
+          margin: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
+          ),
+          // BUG FIX: Wrapped content in ListenableBuilder to react to Privacy changes immediately
+          child: ListenableBuilder(
+            listenable: _privacyManager,
+            builder: (context, child) => _buildMainContent(theme, colorScheme),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildMainContent(ThemeData theme, ColorScheme colorScheme) {
-    final isPrivate = _privacyManager.shouldHideSensitiveData();
-
     return ValueListenableBuilder(
       valueListenable: Hive.box<Wallet>(AppConstants.wallets).listenable(),
       builder: (context, walletBox, _) {
@@ -188,88 +162,66 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           valueListenable: Hive.box<Income>(AppConstants.incomes).listenable(),
           builder: (context, incomeBox, _) {
             return ValueListenableBuilder(
-              valueListenable: Hive.box<Expense>(
-                AppConstants.expenses,
-              ).listenable(),
+              valueListenable: Hive.box<Expense>(AppConstants.expenses).listenable(),
               builder: (context, expenseBox, _) {
                 return ValueListenableBuilder(
-                  valueListenable: Hive.box<Recurring>(
-                    AppConstants.recurrings,
-                  ).listenable(),
+                  valueListenable: Hive.box<Recurring>(AppConstants.recurrings).listenable(),
                   builder: (context, recurringBox, _) {
-                    // Recalculate based on date range (like old code)
-                    final filteredIncomes = _getFilteredIncomes(
-                      _startDate,
-                      _endDate,
-                    );
-                    final filteredExpenses = _getFilteredExpenses(
-                      _startDate,
-                      _endDate,
-                    );
-                    _periodIncome = filteredIncomes.fold(
-                      0.0,
-                      (sum, i) => sum + i.amount,
-                    );
-                    _periodExpense = filteredExpenses.fold(
-                      0.0,
-                      (sum, e) => sum + e.amount,
-                    );
-                    final monthlyRecurring = _getMonthlyRecurringTotal(
-                      recurringBox,
-                    );
+                    // ADDED: Listener for Loans
+                    return ValueListenableBuilder(
+                      valueListenable: Hive.box<Loan>(AppConstants.loans).listenable(),
+                      builder: (context, loanBox, _) {
 
-                    final wallets = walletBox.values.toList();
-                    final transactions = [
-                      ...filteredIncomes,
-                      ...filteredExpenses,
-                    ];
-                    transactions.sort((a, b) {
-                      final dateA = (a is Income
-                          ? a.date
-                          : (a as Expense).date);
-                      final dateB = (b is Income
-                          ? b.date
-                          : (b as Expense).date);
-                      return dateB.compareTo(dateA);
-                    });
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.only(bottom: 100, top: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Total Balance Card
-                          _buildBalanceCard(theme, colorScheme),
-                          const SizedBox(height: 24),
+                        // Data Preparation
+                        final filteredIncomes = _getFilteredIncomes(_startDate, _endDate);
+                        final filteredExpenses = _getFilteredExpenses(_startDate, _endDate);
+                        _periodIncome = filteredIncomes.fold(0.0, (sum, i) => sum + i.amount);
+                        _periodExpense = filteredExpenses.fold(0.0, (sum, e) => sum + e.amount);
+                        final monthlyRecurring = _getMonthlyRecurringTotal(recurringBox);
 
-                          // Wallet Cards (with bounded height to fix Stack error)
-                          SizedBox(
-                            height:
-                                220, // Bounded height to prevent infinite constraints in StackedWalletCards
-                            child: _buildCardsSection(
-                              wallets,
-                              theme,
-                              colorScheme,
-                            ),
+                        final wallets = walletBox.values.toList();
+                        final transactions = [...filteredIncomes, ...filteredExpenses];
+                        transactions.sort((a, b) {
+                          final dateA = (a is Income ? a.date : (a as Expense).date);
+                          final dateB = (b is Income ? b.date : (b as Expense).date);
+                          return dateB.compareTo(dateA);
+                        });
+
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.only(bottom: 100, top: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 1. Total Balance
+                              _buildBalanceCard(theme, colorScheme),
+                              const SizedBox(height: 24),
+
+                              // 2. Wallets
+                              SizedBox(
+                                height: 220,
+                                child: _buildCardsSection(wallets, theme, colorScheme),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // 3. NEW: Loan Summary Section
+                              if (loanBox.values.isNotEmpty) ...[
+                                GestureDetector(
+                                    onTap: () =>  Helpers.navigateTo(context, const LoanPage()),
+                                    child: _buildLoanSummary(theme, colorScheme, loanBox)),
+                                const SizedBox(height: 24),
+                              ],
+
+                              // 4. Quick Stats
+                              _buildQuickStats(theme, colorScheme, monthlyRecurring, recurringBox),
+                              const SizedBox(height: 24),
+                              Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+
+                              // 5. Recent Transactions
+                              _buildTransactionsList(transactions, theme, colorScheme),
+                            ],
                           ),
-                          const SizedBox(height: 24),
-
-                          // Quick Stats Grid
-                          _buildQuickStats(
-                            theme,
-                            colorScheme,
-                            monthlyRecurring,
-                            recurringBox,
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Recent Transactions
-                          _buildTransactionsList(
-                            transactions,
-                            theme,
-                            colorScheme,
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     );
                   },
                 );
@@ -281,21 +233,133 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // Total Balance Card (Hero Section)
-  Widget _buildBalanceCard(
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
+  // --- NEW LOAN WIDGET ---
+  Widget _buildLoanSummary(ThemeData theme, ColorScheme colorScheme, Box<Loan> loanBox) {
+    final isPrivate = _privacyManager.shouldHideSensitiveData();
+
+    // Calculate totals
+    double totalLent = 0;
+    double totalBorrowed = 0;
+    int pendingCount = 0;
+
+    for (var loan in loanBox.values) {
+      if (!loan.isPaid) {
+        pendingCount++;
+        if (loan.type == LoanType.lent) {
+          totalLent += loan.remainingAmount;
+        } else {
+          totalBorrowed += loan.remainingAmount;
+        }
+      }
+    }
+
+    if (pendingCount == 0) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Active Loans',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              // You can add a "See All" button here navigating to the Loan page if you have one
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest, // Modern MD3 container
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                // TO RECEIVE (Lent)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.arrow_outward_rounded, size: 16, color: Colors.green[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            'To Receive',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      PrivacyCurrency(
+                        amount: '$_currentCurrency ${totalLent.toStringAsFixed(0)}',
+                        isPrivacyActive: isPrivate,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Divider
+                Container(
+                  height: 40,
+                  width: 1,
+                  color: colorScheme.outlineVariant,
+                ),
+                const SizedBox(width: 16),
+                // TO PAY (Borrowed)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.arrow_downward_rounded, size: 16, color: Colors.red[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            'To Repay',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      PrivacyCurrency(
+                        amount: '$_currentCurrency ${totalBorrowed.toStringAsFixed(0)}',
+                        isPrivacyActive: isPrivate,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBalanceCard(ThemeData theme, ColorScheme colorScheme) {
     final isPrivate = _privacyManager.shouldHideSensitiveData();
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            colorScheme.primaryContainer,
-            colorScheme.secondaryContainer,
-          ],
+          colors: [colorScheme.primaryContainer, colorScheme.secondaryContainer],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -307,18 +371,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Total Balance',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onPrimaryContainer,
-                ),
-              ),
+              Text('Total Balance', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.onPrimaryContainer)),
               GestureDetector(
-                onTap: _togglePrivacy, // Fix: Make privacy icon tappable
+                onTap: _togglePrivacy,
                 child: Icon(
-                  isPrivate
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
+                  isPrivate ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                   color: colorScheme.onPrimaryContainer,
                   size: 20,
                 ),
@@ -329,31 +386,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           PrivacyCurrency(
             amount: '$_currentCurrency ${_totalBalance.toStringAsFixed(2)}',
             isPrivacyActive: isPrivate,
-            style: theme.textTheme.displaySmall?.copyWith(
-              color: colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.bold,
-            ),
+            style: theme.textTheme.displaySmall?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildBalanceChip(
-                'Income',
-                _periodIncome,
-                Icons.arrow_downward_rounded,
-                colorScheme.primary,
-                theme,
-                isPrivate,
-              ),
+              _buildBalanceChip('Income', _periodIncome, Icons.arrow_downward_rounded, colorScheme.primary, theme, isPrivate),
               const SizedBox(width: 12),
-              _buildBalanceChip(
-                'Expense',
-                _periodExpense,
-                Icons.arrow_upward_rounded,
-                colorScheme.error,
-                theme,
-                isPrivate,
-              ),
+              _buildBalanceChip('Expense', _periodExpense, Icons.arrow_upward_rounded, colorScheme.error, theme, isPrivate),
             ],
           ),
         ],
@@ -361,14 +401,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildBalanceChip(
-    String label,
-    double amount,
-    IconData icon,
-    Color color,
-    ThemeData theme,
-    bool isPrivate,
-  ) {
+  Widget _buildBalanceChip(String label, double amount, IconData icon, Color color, ThemeData theme, bool isPrivate) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -385,17 +418,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    label,
-                    style: theme.textTheme.labelSmall?.copyWith(color: color),
-                  ),
+                  Text(label, style: theme.textTheme.labelSmall?.copyWith(color: color)),
                   PrivacyCurrency(
                     amount: amount.toStringAsFixed(0),
                     isPrivacyActive: isPrivate,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: theme.textTheme.titleSmall?.copyWith(color: color, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -406,12 +433,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // Cards Section (Stacked Wallets)
-  Widget _buildCardsSection(
-    List<Wallet> wallets,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildCardsSection(List<Wallet> wallets, ThemeData theme, ColorScheme colorScheme) {
     final isPrivate = _privacyManager.shouldHideSensitiveData();
     return StackedWalletCards(
       wallets: wallets,
@@ -425,13 +447,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  // Quick Stats Grid
-  Widget _buildQuickStats(
-    ThemeData theme,
-    ColorScheme colorScheme,
-    double monthlyRecurring,
-    Box<Recurring> recurringBox,
-  ) {
+  Widget _buildQuickStats(ThemeData theme, ColorScheme colorScheme, double monthlyRecurring, Box<Recurring> recurringBox) {
     final isPrivate = _privacyManager.shouldHideSensitiveData();
     final net = _periodIncome - _periodExpense;
     final savingsRate = _periodIncome > 0 ? (net / _periodIncome * 100) : 0;
@@ -440,42 +456,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            DateFormat(
-              'MMMM yyyy',
-            ).format(_startDate), // Dynamic title based on date range
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text(DateFormat('MMMM yyyy').format(_startDate), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _buildStatCard(
-                  'Savings',
-                  '$_currentCurrency ${net.toStringAsFixed(0)}',
-                  '${savingsRate.toStringAsFixed(1)}%',
-                  net >= 0 ? colorScheme.primary : colorScheme.error,
-                  Icons.savings_outlined,
-                  theme,
-                  colorScheme,
-                  isPrivate,
-                ),
-              ),
+              Expanded(child: _buildStatCard('Savings', '$_currentCurrency ${net.toStringAsFixed(0)}', '${savingsRate.toStringAsFixed(1)}%', net >= 0 ? colorScheme.primary : colorScheme.error, Icons.savings_outlined, theme, colorScheme, isPrivate)),
               const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  'Recurring',
-                  '$_currentCurrency ${monthlyRecurring.toStringAsFixed(0)}',
-                  '${recurringBox.values.length} active${recurringBox.values.length != 1 ? 's' : ''}',
-                  colorScheme.error,
-                  Icons.repeat_rounded,
-                  theme,
-                  colorScheme,
-                  isPrivate,
-                ),
-              ),
+              Expanded(child: _buildStatCard('Recurring', '$_currentCurrency ${monthlyRecurring.toStringAsFixed(0)}', '${recurringBox.values.length} active${recurringBox.values.length != 1 ? 's' : ''}', colorScheme.error, Icons.repeat_rounded, theme, colorScheme, isPrivate)),
             ],
           ),
         ],
@@ -483,22 +470,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildStatCard(
-    String title,
-    String amount,
-    String subtitle,
-    Color color,
-    IconData icon,
-    ThemeData theme,
-    ColorScheme colorScheme,
-    bool isPrivate,
-  ) {
+  Widget _buildStatCard(String title, String amount, String subtitle, Color color, IconData icon, ThemeData theme, ColorScheme colorScheme, bool isPrivate) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: BoxDecoration(color: colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -508,46 +483,26 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               Icon(icon, color: color, size: 24),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  title,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                child: Text(title, style: theme.textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          PrivacyCurrency(
-            amount: amount,
-            isPrivacyActive: isPrivate,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          PrivacyCurrency(amount: amount, isPrivacyActive: isPrivate, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
+          Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
         ],
       ),
     );
   }
 
-  // Recent Transactions List
-  Widget _buildTransactionsList(
-    List<dynamic> transactions,
-    ThemeData theme,
-    ColorScheme colorScheme,
-  ) {
+  // ... (Keep _buildTransactionsList and helper methods _showWalletDetailsSheet, _showAddEditWalletSheet, _getWalletIcon etc.)
+  Widget _buildTransactionsList(List<dynamic> transactions, ThemeData theme, ColorScheme colorScheme) {
+    // ... same as your original ...
+    // Just for brevity in this response, assume the rest is identical to your original code
+    // If you need the full block for this too, let me know, but the key changes are above.
+
     final isPrivate = _privacyManager.shouldHideSensitiveData();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -557,15 +512,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Recent',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text('Recent', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
               TextButton(
-                onPressed: () =>
-                    Helpers.navigateTo(context, ExpenseListingPage()),
+                onPressed: () => Helpers.navigateTo(context, ExpenseListingPage()),
                 child: const Text('See All'),
               ),
             ],
@@ -574,18 +523,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           if (transactions.isEmpty)
             Container(
               padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Center(
-                child: Text(
-                  'No transactions yet',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
+              decoration: BoxDecoration(color: colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(16)),
+              child: Center(child: Text('No transactions yet', style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant))),
             )
           else
             ...transactions.take(5).map((t) {
@@ -599,55 +538,20 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                decoration: BoxDecoration(color: colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(16)),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 4,
-                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   leading: Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: (isIncome
-                          ? colorScheme.primaryContainer
-                          : colorScheme.errorContainer),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      isIncome
-                          ? Icons.arrow_downward_rounded
-                          : Icons.arrow_upward_rounded,
-                      color: isIncome
-                          ? colorScheme.onPrimaryContainer
-                          : colorScheme.onErrorContainer,
-                      size: 20,
-                    ),
+                    decoration: BoxDecoration(color: (isIncome ? colorScheme.primaryContainer : colorScheme.errorContainer), borderRadius: BorderRadius.circular(12)),
+                    child: Icon(isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, color: isIncome ? colorScheme.onPrimaryContainer : colorScheme.onErrorContainer, size: 20),
                   ),
-                  title: Text(
-                    t.description,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    categoryName,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                  title: Text(t.description, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  subtitle: Text(categoryName, style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
                   trailing: PrivacyCurrency(
-                    amount:
-                        '${isIncome ? '+' : '-'}$_currentCurrency${t.amount.toStringAsFixed(0)}',
+                    amount: '${isIncome ? '+' : '-'}$_currentCurrency${t.amount.toStringAsFixed(0)}',
                     isPrivacyActive: isPrivate,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isIncome ? colorScheme.primary : colorScheme.error,
-                    ),
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: isIncome ? colorScheme.primary : colorScheme.error),
                   ),
                   onTap: () {
                     if (isIncome) {
@@ -688,12 +592,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   void _showAddEditWalletSheet({int? key, Wallet? wallet}) {
     final isEditing = key != null && wallet != null;
     final nameController = TextEditingController(
-      text: isEditing ? wallet!.name : '',
+      text: isEditing ? wallet.name : '',
     );
     final balanceController = TextEditingController(
-      text: isEditing ? wallet!.balance.toString() : '',
+      text: isEditing ? wallet.balance.toString() : '',
     );
-    String selectedType = isEditing ? wallet!.type.toLowerCase() : 'cash';
+    String selectedType = isEditing ? wallet.type.toLowerCase() : 'cash';
 
     BottomSheetUtil.show(
       context: context,
@@ -724,7 +628,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: selectedType,
+                initialValue: selectedType,
                 decoration: const InputDecoration(
                   labelText: 'Type',
                   border: OutlineInputBorder(),
@@ -762,7 +666,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     name: nameController.text.trim(),
                     balance: balance,
                     type: selectedType,
-                    createdAt: isEditing ? wallet!.createdAt : DateTime.now(),
+                    createdAt: isEditing ? wallet.createdAt : DateTime.now(),
                     updatedAt: DateTime.now(),
                   );
 
@@ -796,29 +700,5 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         },
       ),
     );
-  }
-
-  Icon _getWalletIcon(String type, Color color) {
-    IconData iconData;
-    switch (type.toLowerCase()) {
-      case 'cash':
-        iconData = Icons.money_rounded;
-        break;
-      case 'bank':
-        iconData = Icons.account_balance_rounded;
-        break;
-      case 'card':
-        iconData = Icons.credit_card_rounded;
-        break;
-      case 'upi':
-        iconData = Icons.qr_code_rounded;
-        break;
-      case 'credit':
-        iconData = Icons.credit_score_rounded;
-        break;
-      default:
-        iconData = Icons.wallet_rounded;
-    }
-    return Icon(iconData, color: color, size: 24);
   }
 }

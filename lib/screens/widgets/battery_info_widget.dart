@@ -36,7 +36,7 @@ class _BatteryMonitorWidgetState extends State<BatteryMonitorWidget> {
   BatteryState _batteryState = BatteryState.unknown;
   DateTime _startTime = DateTime.now();
   bool _isMonitoring = false;
-  List<BatterySnapshot> _batterySnapshots = [];
+  final List<BatterySnapshot> _batterySnapshots = [];
   Timer? _monitoringTimer;
   Timer? _batteryCheckTimer;
   String _deviceModel = 'Unknown';
@@ -45,7 +45,7 @@ class _BatteryMonitorWidgetState extends State<BatteryMonitorWidget> {
   int _lastBatteryLevel = 100;
 
   // Feature-specific tracking
-  Map<String, double> _featurePowerUsage = {
+  final Map<String, double> _featurePowerUsage = {
     'privacyMode': 0.0,
     'shakeDetector': 0.0,
     'faceDetection': 0.0,
@@ -54,7 +54,7 @@ class _BatteryMonitorWidgetState extends State<BatteryMonitorWidget> {
   };
 
   // Track when features were last active
-  Map<String, DateTime> _featureLastActive = {};
+  final Map<String, DateTime> _featureLastActive = {};
   Map<String, bool> _previousFeatureState = {};
 
   @override
@@ -418,7 +418,7 @@ class _BatteryMonitorWidgetState extends State<BatteryMonitorWidget> {
                         Row(
                           children: [
                             Text(
-                              '${_currentBatteryLevel}% • ',
+                              '$_currentBatteryLevel% • ',
                               style: TextStyle(
                                 color: Colors.grey.shade400,
                                 fontSize: 11,

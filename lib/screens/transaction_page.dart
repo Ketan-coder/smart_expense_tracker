@@ -1,4 +1,5 @@
 // screens/transactions/transactions_page.dart
+import 'package:expense_tracker/screens/loan_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/custom_app_bar.dart';
 import 'package:expense_tracker/screens/widgets/custom_chart.dart';
@@ -346,53 +347,57 @@ class _TransactionsPageState extends State<TransactionsPage>
             onPressed: _showDateRangeMenu,
             tooltip: 'Select Date Range',
           ),
+          IconButton(onPressed: () => Helpers.navigateTo(context, const LoanPage()), icon: const Icon(Icons.credit_card_rounded),)
         ],
-        child: Container(
-          margin: const EdgeInsets.all(8),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Tab Bar
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  dividerColor: Colors.transparent,
-                  indicator: BoxDecoration(
+        child: ListenableBuilder(
+          listenable: _transactionsPrivacyManager,
+          builder: (context, child) => Container(
+            margin: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Tab Bar
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
-                    color: Theme.of(context).colorScheme.primaryContainer,
                   ),
-                  labelColor: Theme.of(context).colorScheme.onPrimaryContainer,
-                  unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
-                  tabs: const [
-                    Tab(text: "Expenses"),
-                    Tab(text: "Income"),
-                  ],
+                  child: TabBar(
+                    controller: _tabController,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    dividerColor: Colors.transparent,
+                    indicator: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                    ),
+                    labelColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                    unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                    tabs: const [
+                      Tab(text: "Expenses"),
+                      Tab(text: "Income"),
+                    ],
+                  ),
                 ),
-              ),
 
-              // Tab Content using IndexedStack to avoid TabBarView viewport issues
-              Flexible(
-                fit: FlexFit.loose,
-                child: IndexedStack(
-                  index: _tabController.index,
-                  children: [
-                    _buildTransactionContent(expenseBox, TransactionType.expense),
-                    _buildTransactionContent(incomeBox, TransactionType.income),
-                  ],
+                // Tab Content using IndexedStack to avoid TabBarView viewport issues
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: IndexedStack(
+                    index: _tabController.index,
+                    children: [
+                      _buildTransactionContent(expenseBox, TransactionType.expense),
+                      _buildTransactionContent(incomeBox, TransactionType.income),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -510,7 +515,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                           hoverColor: containerColor,
                           yAxisLabel: "Amount",
                           valueUnit: "$_currentCurrency ",
-                          highlightHighest: true,
+                          highlightHighest: isExpense ? false : true,
                           highlightMode: isExpense ? HighlightMode.lowest : HighlightMode.highest,
                           showToggleSwitch: true,
                         ),

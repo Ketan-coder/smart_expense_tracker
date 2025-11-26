@@ -1,5 +1,6 @@
 import 'package:expense_tracker/screens/home/category_page.dart';
 import 'package:expense_tracker/screens/home/income_listing_page.dart';
+import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1226,40 +1227,33 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   }
 
   void _showExportOptions() {
-    showModalBottomSheet(
+    BottomSheetUtil.showQuickAction(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Export Reports',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: const Icon(Icons.picture_as_pdf),
-              title: const Text('Export as PDF'),
-              subtitle: const Text('Comprehensive report in PDF format'),
-              onTap: () {
-                Navigator.pop(context);
-                _exportAsPDF();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.table_chart),
-              title: const Text('Export as CSV'),
-              subtitle: const Text('Raw data for spreadsheet analysis'),
-              onTap: () {
-                Navigator.pop(context);
-                _exportAsCSV();
-              },
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
+      height: MediaQuery.of(context).size.height * 0.15,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.picture_as_pdf),
+            title: const Text('Export as PDF'),
+            subtitle: const Text('Comprehensive report in PDF format'),
+            onTap: () {
+              Navigator.pop(context);
+              _exportAsPDF();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.table_chart),
+            title: const Text('Export as CSV'),
+            subtitle: const Text('Raw data for spreadsheet analysis'),
+            onTap: () {
+              Navigator.pop(context);
+              _exportAsCSV();
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }

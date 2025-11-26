@@ -29,13 +29,16 @@ class LoanAdapter extends TypeAdapter<Loan> {
       method: fields[10] as String?,
       categoryKeys: (fields[11] as List).cast<int>(),
       payments: (fields[9] as List?)?.cast<LoanPayment>(),
+      phoneNumber: fields[12] as String?,
+      reminderEnabled: fields[13] == null ? true : fields[13] as bool,
+      reminderDaysBefore: fields[14] == null ? 3 : (fields[14] as num).toInt(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Loan obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -59,7 +62,13 @@ class LoanAdapter extends TypeAdapter<Loan> {
       ..writeByte(10)
       ..write(obj.method)
       ..writeByte(11)
-      ..write(obj.categoryKeys);
+      ..write(obj.categoryKeys)
+      ..writeByte(12)
+      ..write(obj.phoneNumber)
+      ..writeByte(13)
+      ..write(obj.reminderEnabled)
+      ..writeByte(14)
+      ..write(obj.reminderDaysBefore);
   }
 
   @override

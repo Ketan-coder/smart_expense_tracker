@@ -1,12 +1,13 @@
 // screens/goals/goals_page.dart
-import 'package:expense_tracker/screens/habit_screen.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
+import 'package:expense_tracker/screens/widgets/privacy_overlay_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/goal.dart';
 import '../../services/goal_service.dart';
+import '../../services/privacy/privacy_manager.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/snack_bar.dart';
 import 'add_edit_goal_sheet.dart';
@@ -23,6 +24,7 @@ class _GoalsPageState extends State<GoalsPage>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
   final GoalService _goalService = GoalService();
+  final PrivacyManager _privacyManager = PrivacyManager();
   String _currentCurrency = 'INR';
 
   @override
@@ -64,68 +66,71 @@ class _GoalsPageState extends State<GoalsPage>
             icon: const Icon(Icons.add_rounded),
             onPressed: () => _showAddGoalSheet(),
           ),
-          IconButton(
-            icon: const Icon(Icons.track_changes),
-            onPressed: () => Helpers.navigateTo(context, const HabitPage()),
-          ),
+          // IconButton(
+          //   icon: const Icon(Icons.track_changes),
+          //   onPressed: () => Helpers.navigateTo(context, const HabitPage()),
+          // ),
         ],
-        child: Container(
-          margin: const EdgeInsets.all(10),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(25),
-            color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Tab Bar
-              Container(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  dividerColor: Colors.transparent,
-                  indicator: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: Theme.of(context).colorScheme.primaryContainer,
+        child: ListenableBuilder(
+          listenable: _privacyManager,
+          builder: (context, child) => Container(
+            margin: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(25),
+              color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Tab Bar
+                Container(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
                   ),
-                  labelColor: Theme.of(context).colorScheme.onPrimaryContainer,
-                  unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
-                  tabs: const [
-                    Tab(text: "Active"),
-                    Tab(text: "Completed"),
-                    Tab(text: "All"),
-                  ],
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: TabBar(
+                    controller: _tabController,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    dividerColor: Colors.transparent,
+                    indicator: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                    ),
+                    labelColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                    unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                    tabs: const [
+                      Tab(text: "Active"),
+                      Tab(text: "Completed"),
+                      Tab(text: "All"),
+                    ],
+                  ),
                 ),
-              ),
-              // Tab Content using IndexedStack to avoid TabBarView viewport issues
-              Flexible(
-                fit: FlexFit.loose,
-                child: IndexedStack(
-                  index: _tabController.index,
-                  children: [
-                    _buildGoalsList(goalBox, filter: 'active'),
-                    _buildGoalsList(goalBox, filter: 'completed'),
-                    _buildGoalsList(goalBox, filter: 'all'),
-                  ],
+                // Tab Content using IndexedStack to avoid TabBarView viewport issues
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: IndexedStack(
+                    index: _tabController.index,
+                    children: [
+                      _buildGoalsList(goalBox, _privacyManager,filter: 'active'),
+                      _buildGoalsList(goalBox, _privacyManager, filter: 'completed'),
+                      _buildGoalsList(goalBox, _privacyManager, filter: 'all'),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildGoalsList(Box<Goal> goalBox, {required String filter}) {
+  Widget _buildGoalsList(Box<Goal> goalBox, PrivacyManager privacyManager, {required String filter}) {
     return ValueListenableBuilder(
       valueListenable: goalBox.listenable(),
       builder: (context, Box<Goal> box, _) {
@@ -175,7 +180,7 @@ class _GoalsPageState extends State<GoalsPage>
             children: filteredEntries.map((entry) {
               final goal = entry.value;
               final key = entry.key;
-              return _buildGoalCard(goal, key);
+              return _buildGoalCard(goal, key, privacyManager);
             }).toList(),
           ),
         );
@@ -183,7 +188,7 @@ class _GoalsPageState extends State<GoalsPage>
     );
   }
 
-  Widget _buildGoalCard(Goal goal, dynamic key) {
+  Widget _buildGoalCard(Goal goal, dynamic key, PrivacyManager privacyManager) {
     final colorScheme = Theme.of(context).colorScheme;
 
     // Safe progress calculation
@@ -202,6 +207,7 @@ class _GoalsPageState extends State<GoalsPage>
         default: return colorScheme.primary;
       }
     }
+    final isPrivate = privacyManager.shouldHideSensitiveData();
 
     return Card(
       elevation: 0,
@@ -271,9 +277,9 @@ class _GoalsPageState extends State<GoalsPage>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: getPriorityColor(goal.priority ?? 'medium').withOpacity(0.1),
+                      color: getPriorityColor(goal.priority ?? 'medium').withValues( alpha:  0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: getPriorityColor(goal.priority ?? 'medium').withOpacity(0.3)),
+                      border: Border.all(color: getPriorityColor(goal.priority ?? 'medium').withValues(alpha: .3)),
                     ),
                     child: Text(
                       goal.priority ?? 'Medium',
@@ -310,13 +316,21 @@ class _GoalsPageState extends State<GoalsPage>
                       color: colorScheme.onSurface,
                     ),
                   ),
-                  Text(
-                    '$_currentCurrency ${currentAmount.toStringAsFixed(0)} / ${targetAmount.toStringAsFixed(0)}',
+                  PrivacyCurrency(
+                      amount: '$_currentCurrency ${currentAmount.toStringAsFixed(0)} / ${targetAmount.toStringAsFixed(0)}',
+                      isPrivacyActive: isPrivate,
                     style: TextStyle(
                       fontSize: 12,
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
+                  // Text(
+                  //   '$_currentCurrency ${currentAmount.toStringAsFixed(0)} / ${targetAmount.toStringAsFixed(0)}',
+                  //   style: TextStyle(
+                  //     fontSize: 12,
+                  //     color: colorScheme.onSurfaceVariant,
+                  //   ),
+                  // ),
                 ],
               ),
 

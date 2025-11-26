@@ -2,6 +2,7 @@ import 'package:expense_tracker/data/local/universal_functions.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/custom_app_bar.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
+import 'package:expense_tracker/services/privacy/privacy_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import '../../core/app_constants.dart';
@@ -23,6 +24,7 @@ class _HabitPageState extends State<HabitPage>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
   String _currentCurrency = '₹';
+  final PrivacyManager _privacyManager = PrivacyManager();
 
   @override
   bool get wantKeepAlive => true;
@@ -125,9 +127,9 @@ class _HabitPageState extends State<HabitPage>
                 child: IndexedStack(
                   index: _tabController.index,
                   children: [
-                    _buildHabitList(habitBox, filter: 'active'),
-                    _buildHabitList(habitBox, filter: 'completed'),
-                    _buildHabitList(habitBox, filter: 'paused'),
+                    _buildHabitList(habitBox, _privacyManager, filter: 'active'),
+                    _buildHabitList(habitBox, _privacyManager, filter: 'completed'),
+                    _buildHabitList(habitBox, _privacyManager, filter: 'paused'),
                   ],
                 ),
               ),
@@ -143,7 +145,7 @@ class _HabitPageState extends State<HabitPage>
     );
   }
 
-  Widget _buildHabitList(Box<Habit> habitBox, {required String filter}) {
+  Widget _buildHabitList(Box<Habit> habitBox, PrivacyManager privacyManager,{required String filter}) {
     return ValueListenableBuilder(
       valueListenable: habitBox.listenable(),
       builder: (context, Box<Habit> box, _) {
@@ -183,7 +185,7 @@ class _HabitPageState extends State<HabitPage>
             children: filteredEntries.map((entry) {
               final habit = entry.value;
               final key = entry.key;
-              return _buildHabitCard(habit, key);
+              return _buildHabitCard(habit, key, privacyManager);
             }).toList(),
           ),
         );
@@ -232,7 +234,7 @@ class _HabitPageState extends State<HabitPage>
     );
   }
 
-  Widget _buildHabitCard(Habit habit, dynamic key) {
+  Widget _buildHabitCard(Habit habit, dynamic key, PrivacyManager privacyManager) {
     final categoryBox = Hive.box<Category>(AppConstants.categories);
     final categories = habit.categoryKeys
         .map((k) => categoryBox.get(k))
@@ -243,6 +245,7 @@ class _HabitPageState extends State<HabitPage>
     final isOverdue = habit.isOverdue();
     final habitColor = Helpers().hexToColor(habit.color);
     final completionRate = habit.getCompletionRate(30) * 100;
+    final isPrivate = privacyManager.shouldHideSensitiveData();
 
     return Dismissible(
       key: Key('habit_${key.toString()}'),

@@ -19,13 +19,13 @@ class StackedWalletCards extends StatefulWidget {
   final VoidCallback onAddWallet;
 
   const StackedWalletCards({
-    Key? key,
+    super.key,
     required this.wallets,
     required this.currency,
     required this.isPrivate,
     required this.onWalletTap,
     required this.onAddWallet,
-  }) : super(key: key);
+  });
 
   @override
   State<StackedWalletCards> createState() => _StackedWalletCardsState();

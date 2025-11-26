@@ -1,9 +1,8 @@
-// models/loan.dart
 import 'package:hive_ce/hive.dart';
 
 part 'loan.g.dart';
 
-@HiveType(typeId: 9) // Use typeId 8 since you have types 0-7
+@HiveType(typeId: 9)
 class Loan {
   @HiveField(0)
   final String id;
@@ -36,10 +35,19 @@ class Loan {
   final List<LoanPayment> payments;
 
   @HiveField(10)
-  final String? method; // Payment method (Cash, UPI, Bank, etc.)
+  final String? method;
 
   @HiveField(11)
-  final List<int> categoryKeys; // Connect with your categories
+  final List<int> categoryKeys;
+
+  @HiveField(12)
+  final String? phoneNumber; // For contact
+
+  @HiveField(13)
+  final bool reminderEnabled; // For notifications
+
+  @HiveField(14)
+  final int reminderDaysBefore; // Remind X days before due
 
   Loan({
     required this.id,
@@ -54,13 +62,91 @@ class Loan {
     this.method,
     required this.categoryKeys,
     List<LoanPayment>? payments,
+    this.phoneNumber,
+    this.reminderEnabled = true,
+    this.reminderDaysBefore = 3,
   }) : payments = payments ?? [];
 
+  // ===== Computed Properties =====
+
   double get remainingAmount => amount - paidAmount;
-  double get progress => amount > 0 ? paidAmount / amount : 0;
+
+  double get progress => amount > 0 ? (paidAmount / amount).clamp(0.0, 1.0) : 0;
+
   bool get isOverdue => dueDate != null &&
       dueDate!.isBefore(DateTime.now()) &&
       status != LoanStatus.paid;
+
+  bool get isPaid => status == LoanStatus.paid || remainingAmount <= 0;
+
+  bool get isDueSoon {
+    if (dueDate == null || isPaid) return false;
+    final daysUntilDue = dueDate!.difference(DateTime.now()).inDays;
+    return daysUntilDue >= 0 && daysUntilDue <= reminderDaysBefore;
+  }
+
+  int get daysUntilDue {
+    if (dueDate == null) return -1;
+    return dueDate!.difference(DateTime.now()).inDays;
+  }
+
+  int get daysOverdue {
+    if (dueDate == null || !isOverdue) return 0;
+    return DateTime.now().difference(dueDate!).inDays;
+  }
+
+  String get statusText {
+    if (isPaid) return 'Paid';
+    if (isOverdue) return 'Overdue by $daysOverdue days';
+    if (isDueSoon) return 'Due in $daysUntilDue days';
+    if (paidAmount > 0) return 'Partially Paid';
+    return 'Pending';
+  }
+
+  String get typeText => type == LoanType.lent ? 'Lent' : 'Borrowed';
+
+  String get directionText => type == LoanType.lent
+      ? 'to $personName'
+      : 'from $personName';
+
+  // ===== Methods =====
+
+  /// Add a payment and return updated loan
+  Loan addPayment(LoanPayment payment) {
+    final newPayments = List<LoanPayment>.from(payments)..add(payment);
+    final newPaidAmount = paidAmount + payment.amount;
+
+    LoanStatus newStatus;
+    if (newPaidAmount >= amount) {
+      newStatus = LoanStatus.paid;
+    } else if (newPaidAmount > 0) {
+      newStatus = LoanStatus.partiallyPaid;
+    } else {
+      newStatus = status;
+    }
+
+    return copyWith(
+      payments: newPayments,
+      paidAmount: newPaidAmount.clamp(0, amount),
+      status: newStatus,
+    );
+  }
+
+  /// Check if reminder should be sent
+  bool shouldRemind() {
+    if (!reminderEnabled || isPaid || dueDate == null) return false;
+    final daysLeft = daysUntilDue;
+    return daysLeft >= 0 && daysLeft <= reminderDaysBefore;
+  }
+
+  /// Get appropriate emoji for status
+  String get statusEmoji {
+    if (isPaid) return '✅';
+    if (isOverdue) return '🚨';
+    if (isDueSoon) return '⚠️';
+    if (paidAmount > 0) return '🔄';
+    return '⏳';
+  }
 
   Loan copyWith({
     String? personName,
@@ -74,6 +160,9 @@ class Loan {
     String? method,
     List<int>? categoryKeys,
     List<LoanPayment>? payments,
+    String? phoneNumber,
+    bool? reminderEnabled,
+    int? reminderDaysBefore,
   }) {
     return Loan(
       id: id,
@@ -88,7 +177,15 @@ class Loan {
       method: method ?? this.method,
       categoryKeys: categoryKeys ?? this.categoryKeys,
       payments: payments ?? this.payments,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      reminderDaysBefore: reminderDaysBefore ?? this.reminderDaysBefore,
     );
+  }
+
+  @override
+  String toString() {
+    return 'Loan($typeText $amount to $personName, status: $statusText)';
   }
 }
 
@@ -107,7 +204,7 @@ class LoanPayment {
   final String? note;
 
   @HiveField(4)
-  final String? method; // Payment method
+  final String? method;
 
   LoanPayment({
     required this.id,
@@ -116,15 +213,30 @@ class LoanPayment {
     this.note,
     this.method,
   });
+
+  LoanPayment copyWith({
+    double? amount,
+    DateTime? date,
+    String? note,
+    String? method,
+  }) {
+    return LoanPayment(
+      id: id,
+      amount: amount ?? this.amount,
+      date: date ?? this.date,
+      note: note ?? this.note,
+      method: method ?? this.method,
+    );
+  }
 }
 
 @HiveType(typeId: 11)
 enum LoanType {
   @HiveField(0)
-  lent, // You lent money to someone
+  lent,
 
   @HiveField(1)
-  borrowed, // You borrowed money from someone
+  borrowed,
 }
 
 @HiveType(typeId: 12)

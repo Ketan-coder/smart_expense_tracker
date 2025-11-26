@@ -1,5 +1,7 @@
 import 'package:expense_tracker/core/app_constants.dart';
+import 'package:expense_tracker/data/model/loan.dart';
 import 'package:expense_tracker/screens/habit_screen.dart';
+import 'package:expense_tracker/screens/loan_page.dart';
 import 'package:expense_tracker/screens/reports/reports_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_nav_bar.dart';
 import 'package:expense_tracker/services/notification_service.dart';
@@ -38,6 +40,10 @@ void main() async {
   Hive.registerAdapter(RecurringAdapter());
   Hive.registerAdapter(WalletAdapter());
   Hive.registerAdapter(GoalAdapter());
+  Hive.registerAdapter(LoanAdapter());
+  Hive.registerAdapter(LoanPaymentAdapter());
+  Hive.registerAdapter(LoanTypeAdapter());
+  Hive.registerAdapter(LoanStatusAdapter());
 
   // Open boxes
   await Hive.openBox<Expense>(AppConstants.expenses);
@@ -47,6 +53,7 @@ void main() async {
   await Hive.openBox<Recurring>(AppConstants.recurrings);
   await Hive.openBox<Wallet>(AppConstants.wallets);
   await Hive.openBox<Goal>(AppConstants.goals);
+  await Hive.openBox<Loan>(AppConstants.loans);
 
   await registerRecurringTask();
 
@@ -130,12 +137,14 @@ class _MyAppState extends State<MyApp> {
           debugShowCheckedModeBanner: false,
           routes: {
             '/home': (_) => const BottomNavBar(currentIndex: 0),
-            '/expense': (_) => const BottomNavBar(currentIndex: 1),
-            '/income': (_) => const BottomNavBar(currentIndex: 2),
+            // '/expense': (_) => const BottomNavBar(currentIndex: 1),
+            // '/income': (_) => const BottomNavBar(currentIndex: 2),
             '/reports': (_) => const ReportsPage(),
             '/goal': (_) => const BottomNavBar(currentIndex: 3),
             '/habit': (_) => const HabitPage(),
             '/settings': (_) => const BottomNavBar(currentIndex: 4),
+            '/loans': (_) => const LoanPage(),
+            '/transactions': (_) => const BottomNavBar(currentIndex: 1),
           },
           theme: ThemeData(
             useMaterial3: true,

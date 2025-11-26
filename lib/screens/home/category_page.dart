@@ -403,7 +403,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
     await BottomSheetUtil.show(
       context: context,
-      title: 'Default Categories for SMS Parsing',
+      title: 'Default Categories',
       height: MediaQuery.of(context).size.height * 0.65,
       child: StatefulBuilder(
         builder: (context, setModalState) {
