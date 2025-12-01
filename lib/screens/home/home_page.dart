@@ -84,6 +84,46 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     return walletBox.values.fold(0.0, (sum, w) => sum + w.balance);
   }
 
+  String _getWalletBalanceForHeader(Box<Wallet> walletBox) {
+    if (_calculateTotalBalance(walletBox) == 0) {
+      return 'You Spend All of your Income/savings';
+    } else if (_calculateTotalBalance(walletBox) > 0) {
+      return 'Great! You have money left.';
+    } else {
+      return 'Expend Wisely! You have no money left.';
+    }
+  }
+
+  double getTotalForType(Box<Loan> loanBox, LoanType type) {
+    double total = 0;
+
+    for (var loan in loanBox.values) {
+      if (!loan.isPaid && loan.type == type) {
+        total += loan.remainingAmount;
+      }
+    }
+
+    return total.clamp(0, double.infinity);
+  }
+
+  String _getLoanSummaryByType(Box<Loan> loanBox, LoanType type) {
+    double total = getTotalForType(loanBox, type);
+
+    if (total == 0) {
+      if (type == LoanType.lent) {
+        return "You haven’t lent money to anyone 🎉";
+      } else {
+        return "You have no borrowed loans left 🎉";
+      }
+    }
+
+    if (type == LoanType.lent) {
+      return "You lent ₹$total. Waiting for repayment 👍";
+    } else {
+      return "You borrowed ₹$total. Stay mindful 💡";
+    }
+  }
+
   List<Expense> _getFilteredExpenses(DateTime start, DateTime end) {
     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
     return expenseBox.values.where((e) {
@@ -125,6 +165,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         onRefresh: _loadData,
+        animatedTexts: [
+          _getWalletBalanceForHeader(Hive.box<Wallet>(AppConstants.wallets)),
+          _getLoanSummaryByType(Hive.box<Loan>(AppConstants.loans),LoanType.lent),
+          _getLoanSummaryByType(Hive.box<Loan>(AppConstants.loans),LoanType.borrowed),
+        ],
+        animationType: AnimationType.fadeInOut,
+        animationEffect: AnimationEffect.smooth,
+        // animationDuration: Duration(seconds: 3),
+        animationRepeat: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_month_rounded),

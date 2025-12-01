@@ -116,6 +116,18 @@ class NotificationService {
         case 'open_home_page':
           _navigatorKey.currentState?.pushNamed('/home');
           break;
+        case 'open_loan_page':
+          _navigatorKey.currentState?.pushNamed('/loan');
+          break;
+        case 'open_settings_page':
+          _navigatorKey.currentState?.pushNamed('/settings');
+          break;
+        case 'open_transaction_page':
+          _navigatorKey.currentState?.pushNamed('/transaction');
+          break;
+        case 'open_wallet_page':
+          _navigatorKey.currentState?.pushNamed('/wallet');
+          break;
         default:
           _navigatorKey.currentState?.pushNamed('/home');
           break;
