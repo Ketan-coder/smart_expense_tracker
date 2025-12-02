@@ -174,15 +174,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         animationEffect: AnimationEffect.smooth,
         // animationDuration: Duration(seconds: 3),
         animationRepeat: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_month_rounded),
+        actionItems: [
+          CustomAppBarActionItem(
+            icon: Icons.calendar_month_rounded,
+            label: "Filter by Date Range",
+            tooltip: "Select Date Range to filter out Transactions",
             onPressed: _selectDateRange,
           ),
-          IconButton(
-            icon: const Icon(Icons.trending_up),
+          CustomAppBarActionItem(
+            icon: Icons.trending_up,
+            label: "Go to Reports Page",
+            tooltip: "View Analysis Reports and Trends",
             onPressed: () => Helpers.navigateTo(context, const ReportsPage()),
           ),
+          // IconButton(
+          //   icon: const Icon(Icons.calendar_month_rounded),
+          //   onPressed: _selectDateRange,
+          // ),
+          // IconButton(
+          //   icon: const Icon(Icons.trending_up),
+          //   onPressed: () => Helpers.navigateTo(context, const ReportsPage()),
+          // ),
         ],
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())

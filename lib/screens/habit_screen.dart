@@ -63,23 +63,42 @@ class _HabitPageState extends State<HabitPage>
         onRefresh: () {
           HabitDetectionService.clearCache();
         },
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.auto_awesome),
-            tooltip: 'Detect Habits',
-            onPressed: () {
+        actionItems: [
+          CustomAppBarActionItem(
+            icon: Icons.auto_awesome,
+            label: "Detect Habit",
+            tooltip: "It can detect habits and give you personalized recommendations",
+              onPressed: () {
                 HabitDetectionService.clearCache();
                 _runHabitDetection;
               },
           ),
-          IconButton(
-            icon: const Icon(Icons.category),
-            tooltip: 'Category List',
+          CustomAppBarActionItem(
+            icon: Icons.category,
+            label: "Go to Categories",
+            tooltip: "Add/Edit, Pick Favourites Categories",
             onPressed: () {
               Helpers.navigateTo(context, const CategoryPage());
             },
           ),
         ],
+        // actions: [
+        //   IconButton(
+        //     icon: const Icon(Icons.auto_awesome),
+        //     tooltip: 'Detect Habits',
+        //     onPressed: () {
+        //         HabitDetectionService.clearCache();
+        //         _runHabitDetection;
+        //       },
+        //   ),
+        //   IconButton(
+        //     icon: const Icon(Icons.category),
+        //     tooltip: 'Category List',
+        //     onPressed: () {
+        //       Helpers.navigateTo(context, const CategoryPage());
+        //     },
+        //   ),
+        // ],
         child: Container(
           margin: const EdgeInsets.all(10),
           padding: const EdgeInsets.all(10),

@@ -61,16 +61,24 @@ class _GoalsPageState extends State<GoalsPage>
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
+        actionItems: [
+          CustomAppBarActionItem(
+            icon: Icons.add_rounded,
+            label: "Add New Goal",
+            tooltip: "Add New Goal to Track",
             onPressed: () => _showAddGoalSheet(),
           ),
-          // IconButton(
-          //   icon: const Icon(Icons.track_changes),
-          //   onPressed: () => Helpers.navigateTo(context, const HabitPage()),
-          // ),
         ],
+        // actions: [
+        //   IconButton(
+        //     icon: const Icon(Icons.add_rounded),
+        //     onPressed: () => _showAddGoalSheet(),
+        //   ),
+        //   // IconButton(
+        //   //   icon: const Icon(Icons.track_changes),
+        //   //   onPressed: () => Helpers.navigateTo(context, const HabitPage()),
+        //   // ),
+        // ],
         child: ListenableBuilder(
           listenable: _privacyManager,
           builder: (context, child) => Container(

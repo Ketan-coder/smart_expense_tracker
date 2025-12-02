@@ -8,6 +8,7 @@ import 'package:expense_tracker/screens/habit_screen.dart';
 import 'package:expense_tracker/screens/settings/settings_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/privacy_overlay_widget.dart';
+import 'package:expense_tracker/screens/widgets/quick_actions.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:expense_tracker/screens/widgets/transaction_sheet.dart';
 import 'package:flutter/foundation.dart' hide Category;
@@ -42,7 +43,8 @@ class BottomNavBar extends StatefulWidget {
   State<BottomNavBar> createState() => _BottomNavBarState();
 }
 
-class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver {
+class _BottomNavBarState extends State<BottomNavBar>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
   String _currentCurrency = 'INR';
 
@@ -68,13 +70,15 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
   // Privacy Focused
   final PrivacyManager _privacyManager = PrivacyManager();
   ShakeDetector? _shakeDetector; // Make nullable, only create if needed
-  final AdaptiveBrightnessService _brightnessService = AdaptiveBrightnessService();
+  final AdaptiveBrightnessService _brightnessService =
+      AdaptiveBrightnessService();
   // GazeDetectionManager? _gazeDetectionManager;
   final bool _showWatcherAlert = false;
   Timer? _watcherAlertTimer;
   List<String>? defaultExpenseCategories = [];
   List<String>? defaultIncomeCategories = [];
 
+  List<QuickAction> _quickActions = [];
 
   @override
   void initState() {
@@ -84,6 +88,12 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     _initializeApp();
     _initializePrivacyServices();
     _scheduleHabitDetection();
+    _loadQuickActions();
+  }
+
+  Future<void> _loadQuickActions() async {
+    _quickActions = await QuickActionManager.loadQuickActions();
+    if (mounted) setState(() {});
   }
 
   void _scheduleHabitDetection() {
@@ -93,15 +103,13 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
       final lastRun = prefs.getString('last_habit_detection');
       final now = DateTime.now();
 
-      if (lastRun == null ||
-          DateTime.parse(lastRun).day != now.day) {
+      if (lastRun == null || DateTime.parse(lastRun).day != now.day) {
         // Run detection
         await HabitDetectionService().runAutoDetection();
         await prefs.setString('last_habit_detection', now.toIso8601String());
       }
     });
   }
-
 
   Future<void> _initializePrivacyServices() async {
     debugPrint("🔒 ========================================");
@@ -127,7 +135,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     _onPrivacyStateChanged();
 
     debugPrint("🔒 Privacy services initialized (Battery optimized)");
-    debugPrint("🔒 Shake detection: ${_shakeDetector != null ? 'Active' : 'Disabled'}");
+    debugPrint(
+      "🔒 Shake detection: ${_shakeDetector != null ? 'Active' : 'Disabled'}",
+    );
     debugPrint("🔒 Face detection: Disabled (enable in settings if needed)");
     debugPrint("🔒 ========================================");
   }
@@ -156,9 +166,14 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     debugPrint("📳 Shake detection initialized");
   }
 
-  void _cleanupShakeDetection() { if (_shakeDetector == null) return; _shakeDetector!.dispose(); _shakeDetector = null; debugPrint("📳 Shake detection cleaned up"); }
+  void _cleanupShakeDetection() {
+    if (_shakeDetector == null) return;
+    _shakeDetector!.dispose();
+    _shakeDetector = null;
+    debugPrint("📳 Shake detection cleaned up");
+  }
 
-// Add this callback method:
+  // Add this callback method:
   void _onPrivacyStateChanged() {
     if (!mounted) return;
 
@@ -167,7 +182,8 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     // Handle shake detection based on settings
     if (_privacyManager.shakeToPrivacyEnabled && _shakeDetector == null) {
       _initializeShakeDetection();
-    } else if (!_privacyManager.shakeToPrivacyEnabled && _shakeDetector != null) {
+    } else if (!_privacyManager.shakeToPrivacyEnabled &&
+        _shakeDetector != null) {
       _cleanupShakeDetection();
     }
 
@@ -182,20 +198,22 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
     // Handle screenshot protection (no battery impact)
     SecureWindowManager.toggleProtection(
-      _privacyManager.screenshotProtectionEnabled && _privacyManager.isPrivacyActive,
+      _privacyManager.screenshotProtectionEnabled &&
+          _privacyManager.isPrivacyActive,
     );
 
     // NOTE: Face detection is NOT handled here to save battery
     // Users must explicitly enable and start it via settings
   }
 
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
     // Existing biometric check...
-    if (state == AppLifecycleState.resumed && _biometricRequired && !_isAuthenticated) {
+    if (state == AppLifecycleState.resumed &&
+        _biometricRequired &&
+        !_isAuthenticated) {
       debugPrint("🔐 App resumed - biometric re-authentication required");
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted && !_isAuthenticated) {
@@ -236,7 +254,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     }
   }
 
-// OPTIMIZED DISPOSE
+  // OPTIMIZED DISPOSE
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -252,7 +270,6 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     super.dispose();
   }
 
-
   Future<void> _initializeApp() async {
     try {
       debugPrint("🚀 ========================================");
@@ -263,7 +280,8 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
       await _loadInitialData();
 
       // Check biometric requirement
-      final biometricEnabled = await Helpers().getCurrentBiometricState() ?? false;
+      final biometricEnabled =
+          await Helpers().getCurrentBiometricState() ?? false;
       _biometricRequired = biometricEnabled;
 
       debugPrint("🔐 Biometric required: $_biometricRequired");
@@ -397,7 +415,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
         title: const Text("Authentication Error"),
         content: const Text(
           "There was an error with biometric authentication. "
-              "Would you like to disable biometric lock or try again?",
+          "Would you like to disable biometric lock or try again?",
         ),
         actions: [
           TextButton(
@@ -460,7 +478,8 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
       return;
     }
 
-    bool smsParsingEnabled = await Helpers().getCurrentSmsParsingState() ?? true;
+    bool smsParsingEnabled =
+        await Helpers().getCurrentSmsParsingState() ?? true;
 
     if (!smsParsingEnabled) {
       debugPrint("📱 SMS parsing disabled by user");
@@ -517,11 +536,18 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
     for (final categoryName in defaultCategories) {
       final category = categoryBox.values.firstWhere(
-            (cat) => cat.name == categoryName,
-        orElse: () => Category(name: 'Other', type: 'Expense', color: '#808080', icon: 'category'),
+        (cat) => cat.name == categoryName,
+        orElse: () => Category(
+          name: 'Other',
+          type: 'Expense',
+          color: '#808080',
+          icon: 'category',
+        ),
       );
 
-      final categoryKey = categoryBox.keyAt(categoryBox.values.toList().indexOf(category));
+      final categoryKey = categoryBox.keyAt(
+        categoryBox.values.toList().indexOf(category),
+      );
       if (categoryKey != null) {
         keys.add(categoryKey as int);
       }
@@ -541,11 +567,18 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
     for (final categoryName in defaultCategories) {
       final category = categoryBox.values.firstWhere(
-            (cat) => cat.name == categoryName,
-        orElse: () => Category(name: 'Other', type: 'Income', color: '#808080', icon: 'category'),
+        (cat) => cat.name == categoryName,
+        orElse: () => Category(
+          name: 'Other',
+          type: 'Income',
+          color: '#808080',
+          icon: 'category',
+        ),
       );
 
-      final categoryKey = categoryBox.keyAt(categoryBox.values.toList().indexOf(category));
+      final categoryKey = categoryBox.keyAt(
+        categoryBox.values.toList().indexOf(category),
+      );
       if (categoryKey != null) {
         keys.add(categoryKey as int);
       }
@@ -560,16 +593,25 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     debugPrint("📱 SMS listener started successfully");
   }
 
-  Future<void> _onSmsReceived(String sender, String message, int timestamp) async {
+  Future<void> _onSmsReceived(
+    String sender,
+    String message,
+    int timestamp,
+  ) async {
     debugPrint("📨 ========================================");
     debugPrint("📨 SMS RECEIVED IN BOTTOM NAV BAR");
     debugPrint("📨 Sender: $sender");
     debugPrint("📨 Message length: ${message.length}");
 
-    Map<String, dynamic>? transaction = SmsListener.parseTransactionSms(sender, message, timestamp);
+    Map<String, dynamic>? transaction = SmsListener.parseTransactionSms(
+      sender,
+      message,
+      timestamp,
+    );
 
     if (transaction != null) {
-      final double amount = double.tryParse(transaction['amount'].toString()) ?? 0.0;
+      final double amount =
+          double.tryParse(transaction['amount'].toString()) ?? 0.0;
       final String bankName = transaction['bankName'] ?? sender;
       final String description = 'Auto: $bankName';
       final String method = transaction['method'] ?? 'UPI';
@@ -585,16 +627,18 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
       if (transaction['type'] == 'debit') {
         success = await UniversalHiveFunctions().addExpense(
           amount: amount,
-          description:description,
-          method:method,
-          categoryKeys : await _getDefaultExpenseCategoryKeys(), // Default expense category keys
+          description: description,
+          method: method,
+          categoryKeys:
+              await _getDefaultExpenseCategoryKeys(), // Default expense category keys
         );
       } else if (transaction['type'] == 'credit') {
         success = await UniversalHiveFunctions().addIncome(
-          amount:  amount,
-          description :description,
-          method :method,
-          categoryKeys: await _getDefaultIncomeCategoryKeys(), // Default income category keys
+          amount: amount,
+          description: description,
+          method: method,
+          categoryKeys:
+              await _getDefaultIncomeCategoryKeys(), // Default income category keys
         );
       }
 
@@ -746,9 +790,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               const SizedBox(height: 12),
               Text(
                 "Please authenticate to continue",
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
               ),
               const SizedBox(height: 32),
               if (_isAuthenticating)
@@ -780,18 +824,18 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
       // --- START OF CHANGES ---
       body: Stack(
         children: [
-
           // Your main content
           _tabs[_currentIndex],
 
           // Privacy vignette overlay
           MyDimmingOverlay(
-            isActive: _privacyManager.isPrivacyActive && _privacyManager.adaptiveBrightnessEnabled,
+            isActive:
+                _privacyManager.isPrivacyActive &&
+                _privacyManager.adaptiveBrightnessEnabled,
           ),
 
           // Multiple watchers alert
-          if (_showWatcherAlert)
-            const MultipleWatchersAlert(),
+          if (_showWatcherAlert) const MultipleWatchersAlert(),
 
           // if (kDebugMode)
           //   BatteryMonitorWidget(
@@ -800,8 +844,6 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
           //    privacyModeActive: _privacyManager.isPrivacyActive,
           //    adaptiveBrightnessActive: _privacyManager.adaptiveBrightnessEnabled,
           //  ),
-
-
 
           // Privacy indicator in top-right corner
           SafeArea(
@@ -822,30 +864,35 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
           // SMS Status Dot Overlay
           if (kDebugMode)
             SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 15.0, top: 5.0),
-              child: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: isListening ? Colors.green.shade400 : Colors.red.shade400,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 4,
-                    )
-                  ],
+              child: Padding(
+                padding: const EdgeInsets.only(left: 15.0, top: 5.0),
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: isListening
+                        ? Colors.green.shade400
+                        : Colors.red.shade400,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.8),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          )
         ],
       ),
-      // --- END OF CHANGES ---
 
-      floatingActionButton: FloatingToolbar(
+      // --- END OF CHANGES ---
+      floatingActionButton: FloatingToolbarWithQuickActions(
         items: [
           FloatingToolbarItem(icon: Icons.home, label: 'Home'),
           FloatingToolbarItem(icon: Icons.money_off, label: 'Transaction'),
@@ -854,9 +901,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
           FloatingToolbarItem(icon: Icons.track_changes, label: 'Habits'),
           FloatingToolbarItem(icon: Icons.settings, label: 'Settings'),
         ],
-        primaryButton: _currentIndex != 4 ? Icon(
-            _currentIndex == 0 ? Icons.tune_rounded : Icons.add
-        ) : null,
+        primaryButton: _currentIndex != 4
+            ? Icon(_currentIndex == 0 ? Icons.tune_rounded : Icons.add)
+            : null,
         onPrimaryPressed: () {
           switch (_currentIndex) {
             case 0:
@@ -878,7 +925,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                 context: context,
                 title: 'Add New Habit',
                 height: MediaQuery.of(context).size.height / 1.35,
-                child: AddEditHabitSheet(hideTitle: true,),
+                child: AddEditHabitSheet(hideTitle: true),
               );
               // showModalBottomSheet(
               //   context: context,
@@ -904,6 +951,11 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
         },
         selectedIndex: _currentIndex,
         onItemTapped: _onTabTapped,
+        showQuickActions: _currentIndex == 1, // Only show on Transaction page
+        quickActions: _quickActions,
+        onQuickActionTap: _handleQuickActionTap,
+        onQuickActionEdit: (action) => _showQuickActionSheet(action), // Changed
+        onAddQuickAction: () => _showQuickActionSheet(),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
@@ -916,8 +968,12 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     debugPrint("🔋 Privacy Active: ${_privacyManager.isPrivacyActive}");
     debugPrint("🔋 Shake Detection: ${_shakeDetector?.isListening ?? false}");
     debugPrint("🔋 Face Detection: Disabled (user choice)");
-    debugPrint("🔋 Adaptive Brightness: ${_privacyManager.adaptiveBrightnessEnabled}");
-    debugPrint("🔋 Screenshot Protection: ${_privacyManager.screenshotProtectionEnabled}");
+    debugPrint(
+      "🔋 Adaptive Brightness: ${_privacyManager.adaptiveBrightnessEnabled}",
+    );
+    debugPrint(
+      "🔋 Screenshot Protection: ${_privacyManager.screenshotProtectionEnabled}",
+    );
     debugPrint("🔋 ========================================");
   }
 
@@ -933,37 +989,106 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     );
   }
 
-
   // ========================================
   // REPORTS PAGE MENU
   // ========================================
 
   void _showReportsAddMenu(BuildContext context) {
     BottomSheetUtil.showQuickAction(
-        context: context, child: SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.account_balance_wallet_rounded),
-            title: const Text('Manage Wallets'),
-            onTap: () {
-              Navigator.pop(context);
-              _showManageWalletsSheet();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.repeat_rounded),
-            title: const Text('Manage Recurring Payments'),
-            onTap: () {
-              Navigator.pop(context);
-              _showManageRecurringSheet();
-            },
-          ),
-        ],
+      context: context,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.account_balance_wallet_rounded),
+              title: const Text('Manage Wallets'),
+              onTap: () {
+                Navigator.pop(context);
+                _showManageWalletsSheet();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.repeat_rounded),
+              title: const Text('Manage Recurring Payments'),
+              onTap: () {
+                Navigator.pop(context);
+                _showManageRecurringSheet();
+              },
+            ),
+          ],
+        ),
       ),
-    ),
     );
+  }
+
+  // =======================================
+  // Quick Action Management
+  // =======================================
+
+  Future<void> _showQuickActionSheet([QuickAction? existing]) async {
+    final result = await QuickActionSheet.show(
+      context: context,
+      existingAction: existing,
+    );
+
+    if (result == 'delete' && existing != null) {
+      await QuickActionManager.deleteQuickAction(existing.id);
+      await _loadQuickActions();
+      if (mounted) {
+        SnackBars.show(
+          context,
+          message: 'Quick action deleted',
+          type: SnackBarType.success,
+          behavior: SnackBarBehavior.floating,
+        );
+      }
+    } else if (result is QuickAction) {
+      if (existing != null) {
+        await QuickActionManager.updateQuickAction(result);
+      } else {
+        await QuickActionManager.addQuickAction(result);
+      }
+      await _loadQuickActions();
+      if (mounted) {
+        SnackBars.show(
+          context,
+          message: existing != null
+              ? 'Quick action updated'
+              : 'Quick action added',
+          type: SnackBarType.success,
+          behavior: SnackBarBehavior.floating,
+        );
+      }
+    }
+  }
+
+  Future<void> _handleQuickActionTap(QuickAction action) async {
+    bool success = false;
+    if (action.type == 'expense') {
+      success = await UniversalHiveFunctions().addExpense(
+        amount: action.amount,
+        description: action.description ?? action.label,
+        method: action.method,
+        categoryKeys: action.categoryKeys,
+      );
+    } else {
+      success = await UniversalHiveFunctions().addIncome(
+        amount: action.amount,
+        description: action.description ?? action.label,
+        method: action.method,
+        categoryKeys: action.categoryKeys,
+      );
+    }
+    if (mounted && success) {
+      TransactionSheet.show(
+        context: context,
+        isIncome: action.type == 'income',
+        amount: action.amount,
+        currency: _currentCurrency,
+        description: action.description ?? action.label,
+      );
+    }
   }
 
   // ========================================
@@ -1003,51 +1128,62 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
             Flexible(
               child: wallets.isEmpty
                   ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text(
-                    'No wallets found',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                ),
-              )
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Text(
+                          'No wallets found',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                      ),
+                    )
                   : ListView.builder(
-                shrinkWrap: true,
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: wallets.length,
-                itemBuilder: (context, index) {
-                  final wallet = wallets[index];
-                  final key = walletBox.keyAt(index) as int;
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    child: ListTile(
-                      leading: Icon(
-                        _getWalletIcon(wallet.type),
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      title: Text(wallet.name),
-                      subtitle: Text(
-                        '$_currentCurrency ${wallet.balance.toStringAsFixed(2)} • ${wallet.type.toUpperCase()}',
-                      ),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (value) {
-                          if (value == 'edit') {
-                            Navigator.pop(context);
-                            debugPrint("key: $key, wallet: ${wallet.type} $wallet");
-                            _showAddEditWalletSheet(key: key, wallet: wallet);
-                          } else if (value == 'delete') {
-                            _showDeleteWalletDialog(key, wallet);
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                          const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                        ],
-                      ),
+                      shrinkWrap: true,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: wallets.length,
+                      itemBuilder: (context, index) {
+                        final wallet = wallets[index];
+                        final key = walletBox.keyAt(index) as int;
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          child: ListTile(
+                            leading: Icon(
+                              _getWalletIcon(wallet.type),
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            title: Text(wallet.name),
+                            subtitle: Text(
+                              '$_currentCurrency ${wallet.balance.toStringAsFixed(2)} • ${wallet.type.toUpperCase()}',
+                            ),
+                            trailing: PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  Navigator.pop(context);
+                                  debugPrint(
+                                    "key: $key, wallet: ${wallet.type} $wallet",
+                                  );
+                                  _showAddEditWalletSheet(
+                                    key: key,
+                                    wallet: wallet,
+                                  );
+                                } else if (value == 'delete') {
+                                  _showDeleteWalletDialog(key, wallet);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text('Edit'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('Delete'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
             const SizedBox(height: 16),
           ],
@@ -1058,8 +1194,12 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
   void _showAddEditWalletSheet({int? key, Wallet? wallet}) {
     final isEditing = key != null && wallet != null;
-    final nameController = TextEditingController(text: isEditing ? wallet.name : '');
-    final balanceController = TextEditingController(text: isEditing ? wallet.balance.toString() : '');
+    final nameController = TextEditingController(
+      text: isEditing ? wallet.name : '',
+    );
+    final balanceController = TextEditingController(
+      text: isEditing ? wallet.balance.toString() : '',
+    );
     String selectedType = isEditing ? wallet.type.toLowerCase() : 'cash';
     debugPrint("selectedType ==>$selectedType");
 
@@ -1086,7 +1226,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                   border: const OutlineInputBorder(),
                   prefixText: '$_currentCurrency ',
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
@@ -1110,9 +1252,14 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: () async {
-                  final balance = double.tryParse(balanceController.text) ?? 0.0;
+                  final balance =
+                      double.tryParse(balanceController.text) ?? 0.0;
                   if (nameController.text.trim().isEmpty) {
-                    SnackBars.show(context, message: 'Please enter wallet name', type: SnackBarType.warning);
+                    SnackBars.show(
+                      context,
+                      message: 'Please enter wallet name',
+                      type: SnackBarType.warning,
+                    );
                     return;
                   }
 
@@ -1167,7 +1314,11 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               if (mounted) {
                 Navigator.pop(context);
                 Navigator.pop(context);
-                SnackBars.show(context, message: 'Wallet deleted', type: SnackBarType.success);
+                SnackBars.show(
+                  context,
+                  message: 'Wallet deleted',
+                  type: SnackBarType.success,
+                );
               }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -1240,65 +1391,81 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
             Flexible(
               child: recurrings.isEmpty
                   ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text(
-                    'No recurring payments found',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                ),
-              )
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Text(
+                          'No recurring payments found',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                      ),
+                    )
                   : ListView.builder(
-                shrinkWrap: true,
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: recurrings.length,
-                itemBuilder: (context, index) {
-                  final recurring = recurrings[index];
-                  final key = recurringBox.keyAt(index) as int;
-                  final nextDeduction = _calculateNextDeduction(recurring);
+                      shrinkWrap: true,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: recurrings.length,
+                      itemBuilder: (context, index) {
+                        final recurring = recurrings[index];
+                        final key = recurringBox.keyAt(index) as int;
+                        final nextDeduction = _calculateNextDeduction(
+                          recurring,
+                        );
 
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    child: ListTile(
-                      leading: Icon(
-                        Icons.repeat_rounded,
-                        color: _getRecurringStatusColor(recurring),
-                      ),
-                      title: Text(recurring.description),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('$_currentCurrency ${recurring.amount.toStringAsFixed(2)} • ${recurring.interval}'),
-                          if (nextDeduction != null)
-                            Text(
-                              'Next: ${_formatDate(nextDeduction)}',
-                              style: const TextStyle(fontSize: 12),
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          child: ListTile(
+                            leading: Icon(
+                              Icons.repeat_rounded,
+                              color: _getRecurringStatusColor(recurring),
                             ),
-                          if (nextDeduction == null)
-                            const Text(
-                              'Completed',
-                              style: TextStyle(fontSize: 12, color: Colors.green),
+                            title: Text(recurring.description),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '$_currentCurrency ${recurring.amount.toStringAsFixed(2)} • ${recurring.interval}',
+                                ),
+                                if (nextDeduction != null)
+                                  Text(
+                                    'Next: ${_formatDate(nextDeduction)}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                if (nextDeduction == null)
+                                  const Text(
+                                    'Completed',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                              ],
                             ),
-                        ],
-                      ),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (value) {
-                          if (value == 'edit') {
-                            Navigator.pop(context);
-                            _showAddEditRecurringSheet(key: key, recurring: recurring);
-                          } else if (value == 'delete') {
-                            _showDeleteRecurringDialog(key, recurring);
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                          const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                        ],
-                      ),
+                            trailing: PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  Navigator.pop(context);
+                                  _showAddEditRecurringSheet(
+                                    key: key,
+                                    recurring: recurring,
+                                  );
+                                } else if (value == 'delete') {
+                                  _showDeleteRecurringDialog(key, recurring);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text('Edit'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('Delete'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
             const SizedBox(height: 16),
           ],
@@ -1309,11 +1476,19 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
   void _showAddEditRecurringSheet({int? key, Recurring? recurring}) {
     final isEditing = key != null && recurring != null;
-    final descController = TextEditingController(text: isEditing ? recurring.description : '');
-    final amountController = TextEditingController(text: isEditing ? recurring.amount.toString() : '');
+    final descController = TextEditingController(
+      text: isEditing ? recurring.description : '',
+    );
+    final amountController = TextEditingController(
+      text: isEditing ? recurring.amount.toString() : '',
+    );
     String selectedInterval = isEditing ? recurring.interval : 'monthly';
-    List<int> selectedCategoryKeys = isEditing ? List<int>.from(recurring.categoryKeys) : [];
-    DateTime selectedDeductionDate = isEditing ? (recurring.deductionDate ?? DateTime.now()) : DateTime.now();
+    List<int> selectedCategoryKeys = isEditing
+        ? List<int>.from(recurring.categoryKeys)
+        : [];
+    DateTime selectedDeductionDate = isEditing
+        ? (recurring.deductionDate ?? DateTime.now())
+        : DateTime.now();
     DateTime? selectedEndDate = isEditing ? recurring.endDate : null;
 
     BottomSheetUtil.show(
@@ -1344,12 +1519,16 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                     border: const OutlineInputBorder(),
                     prefixText: '$_currentCurrency ',
                   ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 ListTile(
                   title: const Text('Deduction Date'),
-                  subtitle: Text('${selectedDeductionDate.day}/${selectedDeductionDate.month}/${selectedDeductionDate.year}'),
+                  subtitle: Text(
+                    '${selectedDeductionDate.day}/${selectedDeductionDate.month}/${selectedDeductionDate.year}',
+                  ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () async {
                     final pickedDate = await showDatePicker(
@@ -1387,7 +1566,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                   onTap: () async {
                     final pickedDate = await showDatePicker(
                       context: context,
-                      initialDate: selectedEndDate ?? DateTime.now().add(const Duration(days: 30)),
+                      initialDate:
+                          selectedEndDate ??
+                          DateTime.now().add(const Duration(days: 30)),
                       firstDate: DateTime.now(),
                       lastDate: DateTime(2100),
                     );
@@ -1414,13 +1595,17 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                   },
                 ),
                 const SizedBox(height: 16),
-                Text('Categories', style: Theme.of(context).textTheme.titleSmall),
+                Text(
+                  'Categories',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   runSpacing: 4,
                   children: categories.map((category) {
-                    final catKey = categoryBox.keyAt(categories.indexOf(category)) as int;
+                    final catKey =
+                        categoryBox.keyAt(categories.indexOf(category)) as int;
                     final isSelected = selectedCategoryKeys.contains(catKey);
                     return ChoiceChip(
                       label: Text(category.name ?? ''),
@@ -1444,8 +1629,11 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                 ],
                 FilledButton(
                   onPressed: () async {
-                    final amount = double.tryParse(amountController.text) ?? 0.0;
-                    if (descController.text.trim().isEmpty || amount <= 0 || selectedCategoryKeys.isEmpty) {
+                    final amount =
+                        double.tryParse(amountController.text) ?? 0.0;
+                    if (descController.text.trim().isEmpty ||
+                        amount <= 0 ||
+                        selectedCategoryKeys.isEmpty) {
                       SnackBars.show(
                         context,
                         message: 'Please fill all fields and select a category',
@@ -1454,7 +1642,8 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                       return;
                     }
 
-                    if (!isEditing && selectedDeductionDate.isBefore(DateTime.now())) {
+                    if (!isEditing &&
+                        selectedDeductionDate.isBefore(DateTime.now())) {
                       SnackBars.show(
                         context,
                         message: 'Deduction date cannot be in the past',
@@ -1463,10 +1652,14 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                       return;
                     }
 
-                    final recurringBox = Hive.box<Recurring>(AppConstants.recurrings);
+                    final recurringBox = Hive.box<Recurring>(
+                      AppConstants.recurrings,
+                    );
                     final newRecurring = Recurring(
                       amount: amount,
-                      startDate: isEditing ? recurring.startDate : DateTime.now(),
+                      startDate: isEditing
+                          ? recurring.startDate
+                          : DateTime.now(),
                       description: descController.text.trim(),
                       categoryKeys: selectedCategoryKeys,
                       interval: selectedInterval,
@@ -1484,7 +1677,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                       Navigator.pop(context);
                       SnackBars.show(
                         context,
-                        message: isEditing ? 'Recurring payment updated' : 'Recurring payment added',
+                        message: isEditing
+                            ? 'Recurring payment updated'
+                            : 'Recurring payment added',
                         type: SnackBarType.success,
                       );
                     }
@@ -1504,7 +1699,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Recurring Payment'),
-        content: Text('Are you sure you want to delete "${recurring.description}"?'),
+        content: Text(
+          'Are you sure you want to delete "${recurring.description}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1517,7 +1714,11 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               if (mounted) {
                 Navigator.pop(context);
                 Navigator.pop(context);
-                SnackBars.show(context, message: 'Recurring payment deleted', type: SnackBarType.success);
+                SnackBars.show(
+                  context,
+                  message: 'Recurring payment deleted',
+                  type: SnackBarType.success,
+                );
               }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -1564,11 +1765,17 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
           ),
           if (nextDeduction != null) ...[
             const SizedBox(height: 4),
-            Text('Next deduction: ${_formatDate(nextDeduction)}', style: const TextStyle(fontSize: 12)),
+            Text(
+              'Next deduction: ${_formatDate(nextDeduction)}',
+              style: const TextStyle(fontSize: 12),
+            ),
           ],
           if (recurring.endDate != null) ...[
             const SizedBox(height: 4),
-            Text('Ends: ${_formatDate(recurring.endDate!)}', style: const TextStyle(fontSize: 12)),
+            Text(
+              'Ends: ${_formatDate(recurring.endDate!)}',
+              style: const TextStyle(fontSize: 12),
+            ),
           ],
         ],
       ),
@@ -1576,7 +1783,8 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
   }
 
   DateTime? _calculateNextDeduction(Recurring recurring) {
-    if (recurring.endDate != null && recurring.endDate!.isBefore(DateTime.now())) {
+    if (recurring.endDate != null &&
+        recurring.endDate!.isBefore(DateTime.now())) {
       return null;
     }
 
@@ -1592,14 +1800,23 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
           nextDeduction = nextDeduction.add(const Duration(days: 7));
           break;
         case 'monthly':
-          nextDeduction = DateTime(nextDeduction.year, nextDeduction.month + 1, nextDeduction.day);
+          nextDeduction = DateTime(
+            nextDeduction.year,
+            nextDeduction.month + 1,
+            nextDeduction.day,
+          );
           break;
         case 'yearly':
-          nextDeduction = DateTime(nextDeduction.year + 1, nextDeduction.month, nextDeduction.day);
+          nextDeduction = DateTime(
+            nextDeduction.year + 1,
+            nextDeduction.month,
+            nextDeduction.day,
+          );
           break;
       }
 
-      if (recurring.endDate != null && nextDeduction.isAfter(recurring.endDate!)) {
+      if (recurring.endDate != null &&
+          nextDeduction.isAfter(recurring.endDate!)) {
         return null;
       }
     }
@@ -1629,7 +1846,6 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
   // ========================================
   // ADD EXPENSE SHEET
   // ========================================
-
 
   void _showAddTransactionSheet() {
     showModalBottomSheet(
@@ -1687,7 +1903,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                   subtitle: 'Record money received',
                   icon: Icons.arrow_downward_rounded,
                   iconColor: Theme.of(context).colorScheme.primary,
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
                   onTap: () {
                     Navigator.pop(context);
                     _showAddIncomeSheet();
@@ -1703,14 +1921,14 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
   }
 
   Widget _buildTransactionOption(
-      BuildContext context, {
-        required String title,
-        required String subtitle,
-        required IconData icon,
-        required Color iconColor,
-        required Color backgroundColor,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required Color backgroundColor,
+    required VoidCallback onTap,
+  }) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -1734,11 +1952,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                   color: backgroundColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 24,
-                ),
+                child: Icon(icon, color: iconColor, size: 24),
               ),
               const SizedBox(width: 16),
 
@@ -1819,7 +2033,10 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                 ),
                 items: Helpers()
                     .getPaymentMethods()
-                    .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                    .map(
+                      (type) =>
+                          DropdownMenuItem(value: type, child: Text(type)),
+                    )
                     .toList(),
                 onChanged: (value) {
                   if (value != null) setState(() => selectedType = value);
@@ -1832,34 +2049,45 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                 spacing: 8,
                 runSpacing: 4,
                 children: categories
-                    .where((category) => category.type.toString().toLowerCase() == 'expense')
+                    .where(
+                      (category) =>
+                          category.type.toString().toLowerCase() == 'expense',
+                    )
                     .map((category) {
-                  final key = categoryBox.keyAt(categories.indexOf(category)) as int;
-                  final isSelected = selectedCategoryKeys.contains(key);
-                  return ChoiceChip(
-                    label: Text(category.name),
-                    backgroundColor: (Helpers().hexToColor(category.color)).withAlpha(128),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          selectedCategoryKeys.add(key);
-                        } else {
-                          selectedCategoryKeys.remove(key);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
+                      final key =
+                          categoryBox.keyAt(categories.indexOf(category))
+                              as int;
+                      final isSelected = selectedCategoryKeys.contains(key);
+                      return ChoiceChip(
+                        label: Text(category.name),
+                        backgroundColor: (Helpers().hexToColor(
+                          category.color,
+                        )).withAlpha(128),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              selectedCategoryKeys.add(key);
+                            } else {
+                              selectedCategoryKeys.remove(key);
+                            }
+                          });
+                        },
+                      );
+                    })
+                    .toList(),
               ),
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: () async {
                   final amount = double.tryParse(amountController.text) ?? 0.0;
-                  if (addController.text.trim().isEmpty || amount <= 0 || selectedCategoryKeys.isEmpty) {
+                  if (addController.text.trim().isEmpty ||
+                      amount <= 0 ||
+                      selectedCategoryKeys.isEmpty) {
                     SnackBars.show(
                       context,
-                      message: "Please enter all fields and select at least one category",
+                      message:
+                          "Please enter all fields and select at least one category",
                       type: SnackBarType.warning,
                     );
                     return;
@@ -1869,7 +2097,7 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                     amount: amount,
                     description: addController.text.trim(),
                     method: selectedType,
-                    categoryKeys : selectedCategoryKeys,
+                    categoryKeys: selectedCategoryKeys,
                   );
 
                   if (success && context.mounted) {
@@ -1940,7 +2168,10 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                 ),
                 items: Helpers()
                     .getPaymentMethods()
-                    .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                    .map(
+                      (type) =>
+                          DropdownMenuItem(value: type, child: Text(type)),
+                    )
                     .toList(),
                 onChanged: (value) {
                   if (value != null) setState(() => selectedType = value);
@@ -1953,43 +2184,55 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                 spacing: 8,
                 runSpacing: 4,
                 children: categories
-                    .where((category) => category.type.toString().toLowerCase() == 'income')
+                    .where(
+                      (category) =>
+                          category.type.toString().toLowerCase() == 'income',
+                    )
                     .map((category) {
-                  final key = categoryBox.keyAt(categories.indexOf(category)) as int;
-                  final isSelected = selectedCategoryKeys.contains(key);
-                  return ChoiceChip(
-                      label: Text(category.name),
-                      backgroundColor: (Helpers().hexToColor(category.color)).withAlpha(128),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            selectedCategoryKeys.add(key);
-                          } else {
-                            selectedCategoryKeys.remove(key);
-                          }
-                        });
-                      });
-                      }).toList(),
+                      final key =
+                          categoryBox.keyAt(categories.indexOf(category))
+                              as int;
+                      final isSelected = selectedCategoryKeys.contains(key);
+                      return ChoiceChip(
+                        label: Text(category.name),
+                        backgroundColor: (Helpers().hexToColor(
+                          category.color,
+                        )).withAlpha(128),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              selectedCategoryKeys.add(key);
+                            } else {
+                              selectedCategoryKeys.remove(key);
+                            }
+                          });
+                        },
+                      );
+                    })
+                    .toList(),
               ),
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: () async {
                   final amount = double.tryParse(amountController.text) ?? 0.0;
-                  if (addController.text.trim().isEmpty || amount <= 0 || selectedCategoryKeys.isEmpty) {
+                  if (addController.text.trim().isEmpty ||
+                      amount <= 0 ||
+                      selectedCategoryKeys.isEmpty) {
                     SnackBars.show(
                       context,
-                      message: "Please enter all fields and select at least one category",
+                      message:
+                          "Please enter all fields and select at least one category",
                       type: SnackBarType.warning,
                     );
                     return;
                   }
 
                   final success = await UniversalHiveFunctions().addIncome(
-                    amount:  amount,
+                    amount: amount,
                     description: addController.text.trim(),
                     method: selectedType,
-                    categoryKeys :selectedCategoryKeys,
+                    categoryKeys: selectedCategoryKeys,
                   );
 
                   if (success && context.mounted) {
@@ -2025,20 +2268,42 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
     // Common icons for different category types
     final expenseIcons = [
-      'shopping_cart', 'restaurant', 'local_cafe', 'home', 'local_gas_station',
-      'directions_bus', 'checkroom', 'devices', 'movie', 'local_hospital',
-      'school', 'flight', 'credit_card', 'pets', 'category'
+      'shopping_cart',
+      'restaurant',
+      'local_cafe',
+      'home',
+      'local_gas_station',
+      'directions_bus',
+      'checkroom',
+      'devices',
+      'movie',
+      'local_hospital',
+      'school',
+      'flight',
+      'credit_card',
+      'pets',
+      'category',
     ];
 
     final incomeIcons = [
-      'work', 'computer', 'business_center', 'trending_up', 'account_balance',
-      'house', 'celebration', 'card_giftcard', 'assignment_return', 'directions_run'
+      'work',
+      'computer',
+      'business_center',
+      'trending_up',
+      'account_balance',
+      'house',
+      'celebration',
+      'card_giftcard',
+      'assignment_return',
+      'directions_run',
     ];
 
     BottomSheetUtil.show(
       context: context,
       title: "Add Category",
-      height: MediaQuery.of(context).size.height * 0.7, // Increased height for icons
+      height:
+          MediaQuery.of(context).size.height *
+          0.7, // Increased height for icons
       child: StatefulBuilder(
         builder: (context, setState) {
           void showColorPickerDialog() {
@@ -2074,7 +2339,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
           // Get current icons based on selected category type
           List<String> getCurrentIcons() {
-            return selectedCategoryType == 'expense' ? expenseIcons : incomeIcons;
+            return selectedCategoryType == 'expense'
+                ? expenseIcons
+                : incomeIcons;
           }
 
           return Column(
@@ -2098,17 +2365,23 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                   border: OutlineInputBorder(),
                 ),
                 items: ['expense', 'income']
-                    .map((type) => DropdownMenuItem(
-                  value: type,
-                  child: Text(type.replaceFirst(type[0], type[0].toUpperCase())),
-                ))
+                    .map(
+                      (type) => DropdownMenuItem(
+                        value: type,
+                        child: Text(
+                          type.replaceFirst(type[0], type[0].toUpperCase()),
+                        ),
+                      ),
+                    )
                     .toList(),
                 onChanged: (value) {
                   if (value != null) {
                     setState(() {
                       selectedCategoryType = value;
                       // Reset to default icon when type changes
-                      selectedIcon = value == 'expense' ? 'shopping_cart' : 'work';
+                      selectedIcon = value == 'expense'
+                          ? 'shopping_cart'
+                          : 'work';
                     });
                   }
                 },
@@ -2119,7 +2392,10 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text("Category Color", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  const Text(
+                    "Category Color",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  ),
                   GestureDetector(
                     onTap: showColorPickerDialog,
                     child: Container(
@@ -2144,7 +2420,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
-                          shadows: [Shadow(blurRadius: 2, color: Colors.black54)],
+                          shadows: [
+                            Shadow(blurRadius: 2, color: Colors.black54),
+                          ],
                         ),
                       ),
                     ),
@@ -2196,12 +2474,13 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                     ),
                     child: GridView.builder(
                       padding: const EdgeInsets.all(8),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 5,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                        childAspectRatio: 1,
-                      ),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 5,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                            childAspectRatio: 1,
+                          ),
                       itemCount: getCurrentIcons().length,
                       itemBuilder: (context, index) {
                         final icon = getCurrentIcons()[index];
@@ -2226,7 +2505,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                             ),
                             child: Icon(
                               _getIconData(icon),
-                              color: selectedIcon == icon ? selectedColor : Colors.grey.shade600,
+                              color: selectedIcon == icon
+                                  ? selectedColor
+                                  : Colors.grey.shade600,
                               size: 20,
                             ),
                           ),
@@ -2266,7 +2547,9 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            addController.text.isNotEmpty ? addController.text : "Category Name",
+                            addController.text.isNotEmpty
+                                ? addController.text
+                                : "Category Name",
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           Text(
@@ -2287,7 +2570,11 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
               FilledButton(
                 onPressed: () async {
                   if (addController.text.trim().isEmpty) {
-                    SnackBars.show(context, message: "Please enter category name", type: SnackBarType.warning);
+                    SnackBars.show(
+                      context,
+                      message: "Please enter category name",
+                      type: SnackBarType.warning,
+                    );
                     return;
                   }
 
@@ -2300,9 +2587,17 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
 
                   if (success && context.mounted) {
                     Navigator.pop(context);
-                    SnackBars.show(context, message: "Category Added", type: SnackBarType.success);
+                    SnackBars.show(
+                      context,
+                      message: "Category Added",
+                      type: SnackBarType.success,
+                    );
                   } else if (context.mounted) {
-                    SnackBars.show(context, message: "Error adding category", type: SnackBarType.error);
+                    SnackBars.show(
+                      context,
+                      message: "Error adding category",
+                      type: SnackBarType.error,
+                    );
                   }
                 },
                 style: FilledButton.styleFrom(
@@ -2317,70 +2612,126 @@ class _BottomNavBarState extends State<BottomNavBar> with WidgetsBindingObserver
     );
   }
 
-// Helper function to convert icon string to IconData using Flutter's Icons
+  // Helper function to convert icon string to IconData using Flutter's Icons
   IconData _getIconData(String iconName) {
     switch (iconName) {
-    // Income Icons
-      case 'work': return Icons.work;
-      case 'computer': return Icons.computer;
-      case 'business_center': return Icons.business_center;
-      case 'trending_up': return Icons.trending_up;
-      case 'account_balance': return Icons.account_balance;
-      case 'house': return Icons.house;
-      case 'celebration': return Icons.celebration;
-      case 'card_giftcard': return Icons.card_giftcard;
-      case 'assignment_return': return Icons.assignment_return;
-      case 'directions_run': return Icons.directions_run;
+      // Income Icons
+      case 'work':
+        return Icons.work;
+      case 'computer':
+        return Icons.computer;
+      case 'business_center':
+        return Icons.business_center;
+      case 'trending_up':
+        return Icons.trending_up;
+      case 'account_balance':
+        return Icons.account_balance;
+      case 'house':
+        return Icons.house;
+      case 'celebration':
+        return Icons.celebration;
+      case 'card_giftcard':
+        return Icons.card_giftcard;
+      case 'assignment_return':
+        return Icons.assignment_return;
+      case 'directions_run':
+        return Icons.directions_run;
 
-    // Expense Icons
-      case 'shopping_cart': return Icons.shopping_cart;
-      case 'restaurant': return Icons.restaurant;
-      case 'local_cafe': return Icons.local_cafe;
-      case 'home': return Icons.home;
-      case 'local_gas_station': return Icons.local_gas_station;
-      case 'directions_bus': return Icons.directions_bus;
-      case 'checkroom': return Icons.checkroom;
-      case 'devices': return Icons.devices;
-      case 'movie': return Icons.movie;
-      case 'local_hospital': return Icons.local_hospital;
-      case 'school': return Icons.school;
-      case 'flight': return Icons.flight;
-      case 'credit_card': return Icons.credit_card;
-      case 'pets': return Icons.pets;
-      case 'flash_on': return Icons.flash_on;
-      case 'water_drop': return Icons.water_drop;
-      case 'wifi': return Icons.wifi;
-      case 'smartphone': return Icons.smartphone;
-      case 'handyman': return Icons.handyman;
-      case 'build': return Icons.build;
-      case 'local_parking': return Icons.local_parking;
-      case 'spa': return Icons.spa;
-      case 'chair': return Icons.chair;
-      case 'live_tv': return Icons.live_tv;
-      case 'palette': return Icons.palette;
-      case 'sports_soccer': return Icons.sports_soccer;
-      case 'sports_esports': return Icons.sports_esports;
-      case 'menu_book': return Icons.menu_book;
-      case 'medication': return Icons.medication;
-      case 'fitness_center': return Icons.fitness_center;
-      case 'health_and_safety': return Icons.health_and_safety;
-      case 'medical_services': return Icons.medical_services;
-      case 'book': return Icons.book;
-      case 'cast_for_education': return Icons.cast_for_education;
-      case 'hotel': return Icons.hotel;
-      case 'beach_access': return Icons.beach_access;
-      case 'travel_explore': return Icons.travel_explore;
-      case 'receipt_long': return Icons.receipt_long;
-      case 'payments': return Icons.payments;
-      case 'volunteer_activism': return Icons.volunteer_activism;
-      case 'child_friendly': return Icons.child_friendly;
-      case 'subscriptions': return Icons.subscriptions;
-      case 'construction': return Icons.construction;
-      case 'more_horiz': return Icons.more_horiz;
-      case 'warning': return Icons.warning;
+      // Expense Icons
+      case 'shopping_cart':
+        return Icons.shopping_cart;
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'local_cafe':
+        return Icons.local_cafe;
+      case 'home':
+        return Icons.home;
+      case 'local_gas_station':
+        return Icons.local_gas_station;
+      case 'directions_bus':
+        return Icons.directions_bus;
+      case 'checkroom':
+        return Icons.checkroom;
+      case 'devices':
+        return Icons.devices;
+      case 'movie':
+        return Icons.movie;
+      case 'local_hospital':
+        return Icons.local_hospital;
+      case 'school':
+        return Icons.school;
+      case 'flight':
+        return Icons.flight;
+      case 'credit_card':
+        return Icons.credit_card;
+      case 'pets':
+        return Icons.pets;
+      case 'flash_on':
+        return Icons.flash_on;
+      case 'water_drop':
+        return Icons.water_drop;
+      case 'wifi':
+        return Icons.wifi;
+      case 'smartphone':
+        return Icons.smartphone;
+      case 'handyman':
+        return Icons.handyman;
+      case 'build':
+        return Icons.build;
+      case 'local_parking':
+        return Icons.local_parking;
+      case 'spa':
+        return Icons.spa;
+      case 'chair':
+        return Icons.chair;
+      case 'live_tv':
+        return Icons.live_tv;
+      case 'palette':
+        return Icons.palette;
+      case 'sports_soccer':
+        return Icons.sports_soccer;
+      case 'sports_esports':
+        return Icons.sports_esports;
+      case 'menu_book':
+        return Icons.menu_book;
+      case 'medication':
+        return Icons.medication;
+      case 'fitness_center':
+        return Icons.fitness_center;
+      case 'health_and_safety':
+        return Icons.health_and_safety;
+      case 'medical_services':
+        return Icons.medical_services;
+      case 'book':
+        return Icons.book;
+      case 'cast_for_education':
+        return Icons.cast_for_education;
+      case 'hotel':
+        return Icons.hotel;
+      case 'beach_access':
+        return Icons.beach_access;
+      case 'travel_explore':
+        return Icons.travel_explore;
+      case 'receipt_long':
+        return Icons.receipt_long;
+      case 'payments':
+        return Icons.payments;
+      case 'volunteer_activism':
+        return Icons.volunteer_activism;
+      case 'child_friendly':
+        return Icons.child_friendly;
+      case 'subscriptions':
+        return Icons.subscriptions;
+      case 'construction':
+        return Icons.construction;
+      case 'more_horiz':
+        return Icons.more_horiz;
+      case 'warning':
+        return Icons.warning;
 
-    // Default
-      default: return Icons.category;
+      // Default
+      default:
+        return Icons.category;
     }
   }
 }

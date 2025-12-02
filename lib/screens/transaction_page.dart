@@ -341,13 +341,25 @@ class _TransactionsPageState extends State<TransactionsPage>
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.date_range_rounded),
+        actionItems: [
+          CustomAppBarActionItem(
+            icon: Icons.date_range_rounded,
+            label: "Select Date Range",
+            tooltip: "Select Date Range to filter out Transactions",
             onPressed: _showDateRangeMenu,
-            tooltip: 'Select Date Range',
           ),
-          IconButton(onPressed: () => Helpers.navigateTo(context, const LoanPage()), icon: const Icon(Icons.credit_card_rounded),)
+          CustomAppBarActionItem(
+            icon: Icons.credit_card_rounded,
+            label: "Go to Loan Page",
+            tooltip: "Track Lent/Borrowed Transactions",
+            onPressed: () => Helpers.navigateTo(context, const LoanPage()),
+          ),
+          // IconButton(
+          //   icon: const Icon(Icons.date_range_rounded),
+          //   onPressed: _showDateRangeMenu,
+          //   tooltip: 'Select Date Range',
+          // ),
+          // IconButton(onPressed: () => Helpers.navigateTo(context, const LoanPage()), icon: const Icon(Icons.credit_card_rounded),)
         ],
         child: ListenableBuilder(
           listenable: _transactionsPrivacyManager,
@@ -612,7 +624,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                   ),
                 );
               }),
-              const SizedBox(height: 30),
+              const SizedBox(height: 100),
             ],
           ),
         );
