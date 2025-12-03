@@ -50,6 +50,53 @@ class _HabitPageState extends State<HabitPage>
     if (mounted) setState(() {});
   }
 
+  List<String> _getHabitMessages(Box<Habit> habitBox) {
+    List<String> messages = [];
+
+    final allHabits = habitBox.values.toList();
+    final activeHabits = allHabits.where((h) => h.isActive).toList();
+    final completedToday = allHabits.where((h) => h.isCompletedToday()).toList();
+
+    if (allHabits.isEmpty) {
+      return ['Build better habits, one day at a time'];
+    }
+
+    // Completion today
+    if (completedToday.isNotEmpty) {
+      messages.add('✓ ${completedToday.length}/${activeHabits.length} habits completed today');
+    } else if (activeHabits.isNotEmpty) {
+      messages.add('${activeHabits.length} habit${activeHabits.length > 1 ? 's' : ''} awaiting completion today');
+    }
+
+    // Streak messages
+    final habitsWithStreak = allHabits.where((h) => h.streakCount > 0).toList();
+    if (habitsWithStreak.isNotEmpty) {
+      habitsWithStreak.sort((a, b) => b.streakCount.compareTo(a.streakCount));
+      final topStreak = habitsWithStreak.first;
+      messages.add('⚡ ${topStreak.name}: ${topStreak.streakCount} day streak');
+    }
+
+    // Completion rate
+    if (activeHabits.isNotEmpty) {
+      final avgCompletion = activeHabits.fold(0.0, (sum, h) => sum + h.getCompletionRate(30)) / activeHabits.length * 100;
+      if (avgCompletion >= 75) {
+        messages.add('${avgCompletion.toStringAsFixed(0)}% completion rate - Excellent progress');
+      } else if (avgCompletion >= 50) {
+        messages.add('↗ ${avgCompletion.toStringAsFixed(0)}% completion - Keep building momentum');
+      } else {
+        messages.add('${avgCompletion.toStringAsFixed(0)}% completion - Room for improvement');
+      }
+    }
+
+    // Paused habits reminder
+    final pausedHabits = allHabits.where((h) => !h.isActive).toList();
+    if (pausedHabits.isNotEmpty) {
+      messages.add('${pausedHabits.length} habit${pausedHabits.length > 1 ? 's' : ''} currently paused');
+    }
+
+    return messages;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
@@ -63,6 +110,10 @@ class _HabitPageState extends State<HabitPage>
         onRefresh: () {
           HabitDetectionService.clearCache();
         },
+        animatedTexts: _getHabitMessages(habitBox),
+        animationType: AnimationType.fadeInOut,
+        animationEffect: AnimationEffect.smooth,
+        animationRepeat: true,
         actionItems: [
           CustomAppBarActionItem(
             icon: Icons.auto_awesome,
@@ -130,7 +181,7 @@ class _HabitPageState extends State<HabitPage>
                     color: Theme.of(context).colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  labelColor: Colors.black,
+                  labelColor: Theme.of(context).colorScheme.onPrimaryContainer,
                   unselectedLabelColor: Theme.of(context).colorScheme.onSurface,
                   tabs: const [
                     Tab(text: 'Active'),

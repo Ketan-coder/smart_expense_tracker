@@ -50,6 +50,50 @@ class _GoalsPageState extends State<GoalsPage>
     super.dispose();
   }
 
+  List<String> _getGoalMessages(Box<Goal> goalBox) {
+    List<String> messages = [];
+
+    final allGoals = goalBox.values.toList();
+    final activeGoals = allGoals.where((g) => !(g.isCompleted ?? false)).toList();
+    final completedGoals = allGoals.where((g) => g.isCompleted ?? false).toList();
+
+    if (activeGoals.isEmpty && completedGoals.isEmpty) {
+      return ['Set your first goal and start achieving'];
+    }
+
+    // Completed goals message
+    if (completedGoals.isNotEmpty) {
+      messages.add('✓ ${completedGoals.length} goal${completedGoals.length > 1 ? 's' : ''} achieved');
+    }
+
+    // Active goals progress
+    if (activeGoals.isNotEmpty) {
+      final totalProgress = activeGoals.fold(0.0, (sum, g) => sum + g.progressPercentage) / activeGoals.length;
+      messages.add('${activeGoals.length} active goal${activeGoals.length > 1 ? 's' : ''} • ${totalProgress.toStringAsFixed(0)}% average progress');
+
+      // Find goal closest to completion
+      final nearCompletion = activeGoals.where((g) => g.progressPercentage >= 75).toList();
+      if (nearCompletion.isNotEmpty) {
+        nearCompletion.sort((a, b) => b.progressPercentage.compareTo(a.progressPercentage));
+        messages.add('★ ${nearCompletion.first.name} at ${nearCompletion.first.progressPercentage.toStringAsFixed(0)}% completion');
+      }
+
+      // Urgent goals (less than 7 days)
+      final urgentGoals = activeGoals.where((g) => (g.daysRemaining ?? 0) <= 7 && (g.daysRemaining ?? 0) > 0).toList();
+      if (urgentGoals.isNotEmpty) {
+        messages.add('⏱ ${urgentGoals.length} goal${urgentGoals.length > 1 ? 's' : ''} ${urgentGoals.length == 1 ? 'needs' : 'need'} immediate attention');
+      }
+
+      // On-track goals
+      final onTrackGoals = activeGoals.where((g) => g.isOnTrack ?? false).toList();
+      if (onTrackGoals.isNotEmpty) {
+        messages.add('${onTrackGoals.length} goal${onTrackGoals.length > 1 ? 's' : ''} on track for completion');
+      }
+    }
+
+    return messages;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
@@ -61,6 +105,10 @@ class _GoalsPageState extends State<GoalsPage>
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
+        animatedTexts: _getGoalMessages(goalBox),
+        animationType: AnimationType.fadeInOut,
+        animationEffect: AnimationEffect.smooth,
+        animationRepeat: true,
         actionItems: [
           CustomAppBarActionItem(
             icon: Icons.add_rounded,
@@ -227,7 +275,7 @@ class _GoalsPageState extends State<GoalsPage>
         ),
       ),
       child: InkWell(
-        onTap: () => _navigateToGoalDetail(goal, key),
+        onTap: () => Helpers.navigateTo(context, GoalDetailPage(goal: goal, goalKey: key)),
         onLongPress: () => _showGoalActions(context, goal, key),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
@@ -471,134 +519,243 @@ class _GoalsPageState extends State<GoalsPage>
   }
 
   void _showGoalActions(BuildContext context, Goal goal, dynamic key) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    BottomSheetUtil.showQuickAction(
+        context: context, child: SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.edit_rounded),
+            title: const Text('Edit Goal'),
+            onTap: () {
+              Navigator.pop(context);
+              _showEditGoalSheet(goal, key);
+            },
+          ),
+          if (!(goal.isCompleted ?? false))
             ListTile(
-              leading: const Icon(Icons.edit_rounded),
-              title: const Text('Edit Goal'),
+              leading: const Icon(Icons.add_chart_rounded),
+              title: const Text('Add Installment'),
               onTap: () {
                 Navigator.pop(context);
-                _showEditGoalSheet(goal, key);
+                _showAddInstallmentSheet(goal, key);
               },
             ),
-            if (!(goal.isCompleted ?? false))
-              ListTile(
-                leading: const Icon(Icons.add_chart_rounded),
-                title: const Text('Add Installment'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showAddInstallmentSheet(goal, key);
-                },
-              ),
-            ListTile(
-              leading: Icon(
-                (goal.isCompleted ?? false) ? Icons.replay_rounded : Icons.check_circle_rounded,
-              ),
-              title: Text((goal.isCompleted ?? false) ? 'Mark as Active' : 'Mark as Completed'),
-              onTap: () {
-                Navigator.pop(context);
-                _toggleGoalCompletion(goal, key);
-              },
+          ListTile(
+            leading: Icon(
+              (goal.isCompleted ?? false) ? Icons.replay_rounded : Icons.check_circle_rounded,
             ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.delete_rounded, color: Colors.red),
-              title: const Text('Delete Goal', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _showDeleteConfirmation(goal, key);
-              },
-            ),
-          ],
-        ),
+            title: Text((goal.isCompleted ?? false) ? 'Mark as Active' : 'Mark as Completed'),
+            onTap: () {
+              Navigator.pop(context);
+              _toggleGoalCompletion(goal, key);
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.delete_rounded, color: Colors.red),
+            title: const Text('Delete Goal', style: TextStyle(color: Colors.red)),
+            onTap: () {
+              Navigator.pop(context);
+              _showDeleteConfirmation(goal, key);
+            },
+          ),
+        ],
       ),
+    )
     );
+    // showModalBottomSheet(
+    //   context: context,
+    //   builder: (context) => SafeArea(
+    //     child: Column(
+    //       mainAxisSize: MainAxisSize.min,
+    //       children: [
+    //         ListTile(
+    //           leading: const Icon(Icons.edit_rounded),
+    //           title: const Text('Edit Goal'),
+    //           onTap: () {
+    //             Navigator.pop(context);
+    //             _showEditGoalSheet(goal, key);
+    //           },
+    //         ),
+    //         if (!(goal.isCompleted ?? false))
+    //           ListTile(
+    //             leading: const Icon(Icons.add_chart_rounded),
+    //             title: const Text('Add Installment'),
+    //             onTap: () {
+    //               Navigator.pop(context);
+    //               _showAddInstallmentSheet(goal, key);
+    //             },
+    //           ),
+    //         ListTile(
+    //           leading: Icon(
+    //             (goal.isCompleted ?? false) ? Icons.replay_rounded : Icons.check_circle_rounded,
+    //           ),
+    //           title: Text((goal.isCompleted ?? false) ? 'Mark as Active' : 'Mark as Completed'),
+    //           onTap: () {
+    //             Navigator.pop(context);
+    //             _toggleGoalCompletion(goal, key);
+    //           },
+    //         ),
+    //         const Divider(),
+    //         ListTile(
+    //           leading: const Icon(Icons.delete_rounded, color: Colors.red),
+    //           title: const Text('Delete Goal', style: TextStyle(color: Colors.red)),
+    //           onTap: () {
+    //             Navigator.pop(context);
+    //             _showDeleteConfirmation(goal, key);
+    //           },
+    //         ),
+    //       ],
+    //     ),
+    //   ),
+    // );
   }
 
   void _showEditGoalSheet(Goal goal, dynamic key) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => AddEditGoalSheet(goal: goal, goalKey: key),
+    BottomSheetUtil.show(
+        context: context,
+        title: 'Add/Edit Goal',
+        child: AddEditGoalSheet(goal: goal, goalKey: key)
     );
+    // showModalBottomSheet(
+    //   context: context,
+    //   isScrollControlled: true,
+    //   builder: (context) => AddEditGoalSheet(goal: goal, goalKey: key),
+    // );
   }
 
   void _showAddInstallmentSheet(Goal goal, dynamic key) {
     final amountController = TextEditingController();
     final descriptionController = TextEditingController();
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Add Installment to ${goal.name ?? "Goal"}',
-                style: Theme.of(context).textTheme.titleLarge,
+    BottomSheetUtil.showQuickAction(
+        context: context,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Add Installment to ${goal.name ?? "Goal"}',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: amountController,
+              decoration: const InputDecoration(
+                labelText: 'Amount',
+                prefixText: '₹ ',
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: amountController,
-                decoration: const InputDecoration(
-                  labelText: 'Amount',
-                  prefixText: '₹ ',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description (Optional)',
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description (Optional)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: () async {
-                  final amount = double.tryParse(amountController.text) ?? 0;
-                  if (amount <= 0) {
-                    SnackBars.show(context, message: 'Please enter a valid amount', type: SnackBarType.error);
-                    return;
-                  }
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: () async {
+                final amount = double.tryParse(amountController.text) ?? 0;
+                if (amount <= 0) {
+                  SnackBars.show(context, message: 'Please enter a valid amount', type: SnackBarType.error);
+                  return;
+                }
 
-                  final success = await _goalService.addGoalInstallment(
-                    key,
-                    amount,
-                    description: descriptionController.text.isNotEmpty
-                        ? descriptionController.text
-                        : null,
+                final success = await _goalService.addGoalInstallment(
+                  key,
+                  amount,
+                  description: descriptionController.text.isNotEmpty
+                      ? descriptionController.text
+                      : null,
+                );
+
+                if (success && context.mounted) {
+                  Navigator.pop(context);
+                  SnackBars.show(
+                    context,
+                    message: 'Installment added successfully',
+                    type: SnackBarType.success,
                   );
+                }
+              },
+              child: const Text('Add Installment'),
+            ),
+          ],
+        ));
 
-                  if (success && context.mounted) {
-                    Navigator.pop(context);
-                    SnackBars.show(
-                      context,
-                      message: 'Installment added successfully',
-                      type: SnackBarType.success,
-                    );
-                  }
-                },
-                child: const Text('Add Installment'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    // showModalBottomSheet(
+    //   context: context,
+    //   isScrollControlled: true,
+    //   builder: (context) => Padding(
+    //     padding: EdgeInsets.only(
+    //       bottom: MediaQuery.of(context).viewInsets.bottom,
+    //     ),
+    //     child: Container(
+    //       padding: const EdgeInsets.all(20),
+    //       child: Column(
+    //         mainAxisSize: MainAxisSize.min,
+    //         crossAxisAlignment: CrossAxisAlignment.stretch,
+    //         children: [
+    //           Text(
+    //             'Add Installment to ${goal.name ?? "Goal"}',
+    //             style: Theme.of(context).textTheme.titleLarge,
+    //           ),
+    //           const SizedBox(height: 20),
+    //           TextField(
+    //             controller: amountController,
+    //             decoration: const InputDecoration(
+    //               labelText: 'Amount',
+    //               prefixText: '₹ ',
+    //               border: OutlineInputBorder(),
+    //             ),
+    //             keyboardType: TextInputType.number,
+    //           ),
+    //           const SizedBox(height: 16),
+    //           TextField(
+    //             controller: descriptionController,
+    //             decoration: const InputDecoration(
+    //               labelText: 'Description (Optional)',
+    //               border: OutlineInputBorder(),
+    //             ),
+    //           ),
+    //           const SizedBox(height: 24),
+    //           FilledButton(
+    //             onPressed: () async {
+    //               final amount = double.tryParse(amountController.text) ?? 0;
+    //               if (amount <= 0) {
+    //                 SnackBars.show(context, message: 'Please enter a valid amount', type: SnackBarType.error);
+    //                 return;
+    //               }
+    //
+    //               final success = await _goalService.addGoalInstallment(
+    //                 key,
+    //                 amount,
+    //                 description: descriptionController.text.isNotEmpty
+    //                     ? descriptionController.text
+    //                     : null,
+    //               );
+    //
+    //               if (success && context.mounted) {
+    //                 Navigator.pop(context);
+    //                 SnackBars.show(
+    //                   context,
+    //                   message: 'Installment added successfully',
+    //                   type: SnackBarType.success,
+    //                 );
+    //               }
+    //             },
+    //             child: const Text('Add Installment'),
+    //           ),
+    //         ],
+    //       ),
+    //     ),
+    //   ),
+    // );
   }
 
   void _toggleGoalCompletion(Goal goal, dynamic key) async {

@@ -243,8 +243,9 @@ class _TransactionsPageState extends State<TransactionsPage>
   Map<String, double> getCategoryBreakdown(List<dynamic> transactions, TransactionType type) {
     final categoryBox = Hive.box<Category>(AppConstants.categories);
     Map<String, double> breakdown = {};
+
     for (var transaction in transactions) {
-      List<dynamic> categoryKeys = [];
+      List<int> categoryKeys = [];
       if (type == TransactionType.expense) {
         categoryKeys = (transaction as Expense).categoryKeys;
       } else {
@@ -252,9 +253,8 @@ class _TransactionsPageState extends State<TransactionsPage>
       }
 
       if (categoryKeys.isNotEmpty) {
-        // Convert the key to String if it's an int
-        final firstKey = categoryKeys.first;
-        final categoryKey = firstKey is int ? firstKey.toString() : firstKey;
+        // Use the int key directly, don't convert to String
+        final categoryKey = categoryKeys.first;
         final category = categoryBox.get(categoryKey);
         final name = category?.name ?? 'Uncategorized';
         breakdown[name] = (breakdown[name] ?? 0) + transaction.amount;
@@ -329,6 +329,51 @@ class _TransactionsPageState extends State<TransactionsPage>
     }
   }
 
+  List<String> _getTransactionMessages() {
+    final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+    final incomeBox = Hive.box<Income>(AppConstants.incomes);
+
+    final filteredExpenses = _getFilteredTransactions(expenseBox, TransactionType.expense);
+    final filteredIncomes = _getFilteredTransactions(incomeBox, TransactionType.income);
+
+    final totalExpense = getTotalAmount(filteredExpenses);
+    final totalIncome = getTotalAmount(filteredIncomes);
+    final net = totalIncome - totalExpense;
+
+    List<String> messages = [];
+
+    // Net balance message
+    if (net > 0) {
+      messages.add('✓ You saved $_currentCurrency ${net.toStringAsFixed(0)} this period');
+    } else if (net < 0) {
+      messages.add('⚠ Spending exceeded income by $_currentCurrency ${net.abs().toStringAsFixed(0)}');
+    } else {
+      messages.add('Perfect balance achieved this period');
+    }
+
+    // Expense insights
+    if (filteredExpenses.isNotEmpty) {
+      final categoryBreakdown = getCategoryBreakdown(filteredExpenses, TransactionType.expense);
+      if (categoryBreakdown.isNotEmpty) {
+        final topCategory = categoryBreakdown.entries.reduce((a, b) => a.value > b.value ? a : b);
+        messages.add('→ ${topCategory.key} leads your expenses');
+      }
+    }
+
+    // Income message
+    if (totalIncome > 0) {
+      messages.add('↑ Total income: $_currentCurrency ${totalIncome.toStringAsFixed(0)}');
+    }
+
+    // Transaction count
+    final totalTransactions = filteredExpenses.length + filteredIncomes.length;
+    if (totalTransactions > 0) {
+      messages.add('$totalTransactions transactions in ${_getDateRangeLabel()}');
+    }
+
+    return messages.isEmpty ? ['Track your financial transactions here'] : messages;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
@@ -341,6 +386,10 @@ class _TransactionsPageState extends State<TransactionsPage>
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
+        animatedTexts: _getTransactionMessages(),
+        animationType: AnimationType.fadeInOut,
+        animationEffect: AnimationEffect.smooth,
+        animationRepeat: true,
         actionItems: [
           CustomAppBarActionItem(
             icon: Icons.date_range_rounded,
@@ -456,13 +505,17 @@ class _TransactionsPageState extends State<TransactionsPage>
               GestureDetector(
                 onTap: _showDateRangeMenu,
                 child: Container(
+                  width: MediaQuery.of(context).size.width,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: containerColor,
+                    color: Colors.transparent,
+                    border: Border.all(color: onContainerColor, width: .2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.max,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.calendar_today_rounded, size: 14, color: onContainerColor),
                       const SizedBox(width: 6),
@@ -555,6 +608,78 @@ class _TransactionsPageState extends State<TransactionsPage>
               ],
 
               // Recent Transactions
+              // Row(
+              //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              //   children: [
+              //     Text('Recent', style: theme.textTheme.titleSmall),
+              //     TextButton(
+              //       onPressed: () {
+              //         if (isExpense) {
+              //           Helpers.navigateTo(context, const ExpenseListingPage());
+              //         } else {
+              //           Helpers.navigateTo(context, const IncomeListingPage());
+              //         }
+              //       },
+              //       child: const Text('View All', style: TextStyle(fontSize: 12)),
+              //     ),
+              //   ],
+              // ),
+              // const SizedBox(height: 6),
+              // ...filteredTransactions.toList().reversed.take(5).map((transaction) {
+              //   final categoryBox = Hive.box<Category>(AppConstants.categories);
+              //   String categoryName = 'Uncategorized';
+              //   List<int> categoryKeys = [];
+              //
+              //   if (type == TransactionType.expense) {
+              //     categoryKeys = (transaction as Expense).categoryKeys;
+              //   } else {
+              //     categoryKeys = (transaction as Income).categoryKeys;
+              //   }
+              //
+              //   if (categoryKeys.isNotEmpty) {
+              //     // Use the int key directly
+              //     final categoryKey = categoryKeys.first;
+              //     final category = categoryBox.get(categoryKey);
+              //     categoryName = category?.name ?? 'General';
+              //   }
+              //
+              //   return Card(
+              //     margin: const EdgeInsets.only(bottom: 6),
+              //     child: ListTile(
+              //       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              //       leading: CircleAvatar(
+              //         backgroundColor: containerColor,
+              //         radius: 16,
+              //         child: Icon(
+              //           icon,
+              //           color: onContainerColor,
+              //           size: 16,
+              //         ),
+              //       ),
+              //       title: Text(
+              //         transaction.method?.isNotEmpty == true ? transaction.method! : 'UPI',
+              //         style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              //       ),
+              //       subtitle: Text(
+              //         '$categoryName • ${transaction.description}',
+              //         maxLines: 1,
+              //         overflow: TextOverflow.ellipsis,
+              //         style: theme.textTheme.bodySmall,
+              //       ),
+              //       trailing: PrivacyCurrency(
+              //         amount: '$_currentCurrency ${transaction.amount.toStringAsFixed(0)}',
+              //         isPrivacyActive: isPrivate,
+              //         style: theme.textTheme.titleSmall?.copyWith(
+              //           color: primaryColor,
+              //           fontWeight: FontWeight.bold,
+              //         ),
+              //       ),
+              //     ),
+              //   );
+              // }),
+              // const SizedBox(height: 100),
+
+              // Recent Transactions
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -572,59 +697,65 @@ class _TransactionsPageState extends State<TransactionsPage>
                 ],
               ),
               const SizedBox(height: 6),
-              ...filteredTransactions.toList().reversed.take(5).map((transaction) {
-                final categoryBox = Hive.box<Category>(AppConstants.categories);
-                String categoryName = 'Uncategorized';
-                List<dynamic> categoryKeys = [];
 
-                if (type == TransactionType.expense) {
-                  categoryKeys = (transaction as Expense).categoryKeys;
-                } else {
-                  categoryKeys = (transaction as Income).categoryKeys;
-                }
+              // Show recent transactions or empty state
+              if (filteredTransactions.isEmpty)
+                Container( padding: const EdgeInsets.all(20), margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration( color: colorScheme.surfaceContainerHighest.withOpacity(0.3), borderRadius: BorderRadius.circular(12), border: Border.all( color: colorScheme.outline.withOpacity(0.2), ), ), child: Row( children: [ Icon( isExpense ? Icons.receipt_long_outlined : Icons.account_balance_wallet_outlined, size: 20, color: colorScheme.onSurfaceVariant, ), const SizedBox(width: 12), Expanded( child: Text( isExpense ? 'No expenses recorded yet' : 'No income recorded yet', style: theme.textTheme.bodySmall?.copyWith( color: colorScheme.onSurfaceVariant, ), ), ), ], ), )
+              else
+                ...filteredTransactions.toList().reversed.take(5).map((transaction) {
+                  final categoryBox = Hive.box<Category>(AppConstants.categories);
+                  String categoryName = 'Uncategorized';
+                  List<int> categoryKeys = [];
 
-                if (categoryKeys.isNotEmpty) {
-                  final firstKey = categoryKeys.first;
-                  final categoryKey = firstKey is int ? firstKey.toString() : firstKey;
-                  final category = categoryBox.get(categoryKey);
-                  categoryName = category?.name ?? 'General';
-                }
+                  if (type == TransactionType.expense) {
+                    categoryKeys = (transaction as Expense).categoryKeys;
+                  } else {
+                    categoryKeys = (transaction as Income).categoryKeys;
+                  }
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    leading: CircleAvatar(
-                      backgroundColor: containerColor,
-                      radius: 16,
-                      child: Icon(
-                        icon,
-                        color: onContainerColor,
-                        size: 16,
+                  if (categoryKeys.isNotEmpty) {
+                    final categoryKey = categoryKeys.first;
+                    final category = categoryBox.get(categoryKey);
+                    categoryName = category?.name ?? 'General';
+                  }
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      leading: CircleAvatar(
+                        backgroundColor: containerColor,
+                        radius: 16,
+                        child: Icon(
+                          icon,
+                          color: onContainerColor,
+                          size: 16,
+                        ),
+                      ),
+                      title: Text(
+                        transaction.method?.isNotEmpty == true ? transaction.method! : 'UPI',
+                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        '$categoryName • ${transaction.description}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      trailing: PrivacyCurrency(
+                        amount: '$_currentCurrency ${transaction.amount.toStringAsFixed(0)}',
+                        isPrivacyActive: isPrivate,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                    title: Text(
-                      transaction.method?.isNotEmpty == true ? transaction.method! : 'UPI',
-                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Text(
-                      '$categoryName • ${transaction.description}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    trailing: PrivacyCurrency(
-                      amount: '$_currentCurrency ${transaction.amount.toStringAsFixed(0)}',
-                      isPrivacyActive: isPrivate,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                );
-              }),
-              const SizedBox(height: 100),
+                  );
+                }),
+
+// Add spacing only if there are transactions
+              if (filteredTransactions.isNotEmpty) const SizedBox(height: 100),
             ],
           ),
         );
