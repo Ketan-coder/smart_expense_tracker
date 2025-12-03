@@ -234,4 +234,14 @@ class Helpers {
     await prefs.setStringList('default_income_categories', categories);
   }
 
+  Future<bool?> getCurrentShowQuickActions() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('showQuickActions') ?? true;
+  }
+
+  Future<void> setCurrentShowQuickActions(bool state) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('showQuickActions', state);
+  }
+
 }

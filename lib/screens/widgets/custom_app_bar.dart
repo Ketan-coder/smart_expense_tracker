@@ -1001,16 +1001,29 @@ class _SimpleCustomAppBarState extends State<SimpleCustomAppBar>
             pinned: true,
             elevation: 0,
             scrolledUnderElevation: 1,
-            // COLLAPSED ACTIONS (Only standard actions, no animated pills)
-            actions: showCollapsedTitle && widget.actions != null ?
-            widget.actions!.map((action) {
-              return AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: scrollProgress > 0.7 ? 1.0 : 0.0,
-                child: action,
-              );
-            }).toList()
-                : null,
+            // COLLAPSED ACTIONS (Both standard actions and actionItems as icons)
+            actions: showCollapsedTitle && hasAnyActions ? [
+              // actionItems as simple icon buttons (no animation)
+              ...?widget.actionItems?.map((item) {
+                return AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: scrollProgress > 0.7 ? 1.0 : 0.0,
+                  child: IconButton(
+                    onPressed: item.onPressed,
+                    icon: Icon(item.icon),
+                    tooltip: item.label,
+                  ),
+                );
+              }),
+              // Standard actions
+              ...?widget.actions?.map((action) {
+                return AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: scrollProgress > 0.7 ? 1.0 : 0.0,
+                  child: action,
+                );
+              }),
+            ] : null,
 
             flexibleSpace: FlexibleSpaceBar(
               background: Container(

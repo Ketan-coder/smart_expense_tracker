@@ -48,6 +48,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _shakeToPrivacyEnabled = true;
   bool _faceDetectionEnabled = false;
   bool _adaptiveBrightnessEnabled = true;
+  bool _showQuickActions = true;
 
   // Currency and language lists remain the same...
   final List<Map<String, String>> _currencies = [
@@ -99,6 +100,8 @@ class _SettingsPageState extends State<SettingsPage> {
     final currency = await Helpers().getCurrentCurrency() ?? '₹';
     final language = await Helpers().getCurrentLanguage() ?? 'English';
     final dynamicColorState = await Helpers().getCurrentDynamicColorState() ?? true;
+    final showQuickActions = await Helpers().getCurrentShowQuickActions() ?? true;
+
 
     if (mounted) {
       setState(() {
@@ -110,6 +113,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _selectedCurrency = currency;
         _selectedLanguage = language;
         _dynamicColorState = dynamicColorState;
+        _showQuickActions = showQuickActions;
       });
     }
   }
@@ -223,6 +227,33 @@ class _SettingsPageState extends State<SettingsPage> {
         behavior: SnackBarBehavior.floating,
       );
     }
+  }
+
+  Future<void> _updateQuickActions(bool value) async {
+    final confirmed = await Dialogs.showConfirmation(
+      context: context,
+      title: value ? "Enable Quick Actions?" : "Disable Quick Actions ?",
+      message: "The app needs to restart to apply changes.",
+      yesText: value ? "Enable" : "Disable",
+      noText: "Cancel",
+    );
+
+    if (confirmed != true) {
+      setState(() => _showQuickActions = !value);
+      return;
+    }
+
+    setState(() => _showQuickActions = value);
+    await Helpers().setCurrentShowQuickActions(value);
+
+    if (mounted) {
+      SnackBars.show(
+        context,
+        message: value ? "Quick actions enabled. Restarting..." : "Quick actions disabled. Restarting...",
+        type: SnackBarType.success,
+      );
+    }
+    _restartApp();
   }
 
   // --- CHANGED SECTION 2: REPLACED THIS ENTIRE FUNCTION ---
@@ -949,7 +980,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
 
                 // Auto Theme
                 ListTile(
@@ -974,7 +1005,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
 
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
 
                 ListTile(
                   leading: const Icon(Icons.palette),
@@ -983,6 +1014,18 @@ class _SettingsPageState extends State<SettingsPage> {
                   trailing: Switch(
                     value: _dynamicColorState,
                     onChanged: _updateDynamicColorState,
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+
+                ListTile(
+                  leading: const Icon(Icons.call_to_action_outlined),
+                  title: const Text("Show Quick Actions"),
+                  subtitle: const Text("Quickly add expenses and incomes"),
+                  trailing: Switch(
+                    value: _showQuickActions,
+                    onChanged: _updateQuickActions,
                   ),
                 ),
 

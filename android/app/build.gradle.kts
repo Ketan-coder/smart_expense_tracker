@@ -20,9 +20,6 @@ android {
         jvmTarget = "11"
     }
 
-    tasks.withType(JavaCompile) {
-        options.compilerArgs << "-Xlint:-unchecked"
-    }
     defaultConfig {
         applicationId = "com.example.expense_tracker"
         minSdk = flutter.minSdkVersion

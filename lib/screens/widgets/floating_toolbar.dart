@@ -473,6 +473,7 @@ class _FloatingToolbarWithQuickActionsState
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   String _currentCurrency = 'INR';
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -495,6 +496,7 @@ class _FloatingToolbarWithQuickActionsState
   @override
   void dispose() {
     _animationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -502,8 +504,6 @@ class _FloatingToolbarWithQuickActionsState
     _currentCurrency = await Helpers().getCurrentCurrency() ?? 'INR';
     if (mounted) setState(() {});
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -515,7 +515,7 @@ class _FloatingToolbarWithQuickActionsState
           _buildQuickActionsToolbar(context),
 
         if (widget.showQuickActions)
-          const SizedBox(height: 1),
+          const SizedBox(height: 0),
 
         // Main Toolbar
         _buildMainToolbar(context),
@@ -537,30 +537,102 @@ class _FloatingToolbarWithQuickActionsState
               left: widget.margin!.left,
               right: widget.margin!.right,
             ),
-            alignment: AlignmentGeometry.centerLeft,
-            height: 58,
-            // width: 340,
-            child: Material(
-              elevation: widget.elevation!,
-              borderRadius: widget.borderRadius ?? BorderRadius.circular(29),
-              // color: widget.backgroundColor ??
-              //     colorScheme.surfaceContainerHigh.withOpacity(0.95),
-              color: widget.backgroundColor?.withValues(alpha: 0.3) ??
-                      colorScheme.surfaceContainerHigh.withValues(alpha: .45),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                itemCount: widget.quickActions.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == widget.quickActions.length) {
-                    return _buildAddQuickActionButton(context);
-                  }
-                  return _buildQuickActionChip(
-                    context,
-                    widget.quickActions[index],
-                  );
-                },
-              ),
+            height: 42, // Compact chip height
+            child: Stack(
+              children: [
+                // Main scrollable content
+                Material(
+                  elevation: 0, //widget.elevation! - 3
+                  borderRadius: widget.borderRadius ?? BorderRadius.circular(21),
+                  color: widget.backgroundColor?.withValues(alpha: 0.8) ??
+                      colorScheme.surfaceContainerHigh.withValues(alpha: 0.9),
+                  // color: Colors.transparent,
+                  child: ShaderMask(
+                    shaderCallback: (Rect bounds) {
+                      return LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: const [
+                          Colors.transparent,
+                          Colors.white,
+                          Colors.white,
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.03, 0.97, 1.0],
+                      ).createShader(bounds);
+                    },
+                    blendMode: BlendMode.dstIn,
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: widget.quickActions.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == widget.quickActions.length) {
+                          return _buildAddQuickActionButton(context);
+                        }
+                        return _buildQuickActionChip(
+                          context,
+                          widget.quickActions[index],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+                // Scroll indicators (left/right fade edges)
+                if (widget.quickActions.isNotEmpty)
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 16,
+                        decoration: BoxDecoration(
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(21),
+                            bottomLeft: Radius.circular(21),
+                          ),
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              colorScheme.surfaceContainerHigh.withValues(alpha: .55),
+                              colorScheme.surfaceContainerHigh.withValues(alpha: 0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (widget.quickActions.isNotEmpty)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 16,
+                        decoration: BoxDecoration(
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(21),
+                            bottomRight: Radius.circular(21),
+                          ),
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              colorScheme.surfaceContainerHigh.withValues(alpha: 0),
+                              colorScheme.surfaceContainerHigh.withValues(alpha: .55),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         );
@@ -575,7 +647,7 @@ class _FloatingToolbarWithQuickActionsState
     final chipColor = isExpense ? colorScheme.error : colorScheme.primary;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      padding: const EdgeInsets.only(right: 6), // Compact spacing
       child: GestureDetector(
         onLongPress: () {
           widget.onQuickActionEdit?.call(action);
@@ -586,46 +658,73 @@ class _FloatingToolbarWithQuickActionsState
             onTap: () {
               widget.onQuickActionTap?.call(action);
             },
-            borderRadius: BorderRadius.circular(21),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            borderRadius: BorderRadius.circular(15),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), // Compact chip padding
               decoration: BoxDecoration(
-                color: chipColor.withValues(alpha: .22),
-                borderRadius: BorderRadius.circular(21),
+                color: chipColor.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(15),
                 border: Border.all(
-                  color: chipColor.withOpacity(0.3),
-                  width: 1.5,
+                  color: chipColor.withValues(alpha: .4),
+                  width: .5,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: chipColor.withValues(alpha: 0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    isExpense ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                    size: 18,
-                    color: chipColor,
+                  // Icon with background
+                  Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(
+                      color: chipColor.withValues(alpha: .35),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isExpense ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                      size: 11, // Compact icon
+                      color: chipColor,
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        action.label,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: chipColor,
+                  const SizedBox(width: 6),
+                  // Label and amount
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$_currentCurrency${action.amount.toStringAsFixed(0)} -',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            color: chipColor,
+                            fontSize: 11, // Compact text
+                            height: 1.2,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 5,),
-                      Text(
-                        ': $_currentCurrency ${action.amount.toStringAsFixed(0)}',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: chipColor,
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            action.label,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              color: chipColor,
+                              fontSize: 11, // Compact text
+                              height: 1.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -641,36 +740,45 @@ class _FloatingToolbarWithQuickActionsState
     final colorScheme = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      padding: const EdgeInsets.only(right: 6), // Compact spacing
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: widget.onAddQuickAction,
-          borderRadius: BorderRadius.circular(21),
+          borderRadius: BorderRadius.circular(15),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), // Compact chip padding
             decoration: BoxDecoration(
-              color: colorScheme.primaryContainer.withValues(alpha: .32),
-              borderRadius: BorderRadius.circular(21),
+              color: colorScheme.primaryContainer.withValues(alpha: .35),
+              borderRadius: BorderRadius.circular(15),
               border: Border.all(
-                color: colorScheme.primary.withOpacity(0.3),
+                color: colorScheme.primary.withOpacity(0.4),
                 width: 1.5,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.primary.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.add_circle_outline,
-                  size: 20,
+                  Icons.add_circle_outline_rounded,
+                  size: 14, // Compact icon
                   color: colorScheme.primary,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Text(
-                  'Add Quick Action',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                  'Add Quick',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
                     color: colorScheme.primary,
+                    fontSize: 11, // Compact text
+                    height: 1.2,
                   ),
                 ),
               ],

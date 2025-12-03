@@ -79,6 +79,7 @@ class _BottomNavBarState extends State<BottomNavBar>
   List<String>? defaultIncomeCategories = [];
 
   List<QuickAction> _quickActions = [];
+  bool _showQuickActions = false;
 
   @override
   void initState() {
@@ -453,6 +454,7 @@ class _BottomNavBarState extends State<BottomNavBar>
 
   Future<void> _loadInitialData() async {
     _currentCurrency = await Helpers().getCurrentCurrency() ?? 'INR';
+    _showQuickActions = await Helpers().getCurrentShowQuickActions() ?? true;
     debugPrint("💰 Current currency: $_currentCurrency");
     if (mounted) setState(() {});
   }
@@ -672,99 +674,6 @@ class _BottomNavBarState extends State<BottomNavBar>
     setState(() => _currentIndex = index);
   }
 
-  // @override
-  // Widget build(BuildContext context) {
-  //   // Show biometric lock screen if required and not authenticated
-  //   if (_biometricRequired && !_isAuthenticated) {
-  //     return Scaffold(
-  //       body: Center(
-  //         child: Column(
-  //           mainAxisAlignment: MainAxisAlignment.center,
-  //           children: [
-  //             Icon(
-  //               Icons.fingerprint,
-  //               size: 80,
-  //               color: Theme.of(context).colorScheme.primary,
-  //             ),
-  //             const SizedBox(height: 24),
-  //             Text(
-  //               "Authentication Required",
-  //               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-  //                 fontWeight: FontWeight.bold,
-  //               ),
-  //             ),
-  //             const SizedBox(height: 12),
-  //             Text(
-  //               "Please authenticate to continue",
-  //               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-  //                 color: Colors.grey,
-  //               ),
-  //             ),
-  //             const SizedBox(height: 32),
-  //             if (_isAuthenticating)
-  //               const CircularProgressIndicator()
-  //             else
-  //               ElevatedButton.icon(
-  //                 onPressed: _checkAndRequestBiometric,
-  //                 icon: const Icon(Icons.fingerprint),
-  //                 label: const Text("Authenticate"),
-  //                 style: ElevatedButton.styleFrom(
-  //                   padding: const EdgeInsets.symmetric(
-  //                     horizontal: 32,
-  //                     vertical: 16,
-  //                   ),
-  //                 ),
-  //               ),
-  //           ],
-  //         ),
-  //       ),
-  //     );
-  //   }
-  //
-  //   // Main app UI
-  //   final scheme = Theme.of(context).colorScheme;
-  //
-  //   return Scaffold(
-  //     backgroundColor: scheme.surface,
-  //     body: _tabs[_currentIndex],
-  //     floatingActionButton: FloatingToolbar(
-  //       items: [
-  //         FloatingToolbarItem(icon: Icons.home, label: 'Home'),
-  //         FloatingToolbarItem(icon: Icons.money_off, label: 'Expenses'),
-  //         FloatingToolbarItem(icon: Icons.monetization_on, label: 'Incomes'),
-  //         FloatingToolbarItem(icon: Icons.category, label: 'Categories'),
-  //         FloatingToolbarItem(icon: Icons.settings, label: 'Settings'),
-  //       ],
-  //       primaryButton: const Icon(Icons.add),
-  //       onPrimaryPressed: () {
-  //         switch (_currentIndex) {
-  //           case 0:
-  //             _showReportsAddMenu(context);
-  //             break;
-  //           case 1:
-  //             _showAddExpenseSheet();
-  //             break;
-  //           case 2:
-  //             _showAddIncomeSheet();
-  //             break;
-  //           case 3:
-  //             _showAddCategorySheet();
-  //             break;
-  //           case 4:
-  //             SnackBars.show(
-  //               context,
-  //               message: "Under Development",
-  //               type: SnackBarType.info,
-  //             );
-  //             break;
-  //         }
-  //       },
-  //       selectedIndex: _currentIndex,
-  //       onItemTapped: _onTabTapped,
-  //     ),
-  //     floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-  //   );
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -951,7 +860,7 @@ class _BottomNavBarState extends State<BottomNavBar>
         },
         selectedIndex: _currentIndex,
         onItemTapped: _onTabTapped,
-        showQuickActions: _currentIndex == 1, // Only show on Transaction page
+        showQuickActions: _showQuickActions ? _currentIndex == 1 : false, // Only show on Transaction page
         quickActions: _quickActions,
         onQuickActionTap: _handleQuickActionTap,
         onQuickActionEdit: (action) => _showQuickActionSheet(action), // Changed
