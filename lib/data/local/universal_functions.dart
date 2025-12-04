@@ -731,6 +731,7 @@ class UniversalHiveFunctions {
         date: date ?? DateTime.now(),
         description: description,
         categoryKeys: categoryKeys,
+        method: method
       );
 
       // Step 2: Find or create wallet
@@ -935,6 +936,11 @@ class UniversalHiveFunctions {
   /// Atomic operation: Delete income with rollback support
   Future<bool> deleteIncome(int key, String method) async {
     debugPrint("🗑️ [deleteIncome] Starting atomic deletion...");
+
+    if (method.trim().isEmpty) {
+      debugPrint("❌ [deleteIncome] Method cannot be empty");
+      return false;
+    }
 
     final incomeBox = Hive.box<Income>(AppConstants.incomes);
     final walletBox = Hive.box<Wallet>(AppConstants.wallets);

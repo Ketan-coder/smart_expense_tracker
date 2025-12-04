@@ -129,56 +129,6 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
     return incomes;
   }
 
-  // void _showCategoryFilter() {
-  //   final categoryBox = Hive.box<Category>(AppConstants.categories);
-  //   final categories = categoryBox.values.toList();
-  //
-  //   showModalBottomSheet(
-  //     context: context,
-  //     builder: (context) => SafeArea(
-  //       child: SingleChildScrollView(
-  //         child: Column(
-  //           mainAxisSize: MainAxisSize.min,
-  //           children: [
-  //             const Padding(
-  //               padding: EdgeInsets.all(16.0),
-  //               child: Text(
-  //                 'Filter by Category',
-  //                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-  //               ),
-  //             ),
-  //             const Divider(height: 1),
-  //             ListTile(
-  //               title: const Text('All Categories'),
-  //               leading: Radio<String?>(
-  //                 value: null,
-  //                 groupValue: _filterCategory,
-  //                 onChanged: (value) {
-  //                   setState(() => _filterCategory = value);
-  //                   Navigator.pop(context);
-  //                 },
-  //               ),
-  //             ),
-  //             ...categories.map((category) {
-  //               return ListTile(
-  //                 title: Text(category.name),
-  //                 leading: Radio<String>(
-  //                   value: category.name,
-  //                   groupValue: _filterCategory,
-  //                   onChanged: (value) {
-  //                     setState(() => _filterCategory = value);
-  //                     Navigator.pop(context);
-  //                   },
-  //                 ),
-  //               );
-  //             }),
-  //           ],
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
-
   void _showCategoryFilter() {
     final categoryBox = Hive.box<Category>(AppConstants.categories);
     final categories = categoryBox.values.toList();
@@ -222,56 +172,6 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
         ),
     );
   }
-
-
-  // void _showSourceFilter() {
-  //   final sources = Helpers().getPaymentMethods();
-  //
-  //   showModalBottomSheet(
-  //     context: context,
-  //     builder: (context) => SafeArea(
-  //       child: SingleChildScrollView(
-  //         child: Column(
-  //           mainAxisSize: MainAxisSize.min,
-  //           children: [
-  //             const Padding(
-  //               padding: EdgeInsets.all(16.0),
-  //               child: Text(
-  //                 'Filter by Source',
-  //                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-  //               ),
-  //             ),
-  //             const Divider(height: 1),
-  //             ListTile(
-  //               title: const Text('All Sources'),
-  //               leading: Radio<String?>(
-  //                 value: null,
-  //                 groupValue: _filterSource,
-  //                 onChanged: (value) {
-  //                   setState(() => _filterSource = value);
-  //                   Navigator.pop(context);
-  //                 },
-  //               ),
-  //             ),
-  //             ...sources.map((source) {
-  //               return ListTile(
-  //                 title: Text(source),
-  //                 leading: Radio<String>(
-  //                   value: source,
-  //                   groupValue: _filterSource,
-  //                   onChanged: (value) {
-  //                     setState(() => _filterSource = value);
-  //                     Navigator.pop(context);
-  //                   },
-  //                 ),
-  //               );
-  //             }),
-  //           ],
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
 
   void _showSourceFilter() {
     final sources = Helpers().getPaymentMethods();
@@ -484,216 +384,219 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
             ],
           ),
         ],
-        child: Container(
-          margin: const EdgeInsets.all(10),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(25),
-            color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
-          ),
-          child: ValueListenableBuilder<Box<Income>>(
-            valueListenable: Hive.box<Income>(AppConstants.incomes).listenable(),
-            builder: (context, box, _) {
-              final filteredIncomes = _getFilteredIncomes(box);
-              final total = filteredIncomes.fold(0.0, (sum, i) => sum + i.value.amount);
-              final activeFilters = _getActiveFilterCount();
+        child: ListenableBuilder(
+          listenable: _incomePagePrivacyManager,
+          builder: (context, child) => Container(
+            margin: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(25),
+              color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
+            ),
+            child: ValueListenableBuilder<Box<Income>>(
+              valueListenable: Hive.box<Income>(AppConstants.incomes).listenable(),
+              builder: (context, box, _) {
+                final filteredIncomes = _getFilteredIncomes(box);
+                final total = filteredIncomes.fold(0.0, (sum, i) => sum + i.value.amount);
+                final activeFilters = _getActiveFilterCount();
 
-              final groupedIncomes = groupBy<MapEntry<dynamic, Income>, DateTime>(
-                filteredIncomes,
-                    (item) => DateTime(item.value.date.year, item.value.date.month, item.value.date.day),
-              );
+                final groupedIncomes = groupBy<MapEntry<dynamic, Income>, DateTime>(
+                  filteredIncomes,
+                      (item) => DateTime(item.value.date.year, item.value.date.month, item.value.date.day),
+                );
 
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Filter Chips
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          FilterChip(
-                            label: Text('Category${_filterCategory != null ? ': $_filterCategory' : ''}'),
-                            selected: _filterCategory != null,
-                            onSelected: (_) => _showCategoryFilter(),
-                            avatar: Icon(
-                              Icons.category_rounded,
-                              size: 18,
-                              color: _filterCategory != null ? colorScheme.primary : null,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          FilterChip(
-                            label: Text('Source${_filterSource != null ? ': $_filterSource' : ''}'),
-                            selected: _filterSource != null,
-                            onSelected: (_) => _showSourceFilter(),
-                            avatar: Icon(
-                              Icons.source_rounded,
-                              size: 18,
-                              color: _filterSource != null ? colorScheme.primary : null,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          FilterChip(
-                            label: Text(_dateRange != null
-                                ? '${DateFormat('d MMM').format(_dateRange!.start)} - ${DateFormat('d MMM').format(_dateRange!.end)}'
-                                : 'Date Range'),
-                            selected: _dateRange != null,
-                            onSelected: (_) => _showDateRangePicker(),
-                            avatar: Icon(
-                              Icons.date_range_rounded,
-                              size: 18,
-                              color: _dateRange != null ? colorScheme.primary : null,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          FilterChip(
-                            label: Text(_minAmount != null || _maxAmount != null
-                                ? '$_currentCurrency ${_minAmount?.toStringAsFixed(0) ?? '0'} - $_currentCurrency ${_maxAmount?.toStringAsFixed(0) ?? '∞'}'
-                                : 'Amount'),
-                            selected: _minAmount != null || _maxAmount != null,
-                            onSelected: (_) => _showAmountFilter(),
-                            avatar: Icon(
-                              Icons.currency_rupee_rounded,
-                              size: 18,
-                              color: _minAmount != null || _maxAmount != null ? colorScheme.primary : null,
-                            ),
-                          ),
-                          if (activeFilters > 0) ...[
-                            const SizedBox(width: 8),
-                            ActionChip(
-                              label: const Text('Clear All'),
-                              onPressed: _clearAllFilters,
-                              avatar: const Icon(Icons.clear_rounded, size: 18),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Summary Card
-                    Card(
-                      color: colorScheme.primaryContainer,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Filter Chips
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${filteredIncomes.length} Transaction${filteredIncomes.length != 1 ? 's' : ''}',
-                                  style: theme.textTheme.bodyLarge?.copyWith(
-                                    color: colorScheme.onPrimaryContainer,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Total Earned',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onPrimaryContainer.withOpacity(0.7),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            // Text(
-                            //   '$_currentCurrency ${total.toStringAsFixed(2)}',
-                            //   style: theme.textTheme.headlineMedium?.copyWith(
-                            //     color: colorScheme.onPrimaryContainer,
-                            //     fontWeight: FontWeight.bold,
-                            //   ),
-                            // ),
-                            PrivacyCurrency(
-                                amount: '$_currentCurrency ${total.toStringAsFixed(2)}',
-                                isPrivacyActive: isPrivate,
-                              style: theme.textTheme.headlineMedium?.copyWith(
-                                color: colorScheme.onPrimaryContainer,
-                                fontWeight: FontWeight.bold,
+                            FilterChip(
+                              label: Text('Category${_filterCategory != null ? ': $_filterCategory' : ''}'),
+                              selected: _filterCategory != null,
+                              onSelected: (_) => _showCategoryFilter(),
+                              avatar: Icon(
+                                Icons.category_rounded,
+                                size: 18,
+                                color: _filterCategory != null ? colorScheme.primary : null,
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            FilterChip(
+                              label: Text('Source${_filterSource != null ? ': $_filterSource' : ''}'),
+                              selected: _filterSource != null,
+                              onSelected: (_) => _showSourceFilter(),
+                              avatar: Icon(
+                                Icons.source_rounded,
+                                size: 18,
+                                color: _filterSource != null ? colorScheme.primary : null,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            FilterChip(
+                              label: Text(_dateRange != null
+                                  ? '${DateFormat('d MMM').format(_dateRange!.start)} - ${DateFormat('d MMM').format(_dateRange!.end)}'
+                                  : 'Date Range'),
+                              selected: _dateRange != null,
+                              onSelected: (_) => _showDateRangePicker(),
+                              avatar: Icon(
+                                Icons.date_range_rounded,
+                                size: 18,
+                                color: _dateRange != null ? colorScheme.primary : null,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            FilterChip(
+                              label: Text(_minAmount != null || _maxAmount != null
+                                  ? '$_currentCurrency ${_minAmount?.toStringAsFixed(0) ?? '0'} - $_currentCurrency ${_maxAmount?.toStringAsFixed(0) ?? '∞'}'
+                                  : 'Amount'),
+                              selected: _minAmount != null || _maxAmount != null,
+                              onSelected: (_) => _showAmountFilter(),
+                              avatar: Icon(
+                                Icons.currency_rupee_rounded,
+                                size: 18,
+                                color: _minAmount != null || _maxAmount != null ? colorScheme.primary : null,
+                              ),
+                            ),
+                            if (activeFilters > 0) ...[
+                              const SizedBox(width: 8),
+                              ActionChip(
+                                label: const Text('Clear All'),
+                                onPressed: _clearAllFilters,
+                                avatar: const Icon(Icons.clear_rounded, size: 18),
+                              ),
+                            ],
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                    // Sort indicator
-                    Row(
-                      children: [
-                        Icon(
-                          _ascending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                          size: 16,
-                          color: colorScheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Sorted by ${_sortBy.capitalize()} (${_ascending ? 'Ascending' : 'Descending'})',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Income List
-                    if (filteredIncomes.isEmpty)
-                      Center(
+                      // Summary Card
+                      Card(
+                        color: colorScheme.primaryContainer,
                         child: Padding(
-                          padding: const EdgeInsets.all(40.0),
-                          child: Column(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Icon(
-                                Icons.filter_list_off_rounded,
-                                size: 64,
-                                color: colorScheme.onSurfaceVariant,
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${filteredIncomes.length} Transaction${filteredIncomes.length != 1 ? 's' : ''}',
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      color: colorScheme.onPrimaryContainer,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Total Earned',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onPrimaryContainer.withOpacity(0.7),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No income found',
-                                style: theme.textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Try adjusting your filters',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
+                              // Text(
+                              //   '$_currentCurrency ${total.toStringAsFixed(2)}',
+                              //   style: theme.textTheme.headlineMedium?.copyWith(
+                              //     color: colorScheme.onPrimaryContainer,
+                              //     fontWeight: FontWeight.bold,
+                              //   ),
+                              // ),
+                              PrivacyCurrency(
+                                  amount: '$_currentCurrency ${total.toStringAsFixed(2)}',
+                                  isPrivacyActive: isPrivate,
+                                style: theme.textTheme.headlineMedium?.copyWith(
+                                  color: colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      )
-                    else
-                      ...groupedIncomes.entries.map((entry) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8),
-                              child: Text(
-                                _formatDateHeader(entry.key),
-                                style: theme.textTheme.titleSmall?.copyWith(
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Sort indicator
+                      Row(
+                        children: [
+                          Icon(
+                            _ascending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                            size: 16,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Sorted by ${_sortBy.capitalize()} (${_ascending ? 'Ascending' : 'Descending'})',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Income List
+                      if (filteredIncomes.isEmpty)
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(40.0),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.filter_list_off_rounded,
+                                  size: 64,
                                   color: colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No income found',
+                                  style: theme.textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Try adjusting your filters',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        ...groupedIncomes.entries.map((entry) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8),
+                                child: Text(
+                                  _formatDateHeader(entry.key),
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
-                            ),
-                            ...entry.value.map((incomeEntry) {
-                              return _buildIncomeTile(incomeEntry, colorScheme, theme, isPrivate);
-                            }),
-                            const SizedBox(height: 8),
-                          ],
-                        );
-                      }),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              );
-            },
+                              ...entry.value.map((incomeEntry) {
+                                return _buildIncomeTile(incomeEntry, colorScheme, theme, isPrivate);
+                              }),
+                              const SizedBox(height: 8),
+                            ],
+                          );
+                        }),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),
