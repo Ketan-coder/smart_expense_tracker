@@ -97,6 +97,19 @@ class NotificationService {
 
     // Delay a bit so navigation happens after context is ready
     Future.delayed(const Duration(milliseconds: 300), () {
+      // 1. Handle the specific "New Habit" payload
+      if (payload.startsWith('new_habit|')) {
+        // Extract the habit name from the payload string
+        final habitName = payload.split('|')[1];
+
+        // Navigate to habit page and pass the name as an argument
+        _navigatorKey.currentState?.pushNamed(
+            '/habit',
+            arguments: habitName
+        );
+        return;
+      }
+
       switch (payload) {
         case 'open_expense_page':
           _navigatorKey.currentState?.pushNamed('/expense');

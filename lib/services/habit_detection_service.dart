@@ -119,6 +119,7 @@ class HabitDetectionService {
             'amount': e.amount,
             'description': e.description,
             'categoryKeys': e.categoryKeys,
+            'method': e.method,
           }).toList(),
           'expense',
         );
@@ -159,6 +160,7 @@ class HabitDetectionService {
             'amount': i.amount,
             'description': i.description,
             'categoryKeys': i.categoryKeys,
+            'method': i.method,
           }).toList(),
           'income',
         );
@@ -255,7 +257,7 @@ class HabitDetectionService {
       body: 'We noticed you ${pattern['name']} ${pattern['frequency']}. Track it as a habit?',
       channelId: 'habit_detection',
       channelName: 'Habit Detection',
-      payload: 'open_habit_page',
+      payload: 'new_habit|${pattern['name']}',
     );
 
     // Mark as notified

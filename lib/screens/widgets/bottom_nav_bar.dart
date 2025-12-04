@@ -90,6 +90,36 @@ class _BottomNavBarState extends State<BottomNavBar>
     _initializePrivacyServices();
     _scheduleHabitDetection();
     _loadQuickActions();
+
+    // Check for arguments after the build frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args != null && args is String) {
+        if (args.toString().contains("new_habit")) {
+          // Open your "Add Habit" dialog automatically with this name
+          BottomSheetUtil.show(
+            context: context,
+            title: 'Add New Habit',
+            height: MediaQuery.of(context).size.height / 1.35,
+            child: AddEditHabitSheet(hideTitle: true, initialTitle: args),
+          );
+        }
+        else if (args.toString().contains("new_expense")) {
+          _showAddExpenseSheet();
+        }
+        else if (args.toString().contains("new_income")) {
+          _showAddIncomeSheet();
+        }
+        else if (args.toString().contains("new_goal")) {
+          BottomSheetUtil.show(
+            context: context,
+            title: 'Add New Habit',
+            height: MediaQuery.of(context).size.height / 1.35,
+            child: AddEditGoalSheet(initialTitle: args),
+          );
+        }
+      }
+    });
   }
 
   Future<void> _loadQuickActions() async {

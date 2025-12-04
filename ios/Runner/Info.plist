@@ -22,8 +22,6 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>NSCameraUsageDescription</key>
-    <string>This app uses the camera to detect when someone else is viewing your screen for privacy protection.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
@@ -43,9 +41,99 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
+	<!-- =============================================== -->
+	<!-- CAMERA PERMISSION (for scanning receipts) -->
+	<!-- =============================================== -->
+	<key>NSCameraUsageDescription</key>
+	<string>We need access to your camera to scan receipts and add expenses.</string>
+
+	<!-- =============================================== -->
+	<!-- PHOTO LIBRARY PERMISSION (optional) -->
+	<!-- =============================================== -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photo library to attach receipt images to expenses.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need permission to save receipt images to your photo library.</string>
+
+	<!-- =============================================== -->
+	<!-- BIOMETRIC AUTHENTICATION (Face ID / Touch ID) -->
+	<!-- =============================================== -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>We use Face ID to securely authenticate and protect your financial data.</string>
+
+	<!-- =============================================== -->
+	<!-- NOTIFICATIONS -->
+	<!-- =============================================== -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+
+	<!-- =============================================== -->
+	<!-- CONTACTS (if you plan to add contact-based features) -->
+	<!-- =============================================== -->
+	<!-- Uncomment if needed:
+	<key>NSContactsUsageDescription</key>
+	<string>We need access to your contacts to help you split expenses with friends.</string>
+	-->
+
+	<!-- =============================================== -->
+	<!-- LOCATION (if you plan to add location-based features) -->
+	<!-- =============================================== -->
+	<!-- Uncomment if needed:
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We use your location to tag expenses with where they occurred.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We use your location to automatically detect and track expenses at specific locations.</string>
+	-->
+
+	<!-- =============================================== -->
+	<!-- CALENDARS (if you plan to add calendar integration) -->
+	<!-- =============================================== -->
+	<!-- Uncomment if needed:
+	<key>NSCalendarsUsageDescription</key>
+	<string>We need access to your calendar to set reminders for recurring expenses.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>We need access to reminders to help you track bill payment deadlines.</string>
+	-->
+
+	<!-- =============================================== -->
+	<!-- BLUETOOTH (if you plan to add Bluetooth features) -->
+	<!-- =============================================== -->
+	<!-- Uncomment if needed:
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>We use Bluetooth to connect with external devices for expense tracking.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>We use Bluetooth to communicate with nearby devices.</string>
+	-->
+
+	<!-- =============================================== -->
+	<!-- PRIVACY FEATURES -->
+	<!-- =============================================== -->
+	<!-- Prevent screenshots/screen recording (optional) -->
+	<!-- Note: This is handled programmatically in Flutter, but you can add additional security here -->
+
+	<!-- =============================================== -->
+	<!-- APP CAPABILITIES -->
+	<!-- =============================================== -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- =============================================== -->
+	<!-- STATUS BAR CONFIGURATION -->
+	<!-- =============================================== -->
+	<key>UIStatusBarHidden</key>
+	<false/>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+
+	<!-- =============================================== -->
+	<!-- PREVENT BACKUP OF SENSITIVE DATA -->
+	<!-- =============================================== -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

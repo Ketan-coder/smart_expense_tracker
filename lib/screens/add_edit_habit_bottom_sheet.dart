@@ -12,12 +12,14 @@ class AddEditHabitSheet extends StatefulWidget {
   final Habit? habit;
   final dynamic habitKey;
   final bool hideTitle;
+  final String? initialTitle;
 
   const AddEditHabitSheet({
     super.key,
     this.habit,
     this.habitKey,
     this.hideTitle = false,
+    this.initialTitle = '',
   });
 
   @override
@@ -71,6 +73,10 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
       if (widget.habit!.targetAmount != null) {
         _amountController.text = widget.habit!.targetAmount!.toStringAsFixed(0);
       }
+    }
+
+    if (widget.initialTitle != null) {
+      _nameController.text = widget.initialTitle!;
     }
   }
 

@@ -7,11 +7,13 @@ import '../widgets/snack_bar.dart';
 class AddEditGoalSheet extends StatefulWidget {
   final Goal? goal;
   final int? goalKey;
+  final String? initialTitle;
 
   const AddEditGoalSheet({
     super.key,
     this.goal,
     this.goalKey,
+    this.initialTitle = '',
   });
 
   @override
@@ -43,6 +45,9 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
     super.initState();
     if (widget.goal != null) {
       _initializeForm();
+    }
+    if (widget.initialTitle != null && widget.initialTitle!.isNotEmpty){
+      _nameController.text = widget.initialTitle!;
     }
   }
 
