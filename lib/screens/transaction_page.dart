@@ -1,4 +1,5 @@
 // screens/transactions/transactions_page.dart
+import 'package:expense_tracker/screens/home/category_page.dart';
 import 'package:expense_tracker/screens/loan_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/custom_app_bar.dart';
@@ -8,6 +9,7 @@ import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/category.dart';
@@ -49,6 +51,8 @@ class _TransactionsPageState extends State<TransactionsPage>
   bool _isLoading = false;
   String _currentCurrency = 'INR';
   final PrivacyManager _transactionsPrivacyManager = PrivacyManager();
+  bool isFirstTime = false;
+
 
   @override
   bool get wantKeepAlive => true;
@@ -60,6 +64,21 @@ class _TransactionsPageState extends State<TransactionsPage>
     _loadInitialData();
     _tabController.addListener(() {
       if (mounted) setState(() {});
+    });
+  }
+
+  void initCall() {
+  // check if it is first time visiting the page with sharedpref
+    Future.delayed(const Duration(seconds: 3), () async {
+      final prefs = await SharedPreferences.getInstance();
+      final isFirstTime = prefs.getBool('isFirstTime') ?? false;
+      if (!isFirstTime) {
+        prefs.setBool('isFirstTime', true);
+        setState(() {
+          this.isFirstTime = true;
+        });
+      }
+
     });
   }
 
@@ -410,6 +429,13 @@ class _TransactionsPageState extends State<TransactionsPage>
           // ),
           // IconButton(onPressed: () => Helpers.navigateTo(context, const LoanPage()), icon: const Icon(Icons.credit_card_rounded),)
         ],
+        actions: (!isFirstTime) ? [
+          IconButton(
+            icon: const Icon(Icons.category_outlined),
+            onPressed: () => Helpers.navigateTo(context, const CategoryPage(openDefaultCategories: true,)),
+            tooltip: 'Update Default Categories',
+          ),
+        ] : [],
         child: ListenableBuilder(
           listenable: _transactionsPrivacyManager,
           builder: (context, child) => Container(
@@ -502,34 +528,128 @@ class _TransactionsPageState extends State<TransactionsPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Date Range Chip
-              GestureDetector(
-                onTap: _showDateRangeMenu,
-                child: Container(
-                  width: MediaQuery.of(context).size.width,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    border: Border.all(color: onContainerColor, width: .2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.calendar_today_rounded, size: 14, color: onContainerColor),
-                      const SizedBox(width: 6),
-                      Text(
-                        _getDateRangeLabel(),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: onContainerColor,
-                          fontWeight: FontWeight.w600,
+              // Row(
+              //   children: [
+              //     Expanded(
+              //       child: GestureDetector(
+              //         onTap: () => Helpers.navigateTo(context, CategoryPage(openDefaultCategories: true)),
+              //         child: Container(
+              //           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              //           decoration: BoxDecoration(
+              //             color: Colors.transparent,
+              //             border: Border.all(color: onContainerColor, width: .2),
+              //             borderRadius: BorderRadius.circular(8),
+              //           ),
+              //           child: Row(
+              //             mainAxisAlignment: MainAxisAlignment.center,
+              //             children: [
+              //               // Icon(Icons.calendar_today_rounded, size: 14, color: onContainerColor),
+              //               // const SizedBox(width: 6),
+              //               Text(
+              //                 "Update Default Categories",
+              //                 style: theme.textTheme.bodySmall?.copyWith(
+              //                   color: onContainerColor,
+              //                   fontWeight: FontWeight.w600,
+              //                 ),
+              //               ),
+              //             ],
+              //           ),
+              //         ),
+              //       ),
+              //     ),
+              //
+              //     const SizedBox(width: 8),
+              //
+              //     Expanded(
+              //       child: GestureDetector(
+              //         onTap: _showDateRangeMenu,
+              //         child: Container(
+              //           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              //           decoration: BoxDecoration(
+              //             color: Colors.transparent,
+              //             border: Border.all(color: onContainerColor, width: .2),
+              //             borderRadius: BorderRadius.circular(8),
+              //           ),
+              //           child: Row(
+              //             mainAxisAlignment: MainAxisAlignment.center,
+              //             children: [
+              //               Icon(Icons.calendar_today_rounded, size: 14, color: onContainerColor),
+              //               const SizedBox(width: 6),
+              //               Text(
+              //                 _getDateRangeLabel(),
+              //                 style: theme.textTheme.bodySmall?.copyWith(
+              //                   color: onContainerColor,
+              //                   fontWeight: FontWeight.w600,
+              //                 ),
+              //               ),
+              //             ],
+              //           ),
+              //         ),
+              //       ),
+              //     ),
+              //   ],
+              // ),
+
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (isFirstTime) ...[
+                    GestureDetector(
+                      onTap: () => Helpers.navigateTo(context, CategoryPage(openDefaultCategories: true)),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          border: Border.all(color: onContainerColor, width: .2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.category_rounded, size: 14, color: onContainerColor),
+                            const SizedBox(width: 6),
+                            Text(
+                              "Update Default Categories",
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: onContainerColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+
+                  GestureDetector(
+                    onTap: _showDateRangeMenu,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        border: Border.all(color: onContainerColor, width: .2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.calendar_today_rounded, size: 14, color: onContainerColor),
+                          const SizedBox(width: 6),
+                          Text(
+                            _getDateRangeLabel(),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: onContainerColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
+
               const SizedBox(height: 12),
 
               // Stats Cards

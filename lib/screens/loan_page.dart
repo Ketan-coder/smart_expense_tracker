@@ -401,7 +401,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
     BottomSheetUtil.show(
       context: context,
       title: 'Loan Details',
-      child: _LoanDetailsContent(loan: loan, currency: _currentCurrency),
+      child: _LoanDetailsContent(loan: loan, currency: _currentCurrency, showAddPaymentSheet: (loan) => _showAddPaymentSheet(loan), showAddLoanSheet: (currency) => _showAddLoanSheet()),
     );
   }
 
@@ -824,8 +824,11 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
 class _LoanDetailsContent extends StatelessWidget {
   final Loan loan;
   final String currency;
+  final Function(Loan loan)? showAddPaymentSheet;
+  final Function(String currency)? showAddLoanSheet;
 
-  const _LoanDetailsContent({required this.loan, required this.currency});
+
+  const _LoanDetailsContent({required this.loan, required this.currency, this.showAddPaymentSheet, this.showAddLoanSheet});
 
   @override
   Widget build(BuildContext context) {
@@ -966,7 +969,7 @@ class _LoanDetailsContent extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  // Edit functionality would go here
+                  showAddLoanSheet?.call(currency);
                 },
                 icon: const Icon(Icons.edit),
                 label: const Text('Edit'),
@@ -977,7 +980,8 @@ class _LoanDetailsContent extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  // Add payment functionality would be called here
+                  showAddPaymentSheet?.call(loan);
+                  // Navigator.push()
                 },
                 icon: const Icon(Icons.payment),
                 label: const Text('Add Payment'),

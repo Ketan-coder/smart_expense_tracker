@@ -437,7 +437,7 @@ class _SettingsPageState extends State<SettingsPage> {
             SnackBars.show(
               context,
               message: "Please enroll fingerprint or face ID in device settings first",
-              type: SnackBarType.warning,
+              type: SnackBarType.error,
               behavior: SnackBarBehavior.floating,
             );
           }

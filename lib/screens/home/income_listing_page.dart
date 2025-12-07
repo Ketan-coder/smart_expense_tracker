@@ -32,7 +32,9 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
   double? _maxAmount;
   String _currentCurrency = 'INR';
   final PrivacyManager _incomePagePrivacyManager = PrivacyManager();
-  
+  List<int> _filterCategoryIds = [];
+  List<String> _filterMethods = [];
+
   @override
   void initState() {
     super.initState();
@@ -63,24 +65,38 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
     var incomes = box.toMap().entries.toList();
 
     // Apply filters
-    if (_filterCategory != null) {
-      final categoryBox = Hive.box<Category>(AppConstants.categories);
-      final categoryKey = categoryBox.keys.firstWhere(
-            (key) => categoryBox.get(key)?.name == _filterCategory,
-        orElse: () => -1,
-      );
-      if (categoryKey != -1) {
-        incomes = incomes.where((i) =>
-            i.value.categoryKeys.contains(categoryKey)
-        ).toList();
-      }
+    // if (_filterCategory != null) {
+    //   final categoryBox = Hive.box<Category>(AppConstants.categories);
+    //   final categoryKey = categoryBox.keys.firstWhere(
+    //         (key) => categoryBox.get(key)?.name == _filterCategory,
+    //     orElse: () => -1,
+    //   );
+    //   if (categoryKey != -1) {
+    //     incomes = incomes.where((i) =>
+    //         i.value.categoryKeys.contains(categoryKey)
+    //     ).toList();
+    //   }
+    // }
+
+    if (_filterCategoryIds.isNotEmpty) {
+      incomes = incomes.where((i) {
+        return i.value.categoryKeys
+            .any((key) => _filterCategoryIds.contains(key));
+      }).toList();
     }
 
-    if (_filterSource != null) {
-      incomes = incomes.where((i) =>
-      (i.value.method ?? 'UPI') == _filterSource
-      ).toList();
+    if (_filterMethods.isNotEmpty) {
+      incomes = incomes.where((e) {
+        final method = e.value.method ?? 'UPI';
+        return _filterMethods.contains(method);
+      }).toList();
     }
+
+    // if (_filterSource != null) {
+    //   incomes = incomes.where((i) =>
+    //   (i.value.method ?? 'UPI') == _filterSource
+    //   ).toList();
+    // }
 
     if (_dateRange != null) {
       incomes = incomes.where((i) =>
@@ -131,90 +147,176 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
 
   void _showCategoryFilter() {
     final categoryBox = Hive.box<Category>(AppConstants.categories);
-    final categories = categoryBox.values.toList();
+    final categoryKeys = categoryBox.keys.toList();
+    final categoryValues = categoryBox.values.toList();
 
     BottomSheetUtil.show(
-        context: context,
-        title: 'Filter by Category',
-        height: MediaQuery.of(context).size.height * 0.5,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: const Text('All Categories'),
-                  leading: Radio<String?>(
-                    value: null,
-                    groupValue: _filterCategory,
-                    onChanged: (value) {
-                      setState(() => _filterCategory = value);
+      context: context,
+      title: 'Filter by Category',
+      height: MediaQuery.of(context).size.height * 0.6,
+      child: StatefulBuilder(
+        builder: (context, localSetState) {
+          return SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // ALL Categories checkbox
+                  CheckboxListTile(
+                    title: const Text('All Categories'),
+                    value: _filterCategoryIds.isEmpty,
+                    onChanged: (selected) {
+                      localSetState(() {
+                        _filterCategoryIds.clear();
+                      });
+                      setState(() {}); // update main UI
                       Navigator.pop(context);
                     },
                   ),
-                ),
-                ...categories.map((category) {
-                  return ListTile(
-                    title: Text(category.name),
-                    leading: Radio<String>(
-                      value: category.name,
-                      groupValue: _filterCategory,
-                      onChanged: (value) {
-                        setState(() => _filterCategory = value);
-                        Navigator.pop(context);
+
+                  // Category list
+                  ...List.generate(categoryValues.length, (index) {
+                    final category = categoryValues[index];
+                    final catKey = categoryKeys[index];
+
+                    if (category.type.toString().toLowerCase() != "income") {
+                      return const SizedBox.shrink();
+                    }
+
+                    return CheckboxListTile(
+                      title: Text(category.name),
+                      value: _filterCategoryIds.contains(catKey),
+                      onChanged: (selected) {
+                        localSetState(() {
+                          if (selected == true) {
+                            _filterCategoryIds.add(catKey);
+                          } else {
+                            _filterCategoryIds.remove(catKey);
+                          }
+                        });
+
+                        setState(() {}); // reflect in FilterChip
                       },
-                    ),
-                  );
-                }),
-              ],
+                    );
+                  }),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
+      ),
     );
   }
+
+  String get selectedCategoryLabel {
+    final categoryBox = Hive.box<Category>(AppConstants.categories);
+
+    if (_filterCategoryIds.isEmpty) return "All";
+
+    final names = _filterCategoryIds.map((id) {
+      return categoryBox.get(id)?.name ?? "";
+    }).where((name) => name.isNotEmpty).toList();
+
+    return names.join(", ");
+  }
+
+
+  // void _showSourceFilter() {
+  //   final sources = Helpers().getPaymentMethods();
+  //
+  //   BottomSheetUtil.show(
+  //       context: context,
+  //       title: 'Filter by Source',
+  //       height: MediaQuery.of(context).size.height * 0.5,
+  //       child: SafeArea(
+  //         child: SingleChildScrollView(
+  //           child: Column(
+  //             mainAxisSize: MainAxisSize.min,
+  //             children: [
+  //               ListTile(
+  //                 title: const Text('All Sources'),
+  //                 leading: Radio<String?>(
+  //                   value: null,
+  //                   groupValue: _filterSource,
+  //                   onChanged: (value) {
+  //                     setState(() => _filterSource = value);
+  //                     Navigator.pop(context);
+  //                   },
+  //                 ),
+  //               ),
+  //               ...sources.map((source) {
+  //                 return ListTile(
+  //                   title: Text(source),
+  //                   leading: Radio<String>(
+  //                     value: source,
+  //                     groupValue: _filterSource,
+  //                     onChanged: (value) {
+  //                       setState(() => _filterSource = value);
+  //                       Navigator.pop(context);
+  //                     },
+  //                   ),
+  //                 );
+  //               }),
+  //             ],
+  //           ),
+  //         ),
+  //       ),
+  //   );
+  // }
 
   void _showSourceFilter() {
-    final sources = Helpers().getPaymentMethods();
+    final methods = Helpers().getPaymentMethods(); // list of strings
 
     BottomSheetUtil.show(
-        context: context,
-        title: 'Filter by Source',
-        height: MediaQuery.of(context).size.height * 0.5,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: const Text('All Sources'),
-                  leading: Radio<String?>(
-                    value: null,
-                    groupValue: _filterSource,
-                    onChanged: (value) {
-                      setState(() => _filterSource = value);
-                      Navigator.pop(context);
+      context: context,
+      title: 'Filter by Method',
+      height: MediaQuery.sizeOf(context).height * 0.5,
+      child: StatefulBuilder(
+        builder: (context, localSetState) {
+          return SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // ALL METHODS OPTION
+                  CheckboxListTile(
+                    title: const Text('All Methods'),
+                    value: _filterMethods.isEmpty,
+                    onChanged: (selected) {
+                      localSetState(() {
+                        _filterMethods.clear();
+                      });
+
+                      setState(() {}); // update main UI
+                      Navigator.pop(context); // CLOSE INSTANTLY
                     },
                   ),
-                ),
-                ...sources.map((source) {
-                  return ListTile(
-                    title: Text(source),
-                    leading: Radio<String>(
-                      value: source,
-                      groupValue: _filterSource,
-                      onChanged: (value) {
-                        setState(() => _filterSource = value);
-                        Navigator.pop(context);
+
+                  // INDIVIDUAL METHODS
+                  ...methods.map((method) {
+                    return CheckboxListTile(
+                      title: Text(method),
+                      value: _filterMethods.contains(method),
+                      onChanged: (selected) {
+                        localSetState(() {
+                          if (selected == true) {
+                            _filterMethods.add(method);
+                          } else {
+                            _filterMethods.remove(method);
+                          }
+                        });
+
+                        setState(() {}); // update chips instantly
                       },
-                    ),
-                  );
-                }),
-              ],
+                    );
+                  }),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
+      ),
     );
   }
+
 
   void _showAmountFilter() {
     final minController = TextEditingController(
@@ -416,26 +518,40 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                         child: Row(
                           children: [
                             FilterChip(
-                              label: Text('Category${_filterCategory != null ? ': $_filterCategory' : ''}'),
-                              selected: _filterCategory != null,
+                              label: Text('Category${selectedCategoryLabel != 'All' ? ': $selectedCategoryLabel' : ''}'),
+                              selected: _filterCategoryIds != [] && selectedCategoryLabel != 'All',
                               onSelected: (_) => _showCategoryFilter(),
                               avatar: Icon(
                                 Icons.category_rounded,
                                 size: 18,
-                                color: _filterCategory != null ? colorScheme.primary : null,
+                                color: selectedCategoryLabel != 'All' ? colorScheme.primary : null,
                               ),
                             ),
                             const SizedBox(width: 8),
                             FilterChip(
-                              label: Text('Source${_filterSource != null ? ': $_filterSource' : ''}'),
-                              selected: _filterSource != null,
+                              label: Text(
+                                _filterMethods.isEmpty
+                                    ? 'Methods'
+                                    : 'Methods: ${_filterMethods.join(", ")}',
+                              ),
+                              selected: _filterMethods.isNotEmpty,
                               onSelected: (_) => _showSourceFilter(),
                               avatar: Icon(
-                                Icons.source_rounded,
+                                Icons.payment_rounded,
                                 size: 18,
-                                color: _filterSource != null ? colorScheme.primary : null,
+                                color: _filterMethods.isNotEmpty ? colorScheme.primary : null,
                               ),
                             ),
+                            // FilterChip(
+                            //   label: Text('Source${_filterSource != null ? ': $_filterSource' : ''}'),
+                            //   selected: _filterSource != null,
+                            //   onSelected: (_) => _showSourceFilter(),
+                            //   avatar: Icon(
+                            //     Icons.source_rounded,
+                            //     size: 18,
+                            //     color: _filterSource != null ? colorScheme.primary : null,
+                            //   ),
+                            // ),
                             const SizedBox(width: 8),
                             FilterChip(
                               label: Text(_dateRange != null
@@ -827,7 +943,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                     SnackBars.show(
                       context,
                       message: "Please fill all fields and select at least one category",
-                      type: SnackBarType.warning,
+                      type: SnackBarType.error,
                     );
                     return;
                   }

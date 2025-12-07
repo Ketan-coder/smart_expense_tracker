@@ -455,19 +455,21 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
   Future<void> _saveHabit() async {
     // Validation
     if (_nameController.text.trim().isEmpty) {
+      Navigator.pop(context);
       SnackBars.show(
         context,
         message: 'Please enter a habit name',
-        type: SnackBarType.warning,
+        type: SnackBarType.error,
       );
       return;
     }
 
     if (_selectedCategories.isEmpty) {
+      Navigator.pop(context);
       SnackBars.show(
         context,
         message: 'Please select at least one category',
-        type: SnackBarType.warning,
+        type: SnackBarType.error,
       );
       return;
     }

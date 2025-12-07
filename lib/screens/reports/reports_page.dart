@@ -253,19 +253,34 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         onRefresh: _loadInitialData,
-        actions: [
-          IconButton(
-            key: _dateRangeKey,
-            icon: const Icon(Icons.calendar_month_rounded),
+        actionItems: [
+          CustomAppBarActionItem(
+            icon: Icons.date_range_rounded,
+            label: "Select Date Range",
+            tooltip: "Select Date Range to filter out Transactions",
             onPressed: _selectDateRange,
           ),
           if (!kIsWeb)
-            IconButton(
-              key: _exportKey,
-              icon: const Icon(Icons.file_download_outlined),
-              onPressed: _showExportOptions,
-            ),
+            CustomAppBarActionItem(
+            icon: Icons.file_download_outlined,
+            label: "Generate Report",
+            tooltip: "Export your financial reports as PDF or CSV for record keeping and analysis",
+            onPressed: _showExportOptions,
+          ),
         ],
+        // actions: [
+        //   IconButton(
+        //     key: _dateRangeKey,
+        //     icon: const Icon(Icons.calendar_month_rounded),
+        //     onPressed: _selectDateRange,
+        //   ),
+        //   if (!kIsWeb)
+        //     IconButton(
+        //       key: _exportKey,
+        //       icon: const Icon(Icons.file_download_outlined),
+        //       onPressed: _showExportOptions,
+        //     ),
+        // ],
         child: Container(
           margin: const EdgeInsets.all(8),
           padding: const EdgeInsets.all(8),

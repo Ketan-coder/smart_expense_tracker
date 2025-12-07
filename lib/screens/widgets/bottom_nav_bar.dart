@@ -560,7 +560,7 @@ class _BottomNavBarState extends State<BottomNavBar>
   Future<List<int>> _getDefaultExpenseCategoryKeys() async {
     final defaultCategories = await Helpers().getDefaultExpenseCategory() ?? [];
     if (defaultCategories.isEmpty) {
-      return [1, 2]; // Fallback to default keys
+      return [14]; // Fallback to default keys (Snacks)
     }
 
     final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -585,13 +585,14 @@ class _BottomNavBarState extends State<BottomNavBar>
       }
     }
 
-    return keys.isNotEmpty ? keys : [1, 2]; // Fallback if no keys found
+    return keys.isNotEmpty ? keys : [14]; // Fallback if no keys found
   }
 
+  // IDs 0-9 are Incomes based
   Future<List<int>> _getDefaultIncomeCategoryKeys() async {
     final defaultCategories = await Helpers().getDefaultIncomeCategory() ?? [];
     if (defaultCategories.isEmpty) {
-      return [1, 2]; // Fallback to default keys
+      return [7]; // Fallback to default keys (Gifts)
     }
 
     final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -616,7 +617,7 @@ class _BottomNavBarState extends State<BottomNavBar>
       }
     }
 
-    return keys.isNotEmpty ? keys : [3, 4]; // Fallback if no keys found
+    return keys.isNotEmpty ? keys : [7]; // Fallback if no keys found
   }
 
   void _startListening() {
@@ -1194,10 +1195,11 @@ class _BottomNavBarState extends State<BottomNavBar>
                   final balance =
                       double.tryParse(balanceController.text) ?? 0.0;
                   if (nameController.text.trim().isEmpty) {
+                    Navigator.pop(context);
                     SnackBars.show(
                       context,
                       message: 'Please enter wallet name',
-                      type: SnackBarType.warning,
+                      type: SnackBarType.error,
                     );
                     return;
                   }
@@ -1573,20 +1575,22 @@ class _BottomNavBarState extends State<BottomNavBar>
                     if (descController.text.trim().isEmpty ||
                         amount <= 0 ||
                         selectedCategoryKeys.isEmpty) {
+                      Navigator.pop(context);
                       SnackBars.show(
                         context,
                         message: 'Please fill all fields and select a category',
-                        type: SnackBarType.warning,
+                        type: SnackBarType.error,
                       );
                       return;
                     }
 
                     if (!isEditing &&
                         selectedDeductionDate.isBefore(DateTime.now())) {
+                      Navigator.pop(context);
                       SnackBars.show(
                         context,
                         message: 'Deduction date cannot be in the past',
-                        type: SnackBarType.warning,
+                        type: SnackBarType.error,
                       );
                       return;
                     }
@@ -2023,11 +2027,12 @@ class _BottomNavBarState extends State<BottomNavBar>
                   if (addController.text.trim().isEmpty ||
                       amount <= 0 ||
                       selectedCategoryKeys.isEmpty) {
+                    Navigator.pop(context);
                     SnackBars.show(
                       context,
                       message:
                           "Please enter all fields and select at least one category",
-                      type: SnackBarType.warning,
+                      type: SnackBarType.error,
                     );
                     return;
                   }
@@ -2158,11 +2163,12 @@ class _BottomNavBarState extends State<BottomNavBar>
                   if (addController.text.trim().isEmpty ||
                       amount <= 0 ||
                       selectedCategoryKeys.isEmpty) {
+                    Navigator.pop(context);
                     SnackBars.show(
                       context,
                       message:
                           "Please enter all fields and select at least one category",
-                      type: SnackBarType.warning,
+                      type: SnackBarType.error,
                     );
                     return;
                   }
@@ -2509,10 +2515,11 @@ class _BottomNavBarState extends State<BottomNavBar>
               FilledButton(
                 onPressed: () async {
                   if (addController.text.trim().isEmpty) {
+                    Navigator.pop(context);
                     SnackBars.show(
                       context,
                       message: "Please enter category name",
-                      type: SnackBarType.warning,
+                      type: SnackBarType.error,
                     );
                     return;
                   }

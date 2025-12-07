@@ -21,7 +21,8 @@ String colorToHex(Color color) {
 }
 
 class CategoryPage extends StatefulWidget {
-  const CategoryPage({super.key});
+  final bool openDefaultCategories;
+  const CategoryPage({super.key, this.openDefaultCategories = false});
 
   @override
   State<CategoryPage> createState() => _CategoryPageState();
@@ -29,6 +30,18 @@ class CategoryPage extends StatefulWidget {
 
 class _CategoryPageState extends State<CategoryPage> {
   final PrivacyManager _categoryPagePrivacyManager = PrivacyManager();
+
+  @override
+  void initState() {
+    super.initState();
+    initCall();
+  }
+
+  void initCall() {
+    if (widget.openDefaultCategories) {
+      _showDefaultCategoriesSheet(context);
+    }
+  }
   /// Add new category to Hive
   // Future<void> addCategory(
   //     String name,
@@ -782,21 +795,35 @@ class _CategoryPageState extends State<CategoryPage> {
       body: SimpleCustomAppBar(
         title: "Category",
         hasContent: true,
-        // RESTORED: User's requested expandedHeight
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
-        actions: [
-          // ADDED: "Add" button to restore functionality
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
+        // actions: [
+        //   // ADDED: "Add" button to restore functionality
+        //   IconButton(
+        //     icon: const Icon(Icons.add_rounded),
+        //     onPressed: () => _showAddEditCategorySheet(context),
+        //   ),
+        //   // Set Default Categories
+        //   IconButton(
+        //     icon: const Icon(Icons.settings_suggest_rounded),
+        //     onPressed: () => _showDefaultCategoriesSheet(context),
+        //   ),
+        // ],
+        actionItems: [
+          CustomAppBarActionItem(
+            icon: Icons.add_rounded,
+            label: "Add Category",
+            tooltip: "Add a new category",
             onPressed: () => _showAddEditCategorySheet(context),
           ),
-          // Set Default Categories
-          IconButton(
-            icon: const Icon(Icons.settings_suggest_rounded),
+          CustomAppBarActionItem(
+            icon: Icons.settings_suggest_rounded,
+            label: "Set Default Categories",
+            tooltip: "Set default categories for SMS parsing",
             onPressed: () => _showDefaultCategoriesSheet(context),
           ),
         ],
+
         // RESTORED: User's requested Container structure
         // child: Container(
         //   margin: const EdgeInsets.all(10),

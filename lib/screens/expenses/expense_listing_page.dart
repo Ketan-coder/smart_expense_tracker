@@ -32,6 +32,8 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
   double? _maxAmount;
   String _currentCurrency = 'INR';
   final PrivacyManager _expensePagePrivacyManager = PrivacyManager();
+  List<dynamic> _filterExpenseCategoryIds = [];
+  List<String> _filterMethods = [];
 
   @override
   void initState() {
@@ -59,67 +61,73 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
   List<MapEntry<dynamic, Expense>> _getFilteredExpenses(Box<Expense> box) {
     var expenses = box.toMap().entries.toList();
 
-    // Apply filters
-    if (_filterCategory != null) {
-      final categoryBox = Hive.box<Category>(AppConstants.categories);
-      final categoryKey = categoryBox.keys.firstWhere(
-            (key) => categoryBox.get(key)?.name == _filterCategory,
-        orElse: () => -1,
-      );
-      if (categoryKey != -1) {
-        expenses = expenses.where((e) =>
-            e.value.categoryKeys.contains(categoryKey)
-        ).toList();
-      }
+    // Multiple category filter
+    if (_filterExpenseCategoryIds.isNotEmpty) {
+      expenses = expenses.where((e) {
+        return e.value.categoryKeys
+            .any((key) => _filterExpenseCategoryIds.contains(key));
+      }).toList();
     }
 
-    if (_filterMethod != null) {
-      expenses = expenses.where((e) =>
-      (e.value.method ?? 'UPI') == _filterMethod
-      ).toList();
+    // Method filter
+    if (_filterMethods.isNotEmpty) {
+      expenses = expenses.where((e) {
+        final method = e.value.method ?? 'UPI';
+        return _filterMethods.contains(method);
+      }).toList();
     }
 
+    // Date range filter
     if (_dateRange != null) {
-      expenses = expenses.where((e) =>
-      e.value.date.isAfter(_dateRange!.start.subtract(const Duration(days: 1))) &&
-          e.value.date.isBefore(_dateRange!.end.add(const Duration(days: 1)))
-      ).toList();
+      expenses = expenses.where((e) {
+        return e.value.date.isAfter(_dateRange!.start.subtract(const Duration(days: 1))) &&
+            e.value.date.isBefore(_dateRange!.end.add(const Duration(days: 1)));
+      }).toList();
     }
 
+    // Min amount
     if (_minAmount != null) {
       expenses = expenses.where((e) => e.value.amount >= _minAmount!).toList();
     }
 
+    // Max amount
     if (_maxAmount != null) {
       expenses = expenses.where((e) => e.value.amount <= _maxAmount!).toList();
     }
 
-    // Apply sorting
+    // Sorting
     expenses.sort((a, b) {
       int comparison = 0;
+
       switch (_sortBy) {
         case 'date':
           comparison = a.value.date.compareTo(b.value.date);
           break;
+
         case 'amount':
           comparison = a.value.amount.compareTo(b.value.amount);
           break;
+
         case 'category':
           final categoryBox = Hive.box<Category>(AppConstants.categories);
+
           final catA = a.value.categoryKeys.isNotEmpty
               ? categoryBox.get(a.value.categoryKeys.first)?.name ?? ''
               : '';
+
           final catB = b.value.categoryKeys.isNotEmpty
               ? categoryBox.get(b.value.categoryKeys.first)?.name ?? ''
               : '';
+
           comparison = catA.compareTo(catB);
           break;
+
         case 'method':
-          final methodA = a.value.method ?? 'UPI';
-          final methodB = b.value.method ?? 'UPI';
-          comparison = methodA.compareTo(methodB);
+          comparison = (a.value.method ?? 'UPI')
+              .compareTo(b.value.method ?? 'UPI');
           break;
       }
+
       return _ascending ? comparison : -comparison;
     });
 
@@ -128,88 +136,135 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
 
   void _showCategoryFilter() {
     final categoryBox = Hive.box<Category>(AppConstants.categories);
-    final categories = categoryBox.values.toList();
+
+    // Built-in Hive keys + values
+    final categoryKeys = categoryBox.keys.toList();
+    final categoryValues = categoryBox.values.toList();
 
     BottomSheetUtil.show(
-        context: context,
-        title: 'Filter By Category',
-        height: MediaQuery.sizeOf(context).height * 0.5,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: const Text('All Categories'),
-                  leading: Radio<String?>(
-                    value: null,
-                    groupValue: _filterCategory,
-                    onChanged: (value) {
-                      setState(() => _filterCategory = value);
-                      Navigator.pop(context);
+      context: context,
+      title: 'Filter by Category',
+      height: MediaQuery.sizeOf(context).height * 0.6,
+      child: StatefulBuilder(
+        builder: (context, localSetState) {
+          return SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+
+                  // ALL CATEGORIES OPTION
+                  CheckboxListTile(
+                    title: const Text('All Categories'),
+                    value: _filterExpenseCategoryIds.isEmpty,
+                    onChanged: (selected) {
+                      localSetState(() {
+                        _filterExpenseCategoryIds.clear();
+                      });
+
+                      setState(() {}); // update FilterChip
+                      Navigator.pop(context); // CLOSE IMMEDIATELY
                     },
                   ),
-                ),
-                ...categories.map((category) {
-                  return ListTile(
-                    title: Text(category.name),
-                    leading: Radio<String>(
-                      value: category.name,
-                      groupValue: _filterCategory,
-                      onChanged: (value) {
-                        setState(() => _filterCategory = value);
-                        Navigator.pop(context);
+
+                  // INDIVIDUAL CATEGORY CHECKBOXES
+                  ...List.generate(categoryValues.length, (index) {
+                    final category = categoryValues[index];
+                    final catKey = categoryKeys[index];
+
+                    // only expense categories
+                    if (category.type.toString().toLowerCase() != "expense") {
+                      return const SizedBox.shrink();
+                    }
+
+                    return CheckboxListTile(
+                      title: Text(category.name),
+                      value: _filterExpenseCategoryIds.contains(catKey),
+                      onChanged: (selected) {
+                        localSetState(() {
+                          if (selected == true) {
+                            _filterExpenseCategoryIds.add(catKey);
+                          } else {
+                            _filterExpenseCategoryIds.remove(catKey);
+                          }
+                        });
+
+                        setState(() {}); // update main UI chip
                       },
-                    ),
-                  );
-                }),
-              ],
+                    );
+                  }),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
+      ),
     );
   }
 
+  String get selectedCategoryLabel {
+    final categoryBox = Hive.box<Category>(AppConstants.categories);
+
+    if (_filterExpenseCategoryIds.isEmpty) return "All";
+
+    final names = _filterExpenseCategoryIds.map((id) {
+      return categoryBox.get(id)?.name ?? "";
+    }).where((name) => name.isNotEmpty).toList();
+
+    return names.join(", ");
+  }
+
+
   void _showMethodFilter() {
-    final methods = Helpers().getPaymentMethods();
+    final methods = Helpers().getPaymentMethods(); // list of strings
 
     BottomSheetUtil.show(
-        context: context,
-        title: 'Filter by Method',
-        height: MediaQuery.sizeOf(context).height * 0.5,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: const Text('All Methods'),
-                  leading: Radio<String?>(
-                    value: null,
-                    groupValue: _filterMethod,
-                    onChanged: (value) {
-                      setState(() => _filterMethod = value);
-                      Navigator.pop(context);
+      context: context,
+      title: 'Filter by Method',
+      height: MediaQuery.sizeOf(context).height * 0.5,
+      child: StatefulBuilder(
+        builder: (context, localSetState) {
+          return SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // ALL METHODS OPTION
+                  CheckboxListTile(
+                    title: const Text('All Methods'),
+                    value: _filterMethods.isEmpty,
+                    onChanged: (selected) {
+                      localSetState(() {
+                        _filterMethods.clear();
+                      });
+
+                      setState(() {}); // update main UI
+                      Navigator.pop(context); // CLOSE INSTANTLY
                     },
                   ),
-                ),
-                ...methods.map((method) {
-                  return ListTile(
-                    title: Text(method),
-                    leading: Radio<String>(
-                      value: method,
-                      groupValue: _filterMethod,
-                      onChanged: (value) {
-                        setState(() => _filterMethod = value);
-                        Navigator.pop(context);
+
+                  // INDIVIDUAL METHODS
+                  ...methods.map((method) {
+                    return CheckboxListTile(
+                      title: Text(method),
+                      value: _filterMethods.contains(method),
+                      onChanged: (selected) {
+                        localSetState(() {
+                          if (selected == true) {
+                            _filterMethods.add(method);
+                          } else {
+                            _filterMethods.remove(method);
+                          }
+                        });
+
+                        setState(() {}); // update chips instantly
                       },
-                    ),
-                  );
-                }),
-              ],
+                    );
+                  }),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
+      ),
     );
   }
 
@@ -412,26 +467,51 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                       child: Row(
                         children: [
                           FilterChip(
-                            label: Text('Category${_filterCategory != null ? ': $_filterCategory' : ''}'),
-                            selected: _filterCategory != null,
+                            label: Text('Categories${selectedCategoryLabel != 'All' ? ': $selectedCategoryLabel' : ''}'),
+                            selected: _filterExpenseCategoryIds != [] && selectedCategoryLabel != 'All',
                             onSelected: (_) => _showCategoryFilter(),
                             avatar: Icon(
                               Icons.category_rounded,
                               size: 18,
-                              color: _filterCategory != null ? colorScheme.primary : null,
+                              color: selectedCategoryLabel != 'All' ? colorScheme.primary : null,
                             ),
                           ),
+
+                          // FilterChip(
+                          //   label: Text('Category${_filterCategory != null ? ': $_filterCategory' : ''}'),
+                          //   selected: _filterCategory != null,
+                          //   onSelected: (_) => _showCategoryFilter(),
+                          //   avatar: Icon(
+                          //     Icons.category_rounded,
+                          //     size: 18,
+                          //     color: _filterCategory != null ? colorScheme.primary : null,
+                          //   ),
+                          // ),
                           const SizedBox(width: 8),
                           FilterChip(
-                            label: Text('Method${_filterMethod != null ? ': $_filterMethod' : ''}'),
-                            selected: _filterMethod != null,
+                            label: Text(
+                              _filterMethods.isEmpty
+                                  ? 'Methods'
+                                  : 'Methods: ${_filterMethods.join(", ")}',
+                            ),
+                            selected: _filterMethods.isNotEmpty,
                             onSelected: (_) => _showMethodFilter(),
                             avatar: Icon(
                               Icons.payment_rounded,
                               size: 18,
-                              color: _filterMethod != null ? colorScheme.primary : null,
+                              color: _filterMethods.isNotEmpty ? colorScheme.primary : null,
                             ),
                           ),
+                          // FilterChip(
+                          //   label: Text('Method${_filterMethod != null ? ': $_filterMethod' : ''}'),
+                          //   selected: _filterMethod != null,
+                          //   onSelected: (_) => _showMethodFilter(),
+                          //   avatar: Icon(
+                          //     Icons.payment_rounded,
+                          //     size: 18,
+                          //     color: _filterMethod != null ? colorScheme.primary : null,
+                          //   ),
+                          // ),
                           const SizedBox(width: 8),
                           FilterChip(
                             label: Text(_dateRange != null
@@ -769,14 +849,32 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: methodController,
+              DropdownButtonFormField<String>(
+                initialValue: methodController.text,
                 decoration: const InputDecoration(
-                  labelText: 'Payment Method',
+                  labelText: "Payment Method",
                   border: OutlineInputBorder(),
                 ),
+                items: Helpers()
+                    .getPaymentMethods()
+                    .map(
+                      (type) =>
+                      DropdownMenuItem(value: type, child: Text(type)),
+                )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => methodController.text = value);
+                },
               ),
               const SizedBox(height: 16),
+              // TextField(
+              //   controller: methodController,
+              //   decoration: const InputDecoration(
+              //     labelText: 'Payment Method',
+              //     border: OutlineInputBorder(),
+              //   ),
+              // ),
+              // const SizedBox(height: 16),
               const Text(
                 "Selected Categories:",
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -811,10 +909,11 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                 onPressed: () {
                   final amount = double.tryParse(amountController.text);
                   if (amount == null || amount <= 0 || selectedCategoryKeys.isEmpty) {
+                    Navigator.pop(context);
                     SnackBars.show(
                       context,
                       message: "Please fill all fields and select at least one category",
-                      type: SnackBarType.warning,
+                      type: SnackBarType.error,
                     );
                     return;
                   }

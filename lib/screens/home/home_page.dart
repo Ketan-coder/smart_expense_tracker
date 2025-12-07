@@ -714,10 +714,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   final balance =
                       double.tryParse(balanceController.text) ?? 0.0;
                   if (nameController.text.trim().isEmpty) {
+                    Navigator.pop(context);
                     SnackBars.show(
                       context,
                       message: 'Please enter wallet name',
-                      type: SnackBarType.warning,
+                      type: SnackBarType.error,
                     );
                     return;
                   }
