@@ -45,7 +45,7 @@ SmartSpend monitors your SMS inbox for transaction notifications (like UPI payme
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/<your-username>/smartspend.git
+   git clone https://github.com/Ketan-coder/smartspend.git
    cd smartspend
    ```
 
@@ -103,7 +103,7 @@ SmartSpend monitors your SMS inbox for transaction notifications (like UPI payme
 - [ ] Analytics limited to basic views
 - [ ] Provider state management not yet implemented
 
-See [Issues](https://github.com/<your-username>/smartspend/issues) for the full list.
+See [Issues](https://github.com/Ketan-coder/smartspend/issues) for the full list.
 
 ---
 
