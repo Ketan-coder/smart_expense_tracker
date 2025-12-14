@@ -6,28 +6,28 @@ import '../data/model/loan.dart';
 import '../services/notification_service.dart';
 import 'loan_helpers.dart';
 
-/// BATTERY OPTIMIZED: Loan management service with caching and rate limiting
+/// Production-ready loan management service
 class LoanService {
   static final LoanService _instance = LoanService._internal();
   factory LoanService() => _instance;
   LoanService._internal();
 
-  // Cache for statistics (prevents recalculation)
+  // Cache for statistics
   static Map<String, dynamic>? _statsCache;
   static DateTime? _statsCacheTime;
-  static const int _statsCacheMinutes = 5; // Cache stats for 5 minutes
+  static const int _statsCacheMinutes = 5;
 
   // Notification rate limiting
   static DateTime? _lastReminderCheck;
-  static const int _reminderCheckHours = 12; // Check reminders every 12 hours
+  static const int _reminderCheckHours = 12;
 
   // ===== CRUD Operations =====
 
   /// Add a new loan using atomic operation
   Future<Loan?> addLoan({
-    required String personName,
+    required String creditorName,
     required String description,
-    required double amount,
+    required double principalAmount,
     required LoanType type,
     required String method,
     required List<int> categoryKeys,
@@ -35,15 +35,29 @@ class LoanService {
     String? phoneNumber,
     bool reminderEnabled = true,
     int reminderDaysBefore = 3,
+    // Enhanced fields
+    LoanCreditorType creditorType = LoanCreditorType.person,
+    double interestRate = 0,
+    InterestType interestType = InterestType.none,
+    int? tenureMonths,
+    double? emiAmount,
+    PaymentFrequency paymentFrequency = PaymentFrequency.monthly,
+    String? accountNumber,
+    String? referenceNumber,
+    LoanPurpose? purpose,
+    String? collateral,
+    double? penaltyRate,
+    DateTime? firstPaymentDate,
+    bool autoDebitEnabled = false,
+    String? notes,
   }) async {
     try {
-      debugPrint("💰 [LoanService] Adding loan using atomic operation...");
+      debugPrint("💰 [LoanService] Adding loan atomically...");
 
-      // Use atomic operation from LoanHelpers
       final success = await LoanHelpers.addLoanAtomic(
-        personName: personName,
+        creditorName: creditorName,
         description: description,
-        amount: amount,
+        principalAmount: principalAmount,
         type: type,
         method: method,
         categoryKeys: categoryKeys,
@@ -51,27 +65,42 @@ class LoanService {
         phoneNumber: phoneNumber,
         reminderEnabled: reminderEnabled,
         reminderDaysBefore: reminderDaysBefore,
+        creditorType: creditorType,
+        interestRate: interestRate,
+        interestType: interestType,
+        tenureMonths: tenureMonths,
+        emiAmount: emiAmount,
+        paymentFrequency: paymentFrequency,
+        accountNumber: accountNumber,
+        referenceNumber: referenceNumber,
+        purpose: purpose,
+        collateral: collateral,
+        penaltyRate: penaltyRate,
+        firstPaymentDate: firstPaymentDate,
+        autoDebitEnabled: autoDebitEnabled,
+        notes: notes,
       );
 
       if (!success) {
-        debugPrint("❌ [LoanService] Failed to add loan atomically");
+        debugPrint("❌ [LoanService] Failed to add loan");
         return null;
       }
 
-      _clearCache(); // Invalidate cache
+      _clearCache();
 
-      // Find the newly created loan to return it
+      // Find the newly created loan
       final loanBox = Hive.box<Loan>(AppConstants.loans);
       final newLoan = loanBox.values.lastWhere(
-            (loan) => loan.personName == personName.trim() && loan.amount == amount,
-        orElse: () => throw Exception("Loan not found after atomic creation"),
+            (loan) => loan.creditorName == creditorName.trim() &&
+            loan.principalAmount == principalAmount,
+        orElse: () => throw Exception("Loan not found after creation"),
       );
 
-      debugPrint("✅ [LoanService] Loan added atomically: ${newLoan.typeText} ${newLoan.amount} ${newLoan.directionText}");
+      debugPrint("✅ [LoanService] Loan added: ${newLoan.typeText} ${newLoan.principalAmount} ${newLoan.directionText}");
 
-      // Schedule reminder if due date set
-      if (dueDate != null && reminderEnabled) {
-        await _scheduleReminderForLoan(newLoan);
+      // Schedule reminders
+      if (reminderEnabled && (dueDate != null || firstPaymentDate != null)) {
+        await _scheduleRemindersForLoan(newLoan);
       }
 
       return newLoan;
@@ -86,22 +115,31 @@ class LoanService {
   Future<Loan?> updateLoan(String loanId, Loan updatedLoan) async {
     final loanBox = Hive.box<Loan>(AppConstants.loans);
 
-    if (!loanBox.containsKey(loanId)) {
-      debugPrint("❌ Loan not found: $loanId");
+    try {
+      final loanKey = loanBox.keys.cast<int>().firstWhere(
+            (key) => loanBox.get(key)?.id == loanId,
+        orElse: () => throw Exception("Loan not found"),
+      );
+
+      // Update status before saving
+      final statusUpdatedLoan = updatedLoan.updateStatus();
+
+      await loanBox.put(loanKey, statusUpdatedLoan);
+      _clearCache();
+
+      debugPrint("💰 Loan updated: ${statusUpdatedLoan.creditorName}");
+
+      // Reschedule reminders
+      if (statusUpdatedLoan.reminderEnabled) {
+        await _scheduleRemindersForLoan(statusUpdatedLoan);
+      }
+
+      return statusUpdatedLoan;
+
+    } catch (e, st) {
+      debugPrint("❌ [LoanService] Error updating loan: $e\n$st");
       return null;
     }
-
-    await loanBox.put(loanId, updatedLoan);
-    _clearCache();
-
-    debugPrint("💰 Loan updated: ${updatedLoan.personName}");
-
-    // Reschedule reminder if due date changed
-    if (updatedLoan.dueDate != null && updatedLoan.reminderEnabled) {
-      await _scheduleReminderForLoan(updatedLoan);
-    }
-
-    return updatedLoan;
   }
 
   /// Delete a loan
@@ -109,25 +147,26 @@ class LoanService {
     try {
       debugPrint("🗑️ [LoanService] Deleting loan: $loanId");
 
-      // Cancel any scheduled notifications first
-      await NotificationService.cancelNotification(loanId.hashCode);
-
-      // Find the loan to get its details for proper cleanup
       final loanBox = Hive.box<Loan>(AppConstants.loans);
-      final loan = loanBox.get(loanId);
+      final loanKey = loanBox.keys.cast<int>().firstWhere(
+            (key) => loanBox.get(key)?.id == loanId,
+        orElse: () => throw Exception("Loan not found"),
+      );
 
+      final loan = loanBox.get(loanKey);
       if (loan == null) {
-        debugPrint("❌ [LoanService] Loan not found: $loanId");
+        debugPrint("❌ [LoanService] Loan not found");
         return false;
       }
 
-      // For atomic deletion, we would need to implement LoanHelpers.deleteLoanAtomic()
-      // For now, use standard deletion
-      await loanBox.delete(loanId);
+      // Cancel notifications
+      await NotificationService.cancelNotification(loanId.hashCode);
+
+      // Delete loan
+      await loanBox.delete(loanKey);
       _clearCache();
 
       debugPrint("✅ [LoanService] Loan deleted: $loanId");
-
       return true;
 
     } catch (e, st) {
@@ -144,9 +183,8 @@ class LoanService {
     String? note,
   }) async {
     try {
-      debugPrint("💵 [LoanService] Adding payment using atomic operation...");
+      debugPrint("💵 [LoanService] Adding payment atomically...");
 
-      // Use atomic operation from LoanHelpers
       final success = await LoanHelpers.addPaymentAtomic(
         loanId: loanId,
         amount: amount,
@@ -155,27 +193,28 @@ class LoanService {
       );
 
       if (!success) {
-        debugPrint("❌ [LoanService] Failed to add payment atomically");
+        debugPrint("❌ [LoanService] Failed to add payment");
         return null;
       }
 
       _clearCache();
 
-      // Find the updated loan to return it
+      // Get updated loan
       final loanBox = Hive.box<Loan>(AppConstants.loans);
-      final updatedLoan = loanBox.get(loanId);
+      final updatedLoan = loanBox.values.firstWhere(
+            (loan) => loan.id == loanId,
+        orElse: () => throw Exception("Loan not found"),
+      );
 
-      if (updatedLoan == null) {
-        debugPrint("❌ [LoanService] Loan not found after payment: $loanId");
-        return null;
-      }
+      debugPrint("✅ [LoanService] Payment added: $amount to ${updatedLoan.creditorName}");
 
-      debugPrint("✅ [LoanService] Payment added atomically: $amount to loan ${updatedLoan.personName}");
-
-      // Check if loan is now paid and cancel reminders
+      // Cancel reminders if fully paid
       if (updatedLoan.isPaid) {
         await NotificationService.cancelNotification(loanId.hashCode);
-        debugPrint("✅ Loan fully paid: ${updatedLoan.personName}");
+        debugPrint("✅ Loan fully paid: ${updatedLoan.creditorName}");
+      } else {
+        // Reschedule next payment reminder
+        await _scheduleRemindersForLoan(updatedLoan);
       }
 
       return updatedLoan;
@@ -186,7 +225,7 @@ class LoanService {
     }
   }
 
-  // ===== Query Methods (Cached) =====
+  // ===== Query Methods =====
 
   /// Get all loans
   List<Loan> getAllLoans() {
@@ -197,6 +236,11 @@ class LoanService {
   /// Get loans by type
   List<Loan> getLoansByType(LoanType type) {
     return getAllLoans().where((l) => l.type == type).toList();
+  }
+
+  /// Get loans by creditor type
+  List<Loan> getLoansByCreditorType(LoanCreditorType creditorType) {
+    return getAllLoans().where((l) => l.creditorType == creditorType).toList();
   }
 
   /// Get active (unpaid) loans
@@ -214,17 +258,30 @@ class LoanService {
     return getAllLoans().where((l) => l.isDueSoon && !l.isPaid).toList();
   }
 
+  /// Get loans with upcoming payments
+  List<Loan> getLoansWithUpcomingPayments() {
+    final now = DateTime.now();
+    return getActiveLoans().where((loan) {
+      if (loan.nextPaymentDate == null) return false;
+      final daysUntil = loan.nextPaymentDate!.difference(now).inDays;
+      return daysUntil >= 0 && daysUntil <= 7;
+    }).toList();
+  }
+
   /// Get loan by ID
   Loan? getLoanById(String id) {
     final loanBox = Hive.box<Loan>(AppConstants.loans);
-    return loanBox.get(id);
+    return loanBox.values.firstWhere(
+          (loan) => loan.id == id,
+      orElse: () => throw Exception("Loan not found"),
+    );
   }
 
-  // ===== Statistics (Cached for Performance) =====
+  // ===== Statistics (Cached) =====
 
-  /// Get loan statistics - CACHED for 5 minutes
+  /// Get comprehensive loan statistics - CACHED for 5 minutes
   Map<String, dynamic> getStatistics() {
-    // Check cache first
+    // Check cache
     if (_statsCache != null && _statsCacheTime != null) {
       final cacheAge = DateTime.now().difference(_statsCacheTime!).inMinutes;
       if (cacheAge < _statsCacheMinutes) {
@@ -239,78 +296,151 @@ class LoanService {
     final lentLoans = loans.where((l) => l.type == LoanType.lent).toList();
     final borrowedLoans = loans.where((l) => l.type == LoanType.borrowed).toList();
 
-    // Calculate totals efficiently
+    // Initialize totals
     double totalLent = 0;
     double totalBorrowed = 0;
     double totalLentReceived = 0;
     double totalBorrowedPaid = 0;
+    double totalInterestLent = 0;
+    double totalInterestBorrowed = 0;
+    double pendingInterestToReceive = 0;
+    double pendingInterestToPay = 0;
     int overdueCount = 0;
     int dueSoonCount = 0;
+    double totalPenalty = 0;
 
+    // Calculate lent statistics
     for (var loan in lentLoans) {
-      totalLent += loan.amount;
+      totalLent += loan.principalAmount;
       totalLentReceived += loan.paidAmount;
-      if (loan.isOverdue) overdueCount++;
+      totalInterestLent += loan.totalInterest;
+
+      if (!loan.isPaid) {
+        final remainingRatio = loan.remainingAmount / loan.totalAmount;
+        pendingInterestToReceive += loan.totalInterest * remainingRatio;
+      }
+
+      if (loan.isOverdue) {
+        overdueCount++;
+        totalPenalty += loan.penaltyAmount;
+      }
       if (loan.isDueSoon) dueSoonCount++;
     }
 
+    // Calculate borrowed statistics
     for (var loan in borrowedLoans) {
-      totalBorrowed += loan.amount;
+      totalBorrowed += loan.principalAmount;
       totalBorrowedPaid += loan.paidAmount;
-      if (loan.isOverdue) overdueCount++;
+      totalInterestBorrowed += loan.totalInterest;
+
+      if (!loan.isPaid) {
+        final remainingRatio = loan.remainingAmount / loan.totalAmount;
+        pendingInterestToPay += loan.totalInterest * remainingRatio;
+      }
+
+      if (loan.isOverdue) {
+        overdueCount++;
+        totalPenalty += loan.penaltyAmount;
+      }
       if (loan.isDueSoon) dueSoonCount++;
     }
+
+    // Calculate averages
+    final activeLent = lentLoans.where((l) => !l.isPaid).length;
+    final activeBorrowed = borrowedLoans.where((l) => !l.isPaid).length;
+    final avgInterestRate = _calculateAverageInterestRate(loans);
 
     _statsCache = {
+      // Basic counts
       'totalLoans': loans.length,
       'activeLoans': loans.where((l) => !l.isPaid).length,
       'paidLoans': loans.where((l) => l.isPaid).length,
+
+      // Lent statistics
       'totalLent': totalLent,
-      'totalBorrowed': totalBorrowed,
       'totalLentReceived': totalLentReceived,
+      'pendingToReceive': totalLent + totalInterestLent - totalLentReceived,
+      'lentCount': lentLoans.length,
+      'activeLentCount': activeLent,
+
+      // Borrowed statistics
+      'totalBorrowed': totalBorrowed,
       'totalBorrowedPaid': totalBorrowedPaid,
-      'pendingToReceive': totalLent - totalLentReceived,
-      'pendingToPay': totalBorrowed - totalBorrowedPaid,
-      'netBalance': (totalLent - totalLentReceived) - (totalBorrowed - totalBorrowedPaid),
+      'pendingToPay': totalBorrowed + totalInterestBorrowed - totalBorrowedPaid,
+      'borrowedCount': borrowedLoans.length,
+      'activeBorrowedCount': activeBorrowed,
+
+      // Interest statistics
+      'totalInterest': totalInterestLent + totalInterestBorrowed,
+      'totalInterestLent': totalInterestLent,
+      'totalInterestBorrowed': totalInterestBorrowed,
+      'pendingInterestToReceive': pendingInterestToReceive,
+      'pendingInterestToPay': pendingInterestToPay,
+      'averageInterestRate': avgInterestRate,
+
+      // Net balance
+      'netBalance': (totalLent + totalInterestLent - totalLentReceived) -
+          (totalBorrowed + totalInterestBorrowed - totalBorrowedPaid),
+
+      // Alerts
       'overdueCount': overdueCount,
       'dueSoonCount': dueSoonCount,
-      'lentCount': lentLoans.length,
-      'borrowedCount': borrowedLoans.length,
+      'totalPenalty': totalPenalty,
+
+      // By creditor type
+      'bankLoans': loans.where((l) => l.creditorType == LoanCreditorType.bank).length,
+      'personalLoans': loans.where((l) => l.creditorType == LoanCreditorType.person).length,
     };
 
     _statsCacheTime = DateTime.now();
     return _statsCache!;
   }
 
-  // ===== Notification Helpers =====
+  /// Calculate average interest rate
+  double _calculateAverageInterestRate(List<Loan> loans) {
+    final loansWithInterest = loans.where((l) => l.interestRate > 0).toList();
+    if (loansWithInterest.isEmpty) return 0;
 
-  /// Schedule reminder for a specific loan
-  Future<void> _scheduleReminderForLoan(Loan loan) async {
-    if (loan.dueDate == null || !loan.reminderEnabled || loan.isPaid) return;
-
-    final reminderDate = loan.dueDate!.subtract(
-      Duration(days: loan.reminderDaysBefore),
+    final totalRate = loansWithInterest.fold<double>(
+      0,
+          (sum, loan) => sum + loan.interestRate,
     );
 
-    // Only schedule if reminder date is in the future
-    if (reminderDate.isAfter(DateTime.now())) {
-      await NotificationService.scheduleNotification(
-        id: loan.id.hashCode,
-        title: loan.type == LoanType.lent
-            ? '💰 Loan Reminder'
-            : '💵 Payment Reminder',
-        body: loan.type == LoanType.lent
-            ? '${loan.personName} owes you ${loan.remainingAmount.toStringAsFixed(0)} - due in ${loan.reminderDaysBefore} days'
-            : 'You owe ${loan.personName} ${loan.remainingAmount.toStringAsFixed(0)} - due in ${loan.reminderDaysBefore} days',
-        scheduledDate: reminderDate,
+    return totalRate / loansWithInterest.length;
+  }
+
+  // ===== Notification Helpers =====
+
+  /// Schedule all reminders for a loan
+  Future<void> _scheduleRemindersForLoan(Loan loan) async {
+    if (!loan.reminderEnabled || loan.isPaid) return;
+
+    // Cancel existing reminders
+    await NotificationService.cancelNotification(loan.id.hashCode);
+
+    // Schedule next payment reminder
+    if (loan.nextPaymentDate != null) {
+      final reminderDate = loan.nextPaymentDate!.subtract(
+        Duration(days: loan.reminderDaysBefore),
       );
-      debugPrint("🔔 Reminder scheduled for loan: ${loan.personName}");
+
+      if (reminderDate.isAfter(DateTime.now())) {
+        await NotificationService.scheduleNotification(
+          id: loan.id.hashCode,
+          title: loan.type == LoanType.lent
+              ? '💰 Payment Due from ${loan.creditorName}'
+              : '💵 Payment Due to ${loan.creditorName}',
+          body: 'Amount: ${loan.nextPaymentAmount.toStringAsFixed(0)} - Due in ${loan.reminderDaysBefore} days',
+          scheduledDate: reminderDate,
+        );
+        debugPrint("🔔 Reminder scheduled for: ${loan.creditorName}");
+      }
     }
   }
 
-  /// Check and send reminders for all loans - RATE LIMITED
+  /// Check and send reminders - RATE LIMITED
   Future<void> checkAndSendReminders() async {
-    // Rate limiting - only check every 12 hours
+    // Rate limiting
     if (_lastReminderCheck != null) {
       final hoursSince = DateTime.now().difference(_lastReminderCheck!).inHours;
       if (hoursSince < _reminderCheckHours) {
@@ -325,7 +455,7 @@ class LoanService {
     final prefs = await SharedPreferences.getInstance();
     final notifiedLoans = prefs.getStringList('notified_loans_today') ?? [];
 
-    // Reset daily notifications at midnight
+    // Reset daily
     final lastResetDate = prefs.getString('last_notification_reset');
     final today = DateTime.now().toIso8601String().split('T')[0];
 
@@ -334,9 +464,10 @@ class LoanService {
       await prefs.setString('last_notification_reset', today);
     }
 
+    // Get loans needing reminders
     final loansToNotify = getAllLoans().where((loan) {
       return loan.shouldRemind() && !notifiedLoans.contains(loan.id);
-    }).take(5).toList(); // LIMIT: Max 5 notifications per check
+    }).take(5).toList();
 
     for (var loan in loansToNotify) {
       await _sendLoanReminder(loan);
@@ -344,10 +475,10 @@ class LoanService {
     }
 
     await prefs.setStringList('notified_loans_today', notifiedLoans);
-    debugPrint("✅ Sent ${loansToNotify.length} loan reminders");
+    debugPrint("✅ Sent ${loansToNotify.length} reminders");
   }
 
-  /// Send immediate reminder for a loan
+  /// Send immediate reminder
   Future<void> _sendLoanReminder(Loan loan) async {
     final isLent = loan.type == LoanType.lent;
 
@@ -355,8 +486,8 @@ class LoanService {
       id: loan.id.hashCode,
       title: isLent ? '💰 Collect Payment' : '💵 Payment Due',
       body: isLent
-          ? '${loan.personName} owes you ${loan.remainingAmount.toStringAsFixed(0)} ${loan.statusText.toLowerCase()}'
-          : 'You owe ${loan.personName} ${loan.remainingAmount.toStringAsFixed(0)} ${loan.statusText.toLowerCase()}',
+          ? '${loan.creditorName} owes ${loan.remainingAmount.toStringAsFixed(0)} ${loan.statusText.toLowerCase()}'
+          : 'You owe ${loan.creditorName} ${loan.remainingAmount.toStringAsFixed(0)} ${loan.statusText.toLowerCase()}',
       channelId: 'loan_reminders',
       channelName: 'Loan Reminders',
     );
@@ -367,30 +498,85 @@ class LoanService {
     if (!loan.isOverdue) return;
 
     await NotificationService.showNotification(
-      id: (loan.id.hashCode + 1000), // Different ID for overdue
+      id: (loan.id.hashCode + 1000),
       title: '🚨 Overdue Loan!',
       body: loan.type == LoanType.lent
-          ? '${loan.personName} is ${loan.daysOverdue} days overdue on ${loan.remainingAmount.toStringAsFixed(0)}'
-          : 'Your payment to ${loan.personName} is ${loan.daysOverdue} days overdue!',
+          ? '${loan.creditorName} is ${loan.daysOverdue} days overdue on ${loan.remainingAmount.toStringAsFixed(0)}'
+          : 'Your payment to ${loan.creditorName} is ${loan.daysOverdue} days overdue!',
       channelId: 'loan_reminders',
       channelName: 'Loan Reminders',
     );
   }
 
-  // ===== Validation Helpers =====
+  // ===== Utility Methods =====
 
-  /// Validate loan input using LoanHelpers
+  /// Update all loan statuses (run daily)
+  Future<void> updateAllLoanStatuses() async {
+    final loanBox = Hive.box<Loan>(AppConstants.loans);
+
+    for (var key in loanBox.keys) {
+      final loan = loanBox.get(key);
+      if (loan == null) continue;
+
+      final updatedLoan = loan.updateStatus();
+      if (updatedLoan.status != loan.status) {
+        await loanBox.put(key, updatedLoan);
+        debugPrint("📊 Updated status for ${loan.creditorName}: ${updatedLoan.statusText}");
+      }
+    }
+
+    _clearCache();
+  }
+
+  /// Get priority loans
+  List<Loan> getPriorityLoans({int limit = 5}) {
+    return LoanHelpers.getPriorityLoans(limit: limit);
+  }
+
+  /// Get loans grouped by person
+  Map<String, List<Loan>> getLoansByPerson() {
+    return LoanHelpers.getLoansByPerson();
+  }
+
+  /// Get balance by person
+  Map<String, double> getBalanceByPerson() {
+    return LoanHelpers.getBalanceByPerson();
+  }
+
+  /// Get quick stats
+  Map<String, dynamic> getQuickStats(String currency) {
+    return LoanHelpers.getQuickStats(currency);
+  }
+
+  // ===== Cache Management =====
+
+  static void _clearCache() {
+    _statsCache = null;
+    _statsCacheTime = null;
+    debugPrint("🗑️ Loan statistics cache cleared");
+  }
+
+  void refreshCache() {
+    _clearCache();
+    getStatistics();
+  }
+
+  // ===== Validation =====
+
   static String? validateLoanInput({
-    required String personName,
+    required String creditorName,
     required String amount,
+    double? interestRate,
+    int? tenureMonths,
   }) {
     return LoanHelpers.validateLoanInput(
-      personName: personName,
+      creditorName: creditorName,
       amount: amount,
+      interestRate: interestRate,
+      tenureMonths: tenureMonths,
     );
   }
 
-  /// Validate payment input using LoanHelpers
   static String? validatePaymentInput({
     required String amount,
     required double maxAmount,
@@ -399,57 +585,5 @@ class LoanService {
       amount: amount,
       maxAmount: maxAmount,
     );
-  }
-
-  // ===== Cache Management =====
-
-  /// Clear statistics cache
-  static void _clearCache() {
-    _statsCache = null;
-    _statsCacheTime = null;
-    debugPrint("🗑️ Loan statistics cache cleared");
-  }
-
-  /// Force refresh cache
-  void refreshCache() {
-    _clearCache();
-    getStatistics(); // Rebuild cache
-  }
-
-  // ===== Utility Methods =====
-
-  /// Get priority loans using LoanHelpers
-  List<Loan> getPriorityLoans({int limit = 5}) {
-    return LoanHelpers.getPriorityLoans(limit: limit);
-  }
-
-  /// Get loans grouped by person using LoanHelpers
-  Map<String, List<Loan>> getLoansByPerson() {
-    return LoanHelpers.getLoansByPerson();
-  }
-
-  /// Get balance by person using LoanHelpers
-  Map<String, double> getBalanceByPerson() {
-    return LoanHelpers.getBalanceByPerson();
-  }
-
-  /// Get quick stats using LoanHelpers
-  Map<String, dynamic> getQuickStats(String currency) {
-    return LoanHelpers.getQuickStats(currency);
-  }
-
-  /// Format amount using LoanHelpers
-  static String formatAmount(double amount, String currency) {
-    return LoanHelpers.formatAmount(amount, currency);
-  }
-
-  /// Format amount short using LoanHelpers
-  static String formatAmountShort(double amount, String currency) {
-    return LoanHelpers.formatAmountShort(amount, currency);
-  }
-
-  /// Format due date using LoanHelpers
-  static String formatDueDate(DateTime? dueDate) {
-    return LoanHelpers.formatDueDate(dueDate);
   }
 }

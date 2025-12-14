@@ -7,32 +7,593 @@ import '../data/model/wallet.dart';
 import '../services/loan_service.dart';
 import '../../core/app_constants.dart';
 
-/// Helper functions for loan management
+/// Production-ready loan management helpers with proper transaction linking
 class LoanHelpers {
 
-  // ===== Formatting Helpers =====
+  // ===== ATOMIC OPERATIONS WITH TRANSACTION LINKING =====
 
-  /// Format amount with currency
+  /// Atomic operation: Add loan with linked transaction
+  /// This ensures wallet, expense/income, and loan are all created/updated together
+  static Future<bool> addLoanAtomic({
+    required String creditorName,
+    required String description,
+    required double principalAmount,
+    required LoanType type,
+    required String method,
+    required List<int> categoryKeys,
+    DateTime? dueDate,
+    DateTime? date,
+    String? phoneNumber,
+    bool reminderEnabled = true,
+    int reminderDaysBefore = 3,
+    // New fields
+    LoanCreditorType creditorType = LoanCreditorType.person,
+    double interestRate = 0,
+    InterestType interestType = InterestType.none,
+    int? tenureMonths,
+    double? emiAmount,
+    PaymentFrequency paymentFrequency = PaymentFrequency.monthly,
+    String? accountNumber,
+    String? referenceNumber,
+    LoanPurpose? purpose,
+    String? collateral,
+    double? penaltyRate,
+    DateTime? firstPaymentDate,
+    bool autoDebitEnabled = false,
+    String? notes,
+  }) async {
+    debugPrint("💰 [addLoanAtomic] Starting atomic loan operation...");
+
+    // Validation
+    if (principalAmount <= 0) {
+      debugPrint("❌ Invalid amount: $principalAmount");
+      return false;
+    }
+    if (creditorName.trim().isEmpty) {
+      debugPrint("❌ Creditor name cannot be empty");
+      return false;
+    }
+
+    final loanBox = Hive.box<Loan>(AppConstants.loans);
+    final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+    final incomeBox = Hive.box<Income>(AppConstants.incomes);
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+
+    String? loanKey;
+    int? transactionKey;
+    Wallet? affectedWallet;
+    double originalWalletBalance = 0;
+
+    try {
+      // Step 1: Find or create wallet
+      affectedWallet = await _findOrCreateWallet(walletBox, method);
+      originalWalletBalance = affectedWallet.balance;
+      debugPrint("💼 Using wallet: ${affectedWallet.name} (Balance: ${affectedWallet.balance})");
+
+      // Step 2: Create loan object
+      final loanId = DateTime.now().millisecondsSinceEpoch.toString();
+      final loan = Loan(
+        id: loanId,
+        creditorName: creditorName.trim(),
+        description: description.trim(),
+        principalAmount: principalAmount,
+        date: date ?? DateTime.now(),
+        dueDate: dueDate,
+        type: type,
+        status: LoanStatus.pending,
+        paidAmount: 0,
+        method: method.trim(),
+        categoryKeys: categoryKeys,
+        phoneNumber: phoneNumber,
+        reminderEnabled: reminderEnabled,
+        reminderDaysBefore: reminderDaysBefore,
+        creditorType: creditorType,
+        interestRate: interestRate,
+        interestType: interestType,
+        tenureMonths: tenureMonths,
+        emiAmount: emiAmount,
+        paymentFrequency: paymentFrequency,
+        accountNumber: accountNumber,
+        referenceNumber: referenceNumber,
+        purpose: purpose,
+        collateral: collateral,
+        penaltyRate: penaltyRate,
+        firstPaymentDate: firstPaymentDate,
+        autoDebitEnabled: autoDebitEnabled,
+        notes: notes,
+      );
+
+      // Step 3: Create and link transaction BEFORE updating wallet
+      String transactionId;
+      final transactionDesc = _buildTransactionDescription(loan, type, creditorName, description);
+
+      if (type == LoanType.lent) {
+        // Money going out - create expense
+        final expense = Expense(
+          amount: principalAmount,
+          date: date ?? DateTime.now(),
+          description: transactionDesc,
+          categoryKeys: categoryKeys,
+          method: method.trim(),
+        );
+        transactionKey = await expenseBox.add(expense);
+        transactionId = transactionKey.toString();
+        debugPrint("💸 Expense created (key: $transactionKey)");
+
+        // Update wallet - decrease balance
+        affectedWallet.balance -= principalAmount;
+      } else {
+        // Money coming in - create income
+        final income = Income(
+          amount: principalAmount,
+          date: date ?? DateTime.now(),
+          description: transactionDesc,
+          categoryKeys: categoryKeys,
+        );
+        transactionKey = await incomeBox.add(income);
+        transactionId = transactionKey.toString();
+        debugPrint("💵 Income created (key: $transactionKey)");
+
+        // Update wallet - increase balance
+        affectedWallet.balance += principalAmount;
+      }
+
+      // Step 4: Link transaction to loan
+      final linkedLoan = loan.linkTransaction(transactionId);
+
+      // Step 5: Save wallet
+      affectedWallet.updatedAt = DateTime.now();
+      await affectedWallet.save();
+      debugPrint("💼 Wallet updated: Balance $originalWalletBalance → ${affectedWallet.balance}");
+
+      // Step 6: Save loan
+      loanKey = await loanBox.add(linkedLoan) as String?;
+      debugPrint("✅ Loan created (key: $loanKey) with linked transaction ($transactionId)");
+
+      return true;
+
+    } catch (e, st) {
+      debugPrint("❌ [addLoanAtomic] Failed: $e\n$st");
+
+      // Rollback
+      await _rollbackLoanAdd(
+        loanBox,
+        expenseBox,
+        incomeBox,
+        loanKey,
+        transactionKey,
+        type,
+        affectedWallet,
+        originalWalletBalance,
+      );
+
+      return false;
+    }
+  }
+
+  /// Atomic operation: Add payment with linked transaction
+  static Future<bool> addPaymentAtomic({
+    required String loanId,
+    required double amount,
+    required String method,
+    String? note,
+    DateTime? date,
+  }) async {
+    debugPrint("💳 [addPaymentAtomic] Starting atomic payment...");
+
+    if (amount <= 0) {
+      debugPrint("❌ Invalid amount: $amount");
+      return false;
+    }
+
+    final loanBox = Hive.box<Loan>(AppConstants.loans);
+    final expenseBox = Hive.box<Expense>(AppConstants.expenses);
+    final incomeBox = Hive.box<Income>(AppConstants.incomes);
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+
+    int? loanKey;
+    Loan? originalLoan;
+    int? transactionKey;
+    Wallet? affectedWallet;
+    double originalWalletBalance = 0;
+
+    try {
+      // Step 1: Find loan
+      loanKey = loanBox.keys.cast<int>().firstWhere(
+            (key) => loanBox.get(key)?.id == loanId,
+        orElse: () => throw Exception("Loan not found"),
+      );
+      originalLoan = loanBox.get(loanKey);
+
+      if (originalLoan == null) {
+        throw Exception("Loan not found");
+      }
+
+      if (originalLoan.isPaid) {
+        debugPrint("⚠️ Loan already paid");
+        return false;
+      }
+
+      if (amount > originalLoan.remainingAmount + 0.01) {
+        debugPrint("❌ Amount exceeds remaining: $amount > ${originalLoan.remainingAmount}");
+        return false;
+      }
+
+      // Step 2: Find or create wallet
+      affectedWallet = await _findOrCreateWallet(walletBox, method);
+      originalWalletBalance = affectedWallet.balance;
+
+      // Step 3: Calculate interest split
+      final interestSplit = _calculatePaymentSplit(originalLoan, amount);
+      final principalPaid = interestSplit['principal']!;
+      final interestPaid = interestSplit['interest']!;
+
+      debugPrint("💰 Payment split - Principal: $principalPaid, Interest: $interestPaid");
+
+      // Step 4: Create payment object
+      String transactionId;
+      final paymentId = DateTime.now().millisecondsSinceEpoch.toString();
+
+      final transactionDesc = _buildPaymentDescription(
+        originalLoan,
+        amount,
+        note,
+      );
+
+      // Step 5: Create transaction
+      if (originalLoan.type == LoanType.lent) {
+        // Receiving money back - create income
+        final income = Income(
+          amount: amount,
+          date: date ?? DateTime.now(),
+          description: transactionDesc,
+          categoryKeys: [8],
+          // categoryKeys: originalLoan.categoryKeys,
+        );
+        transactionKey = await incomeBox.add(income);
+        transactionId = transactionKey.toString();
+        debugPrint("💵 Income created (key: $transactionKey)");
+
+        // Update wallet - increase balance
+        affectedWallet.balance += amount;
+      } else {
+        // Paying money - create expense
+        final expense = Expense(
+          amount: amount,
+          date: date ?? DateTime.now(),
+          description: transactionDesc,
+          categoryKeys: [52],
+          // categoryKeys: originalLoan.categoryKeys,
+          method: method.trim(),
+        );
+        transactionKey = await expenseBox.add(expense);
+        transactionId = transactionKey.toString();
+        debugPrint("💸 Expense created (key: $transactionKey)");
+
+        // Update wallet - decrease balance
+        affectedWallet.balance -= amount;
+      }
+
+      // Step 6: Create payment record
+      final payment = LoanPayment(
+        id: paymentId,
+        amount: amount,
+        date: date ?? DateTime.now(),
+        note: note,
+        method: method.trim(),
+        principalPaid: principalPaid,
+        interestPaid: interestPaid,
+        transactionId: transactionId,
+      );
+
+      // Step 7: Update loan
+      var updatedLoan = originalLoan.addPayment(payment);
+      updatedLoan = updatedLoan.linkTransaction(transactionId);
+      updatedLoan = updatedLoan.updateStatus();
+
+      // Step 8: Save wallet
+      affectedWallet.updatedAt = DateTime.now();
+      await affectedWallet.save();
+      debugPrint("💼 Wallet updated: Balance ${originalWalletBalance} → ${affectedWallet.balance}");
+
+      // Step 9: Save loan
+      await loanBox.put(loanKey, updatedLoan);
+      debugPrint("✅ Payment recorded: ${updatedLoan.paidAmount}/${updatedLoan.totalAmount}");
+
+      return true;
+
+    } catch (e, st) {
+      debugPrint("❌ [addPaymentAtomic] Failed: $e\n$st");
+
+      // Rollback
+      await _rollbackPaymentAdd(
+        loanBox,
+        expenseBox,
+        incomeBox,
+        loanKey,
+        originalLoan,
+        transactionKey,
+        originalLoan?.type,
+        affectedWallet,
+        originalWalletBalance,
+      );
+
+      return false;
+    }
+  }
+
+  // ===== HELPER METHODS =====
+
+  /// Find existing wallet or create new one
+  static Future<Wallet> _findOrCreateWallet(
+      Box<Wallet> walletBox,
+      String method,
+      ) async {
+    final normalized = method.trim().toLowerCase();
+
+    try {
+      // Try to find existing wallet
+      return walletBox.values.firstWhere(
+            (w) => w.type.toLowerCase() == normalized,
+      );
+    } catch (_) {
+      // Create new wallet
+      final wallet = Wallet(
+        name: method.trim(),
+        balance: 0,
+        updatedAt: DateTime.now(),
+        type: method.trim(),
+        createdAt: DateTime.now(),
+      );
+      await walletBox.add(wallet);
+      debugPrint("🆕 Created wallet: ${wallet.name}");
+      return wallet;
+    }
+  }
+
+  /// Build transaction description
+  static String _buildTransactionDescription(
+      Loan loan,
+      LoanType type,
+      String creditorName,
+      String description,
+      ) {
+    final prefix = type == LoanType.lent ? 'Lent to' : 'Borrowed from';
+    final creditorInfo = loan.creditorType == LoanCreditorType.person
+        ? creditorName
+        : '${creditorName} (${loan.creditorTypeText})';
+
+    String desc = '$prefix $creditorInfo';
+
+    if (description.isNotEmpty) {
+      desc += ' - $description';
+    }
+
+    if (loan.interestRate > 0) {
+      desc += ' [${loan.interestRate}% ${loan.interestTypeText}]';
+    }
+
+    if (loan.accountNumber != null) {
+      desc += ' (A/C: ${loan.accountNumber})';
+    }
+
+    return desc;
+  }
+
+  /// Build payment description
+  static String _buildPaymentDescription(
+      Loan loan,
+      double amount,
+      String? note,
+      ) {
+    final prefix = loan.type == LoanType.lent
+        ? 'Payment received from'
+        : 'Payment made to';
+
+    String desc = '$prefix ${loan.creditorName}';
+
+    if (loan.emiAmount != null) {
+      final paymentNum = loan.payments.length + 1;
+      desc += ' (EMI #$paymentNum)';
+    }
+
+    if (note?.isNotEmpty == true) {
+      desc += ' - $note';
+    }
+
+    return desc;
+  }
+
+  /// Calculate how payment is split between principal and interest (PUBLIC)
+  static Map<String, double> calculatePaymentSplit(Loan loan, double amount) {
+    return _calculatePaymentSplit(loan, amount);
+  }
+
+  /// Calculate how payment is split between principal and interest (PRIVATE)
+  static Map<String, double> _calculatePaymentSplit(Loan loan, double amount) {
+    if (loan.interestRate == 0 || loan.interestType == InterestType.none) {
+      return {'principal': amount, 'interest': 0};
+    }
+
+    // For reducing balance (EMI), interest is calculated on remaining principal
+    if (loan.interestType == InterestType.reducing) {
+      final monthlyRate = loan.interestRate / 100 / 12;
+      final interestComponent = loan.remainingPrincipal * monthlyRate;
+      final principalComponent = amount - interestComponent;
+
+      return {
+        'principal': principalComponent.clamp(0, amount),
+        'interest': interestComponent.clamp(0, amount),
+      };
+    }
+
+    // For simple/compound, distribute proportionally
+    final totalInterest = loan.totalInterest;
+    final totalAmount = loan.totalAmount;
+    final interestRatio = totalInterest / totalAmount;
+
+    return {
+      'principal': amount * (1 - interestRatio),
+      'interest': amount * interestRatio,
+    };
+  }
+
+  // ===== ROLLBACK METHODS =====
+
+  static Future<void> _rollbackLoanAdd(
+      Box<Loan> loanBox,
+      Box<Expense> expenseBox,
+      Box<Income> incomeBox,
+      String? loanKey,
+      int? transactionKey,
+      LoanType? type,
+      Wallet? wallet,
+      double originalBalance,
+      ) async {
+    try {
+      debugPrint("↩️ Rolling back loan creation...");
+
+      // Remove loan
+      if (loanKey != null) {
+        await loanBox.delete(loanKey);
+        debugPrint("↩️ Removed loan");
+      }
+
+      // Remove transaction
+      if (transactionKey != null) {
+        if (type == LoanType.lent) {
+          await expenseBox.delete(transactionKey);
+          debugPrint("↩️ Removed expense");
+        } else {
+          await incomeBox.delete(transactionKey);
+          debugPrint("↩️ Removed income");
+        }
+      }
+
+      // Restore wallet
+      if (wallet != null) {
+        wallet.balance = originalBalance;
+        wallet.updatedAt = DateTime.now();
+        await wallet.save();
+        debugPrint("↩️ Restored wallet balance: $originalBalance");
+      }
+
+      debugPrint("✅ Rollback complete");
+    } catch (e) {
+      debugPrint("⚠️ Error during rollback: $e");
+    }
+  }
+
+  static Future<void> _rollbackPaymentAdd(
+      Box<Loan> loanBox,
+      Box<Expense> expenseBox,
+      Box<Income> incomeBox,
+      int? loanKey,
+      Loan? originalLoan,
+      int? transactionKey,
+      LoanType? type,
+      Wallet? wallet,
+      double originalBalance,
+      ) async {
+    try {
+      debugPrint("↩️ Rolling back payment...");
+
+      // Restore loan
+      if (loanKey != null && originalLoan != null) {
+        await loanBox.put(loanKey, originalLoan);
+        debugPrint("↩️ Restored loan");
+      }
+
+      // Remove transaction
+      if (transactionKey != null) {
+        if (type == LoanType.lent) {
+          await incomeBox.delete(transactionKey);
+          debugPrint("↩️ Removed income");
+        } else {
+          await expenseBox.delete(transactionKey);
+          debugPrint("↩️ Removed expense");
+        }
+      }
+
+      // Restore wallet
+      if (wallet != null) {
+        wallet.balance = originalBalance;
+        wallet.updatedAt = DateTime.now();
+        await wallet.save();
+        debugPrint("↩️ Restored wallet balance: $originalBalance");
+      }
+
+      debugPrint("✅ Rollback complete");
+    } catch (e) {
+      debugPrint("⚠️ Error during rollback: $e");
+    }
+  }
+
+  // ===== VALIDATION =====
+
+  static String? validateLoanInput({
+    required String creditorName,
+    required String amount,
+    double? interestRate,
+    int? tenureMonths,
+  }) {
+    if (creditorName.trim().isEmpty) {
+      return 'Please enter creditor name';
+    }
+
+    final amountValue = double.tryParse(amount);
+    if (amountValue == null || amountValue <= 0) {
+      return 'Please enter a valid amount';
+    }
+
+    if (interestRate != null && (interestRate < 0 || interestRate > 100)) {
+      return 'Interest rate must be between 0 and 100';
+    }
+
+    if (tenureMonths != null && tenureMonths <= 0) {
+      return 'Tenure must be greater than 0';
+    }
+
+    return null;
+  }
+
+  static String? validatePaymentInput({
+    required String amount,
+    required double maxAmount,
+  }) {
+    final amountValue = double.tryParse(amount);
+    if (amountValue == null || amountValue <= 0) {
+      return 'Please enter a valid amount';
+    }
+
+    if (amountValue > maxAmount + 0.01) {
+      return 'Amount cannot exceed ${maxAmount.toStringAsFixed(2)}';
+    }
+
+    return null;
+  }
+
+  // ===== FORMATTING =====
+
   static String formatAmount(double amount, String currency) {
     return '$currency ${amount.toStringAsFixed(2)}';
   }
 
-  /// Format amount short (no decimals for large numbers)
   static String formatAmountShort(double amount, String currency) {
-    if (amount >= 1000000) {
-      return '$currency ${(amount / 1000000).toStringAsFixed(1)}M';
+    if (amount >= 10000000) {
+      return '$currency ${(amount / 10000000).toStringAsFixed(2)}Cr';
+    } else if (amount >= 100000) {
+      return '$currency ${(amount / 100000).toStringAsFixed(2)}L';
     } else if (amount >= 1000) {
       return '$currency ${(amount / 1000).toStringAsFixed(1)}K';
     }
     return '$currency ${amount.toStringAsFixed(0)}';
   }
 
-  /// Format date
   static String formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  /// Format relative date
   static String formatRelativeDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date).inDays;
@@ -45,7 +606,6 @@ class LoanHelpers {
     return '${(diff / 365).floor()} years ago';
   }
 
-  /// Format due date relative
   static String formatDueDate(DateTime? dueDate) {
     if (dueDate == null) return 'No due date';
 
@@ -60,9 +620,8 @@ class LoanHelpers {
     return 'Due on ${formatDate(dueDate)}';
   }
 
-  // ===== UI Helpers =====
+  // ===== UI HELPERS =====
 
-  /// Get status color
   static Color getStatusColor(Loan loan) {
     if (loan.isPaid) return Colors.green;
     if (loan.isOverdue) return Colors.red;
@@ -71,12 +630,10 @@ class LoanHelpers {
     return Colors.grey;
   }
 
-  /// Get type color
   static Color getTypeColor(LoanType type) {
     return type == LoanType.lent ? Colors.green : Colors.red;
   }
 
-  /// Get status icon
   static IconData getStatusIcon(Loan loan) {
     if (loan.isPaid) return Icons.check_circle;
     if (loan.isOverdue) return Icons.error;
@@ -85,14 +642,6 @@ class LoanHelpers {
     return Icons.schedule;
   }
 
-  /// Get type icon
-  static IconData getTypeIcon(LoanType type) {
-    return type == LoanType.lent
-        ? Icons.arrow_upward
-        : Icons.arrow_downward;
-  }
-
-  /// Get progress color
   static Color getProgressColor(double progress) {
     if (progress >= 1.0) return Colors.green;
     if (progress >= 0.75) return Colors.lightGreen;
@@ -101,64 +650,55 @@ class LoanHelpers {
     return Colors.red;
   }
 
-  // ===== Summary Helpers =====
-
-  /// Get loan summary text
-  static String getSummaryText(Map<String, dynamic> stats, String currency) {
-    final pendingToReceive = stats['pendingToReceive'] as double;
-    final pendingToPay = stats['pendingToPay'] as double;
-
-    if (pendingToReceive > pendingToPay) {
-      return 'You\'ll receive ${formatAmountShort(pendingToReceive - pendingToPay, currency)} net';
-    } else if (pendingToPay > pendingToReceive) {
-      return 'You\'ll pay ${formatAmountShort(pendingToPay - pendingToReceive, currency)} net';
+  static IconData getCreditorIcon(LoanCreditorType type) {
+    switch (type) {
+      case LoanCreditorType.person:
+        return Icons.person;
+      case LoanCreditorType.bank:
+        return Icons.account_balance;
+      case LoanCreditorType.nbfc:
+        return Icons.business;
+      case LoanCreditorType.cooperative:
+        return Icons.groups;
+      case LoanCreditorType.other:
+        return Icons.help_outline;
     }
-    return 'All settled!';
   }
 
-  /// Get priority loans (most urgent)
+  // ===== ANALYTICS =====
+
   static List<Loan> getPriorityLoans({int limit = 5}) {
     final service = LoanService();
     final loans = service.getActiveLoans();
 
-    // Sort by priority: overdue first, then due soon, then by remaining amount
     loans.sort((a, b) {
-      // Overdue loans first
       if (a.isOverdue && !b.isOverdue) return -1;
       if (!a.isOverdue && b.isOverdue) return 1;
-
-      // Then due soon
       if (a.isDueSoon && !b.isDueSoon) return -1;
       if (!a.isDueSoon && b.isDueSoon) return 1;
 
-      // Then by days until due
-      final aDays = a.daysUntilDue;
-      final bDays = b.daysUntilDue;
-      if (aDays >= 0 && bDays >= 0) {
-        return aDays.compareTo(bDays);
-      }
+      final aDays = a.nextPaymentDate?.difference(DateTime.now()).inDays ?? 999;
+      final bDays = b.nextPaymentDate?.difference(DateTime.now()).inDays ?? 999;
+      if (aDays != bDays) return aDays.compareTo(bDays);
 
-      // Finally by remaining amount (larger first)
       return b.remainingAmount.compareTo(a.remainingAmount);
     });
 
     return loans.take(limit).toList();
   }
 
-  /// Get loans grouped by person
   static Map<String, List<Loan>> getLoansByPerson() {
     final loans = LoanService().getAllLoans();
     final grouped = <String, List<Loan>>{};
 
     for (var loan in loans) {
-      grouped.putIfAbsent(loan.personName, () => []);
-      grouped[loan.personName]!.add(loan);
+      grouped.putIfAbsent(loan.creditorName, () => []);
+      grouped[loan.creditorName]!.add(loan);
     }
 
     return grouped;
   }
 
-  /// Calculate total with person
   static Map<String, double> getBalanceByPerson() {
     final grouped = getLoansByPerson();
     final balances = <String, double>{};
@@ -172,7 +712,7 @@ class LoanHelpers {
           balance -= loan.remainingAmount;
         }
       }
-      if (balance != 0) {
+      if (balance.abs() > 0.01) {
         balances[entry.key] = balance;
       }
     }
@@ -180,77 +720,6 @@ class LoanHelpers {
     return balances;
   }
 
-  // ===== Validation Helpers =====
-
-  /// Validate loan input
-  static String? validateLoanInput({
-    required String personName,
-    required String amount,
-  }) {
-    if (personName.trim().isEmpty) {
-      return 'Please enter person name';
-    }
-
-    final amountValue = double.tryParse(amount);
-    if (amountValue == null || amountValue <= 0) {
-      return 'Please enter a valid amount';
-    }
-
-    return null; // Valid
-  }
-
-  /// Validate payment input
-  static String? validatePaymentInput({
-    required String amount,
-    required double maxAmount,
-  }) {
-    final amountValue = double.tryParse(amount);
-    if (amountValue == null || amountValue <= 0) {
-      return 'Please enter a valid amount';
-    }
-
-    if (amountValue > maxAmount) {
-      return 'Amount cannot exceed ${maxAmount.toStringAsFixed(2)}';
-    }
-
-    return null; // Valid
-  }
-
-  // ===== Notification Helpers =====
-
-  /// Get notification title for loan
-  static String getNotificationTitle(Loan loan) {
-    if (loan.isOverdue) {
-      return loan.type == LoanType.lent
-          ? '🚨 Overdue: Collect from ${loan.personName}'
-          : '🚨 Overdue: Pay ${loan.personName}';
-    }
-    if (loan.isDueSoon) {
-      return loan.type == LoanType.lent
-          ? '⏰ Reminder: ${loan.personName} owes you'
-          : '⏰ Reminder: Pay ${loan.personName}';
-    }
-    return loan.type == LoanType.lent
-        ? '💰 Loan to ${loan.personName}'
-        : '💵 Loan from ${loan.personName}';
-  }
-
-  /// Get notification body for loan
-  static String getNotificationBody(Loan loan, String currency) {
-    final amount = formatAmount(loan.remainingAmount, currency);
-
-    if (loan.isOverdue) {
-      return '$amount is ${loan.daysOverdue} days overdue!';
-    }
-    if (loan.isDueSoon) {
-      return '$amount due in ${loan.daysUntilDue} days';
-    }
-    return '$amount remaining';
-  }
-
-  // ===== Quick Stats =====
-
-  /// Get quick stats for dashboard
   static Map<String, dynamic> getQuickStats(String currency) {
     final stats = LoanService().getStatistics();
 
@@ -260,447 +729,7 @@ class LoanHelpers {
       'overdueCount': stats['overdueCount'],
       'dueSoonCount': stats['dueSoonCount'],
       'activeCount': stats['activeLoans'],
+      'totalInterest': formatAmountShort(stats['totalInterest'] ?? 0, currency),
     };
   }
-
-  // ===== ATOMIC LOAN OPERATIONS =====
-
-  /// Atomic operation: Add loan with automatic transaction creation and rollback
-  static Future<bool> addLoanAtomic({
-    required String personName,
-    required String description,
-    required double amount,
-    required LoanType type,
-    required String method,
-    required List<int> categoryKeys,
-    DateTime? dueDate,
-    DateTime? date,
-    String? phoneNumber,
-    bool reminderEnabled = true,
-    int reminderDaysBefore = 3,
-  }) async {
-    debugPrint("💰 [addLoanAtomic] Starting atomic loan operation...");
-
-    // Validate inputs
-    if (amount <= 0) {
-      debugPrint("❌ [addLoanAtomic] Invalid amount: $amount");
-      return false;
-    }
-    if (personName.trim().isEmpty) {
-      debugPrint("❌ [addLoanAtomic] Person name cannot be empty");
-      return false;
-    }
-    if (method.trim().isEmpty) {
-      debugPrint("❌ [addLoanAtomic] Method cannot be empty");
-      return false;
-    }
-
-    final loanBox = Hive.box<Loan>(AppConstants.loans);
-    final expenseBox = Hive.box<Expense>(AppConstants.expenses);
-    final incomeBox = Hive.box<Income>(AppConstants.incomes);
-    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
-
-    Loan? savedLoan;
-    Expense? createdExpense;
-    Income? createdIncome;
-    Wallet? affectedWallet;
-    double originalBalance = 0;
-    int? walletKey;
-
-    try {
-      // Step 1: Create loan object
-      final loan = Loan(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        personName: personName.trim(),
-        description: description.trim(),
-        amount: amount,
-        date: date ?? DateTime.now(),
-        dueDate: dueDate,
-        type: type,
-        status: LoanStatus.pending,
-        paidAmount: 0,
-        method: method.trim(),
-        categoryKeys: categoryKeys,
-        phoneNumber: phoneNumber,
-        reminderEnabled: reminderEnabled,
-        reminderDaysBefore: reminderDaysBefore,
-      );
-
-      // Step 2: Find or create wallet
-      final normalizedMethod = method.trim().toLowerCase();
-      try {
-        affectedWallet = walletBox.values.firstWhere(
-              (w) => w.type.toLowerCase() == normalizedMethod,
-        );
-        originalBalance = affectedWallet.balance;
-        walletKey = walletBox.keyAt(walletBox.values.toList().indexOf(affectedWallet));
-        debugPrint("💼 [addLoanAtomic] Found existing wallet: ${affectedWallet.name} (key: $walletKey)");
-      } catch (_) {
-        // Create new wallet
-        affectedWallet = Wallet(
-          name: method.trim(),
-          balance: 0,
-          updatedAt: DateTime.now(),
-          type: method.trim(),
-          createdAt: DateTime.now(),
-        );
-        debugPrint("🆕 [addLoanAtomic] Creating new wallet: ${affectedWallet.name}");
-      }
-
-      // Step 3: Update wallet balance based on loan type
-      if (type == LoanType.lent) {
-        // Money going out - decrease wallet balance
-        affectedWallet.balance -= amount;
-        debugPrint("💸 [addLoanAtomic] Lent money - decreasing wallet balance");
-      } else {
-        // Money coming in - increase wallet balance
-        affectedWallet.balance += amount;
-        debugPrint("💵 [addLoanAtomic] Borrowed money - increasing wallet balance");
-      }
-      affectedWallet.updatedAt = DateTime.now();
-
-      // Step 4: Save wallet appropriately
-      if (walletKey != null) {
-        await affectedWallet.save();
-        debugPrint("💵 [addLoanAtomic] Wallet updated: ${affectedWallet.name} → Balance: ${affectedWallet.balance}");
-      } else {
-        walletKey = await walletBox.add(affectedWallet);
-        debugPrint("💵 [addLoanAtomic] New wallet created: ${affectedWallet.name} → Balance: ${affectedWallet.balance} (key: $walletKey)");
-      }
-
-      // Step 5: Create corresponding transaction (expense for lent, income for borrowed)
-      final transactionDescription = type == LoanType.lent
-          ? 'Lent to $personName: $description'
-          : 'Borrowed from $personName: $description';
-
-      if (type == LoanType.lent) {
-        // Create expense for lent money
-        final expense = Expense(
-          amount: amount,
-          date: date ?? DateTime.now(),
-          description: transactionDescription,
-          categoryKeys: categoryKeys,
-          method: method.trim(),
-        );
-        final expenseKey = await expenseBox.add(expense);
-        createdExpense = expense;
-        debugPrint("🧾 [addLoanAtomic] Expense created for lent money (key: $expenseKey)");
-      } else {
-        // Create income for borrowed money
-        final income = Income(
-          amount: amount,
-          date: date ?? DateTime.now(),
-          description: transactionDescription,
-          categoryKeys: categoryKeys,
-        );
-        final incomeKey = await incomeBox.add(income);
-        createdIncome = income;
-        debugPrint("🧾 [addLoanAtomic] Income created for borrowed money (key: $incomeKey)");
-      }
-
-      // Step 6: Save loan
-      final loanKey = await loanBox.add(loan);
-      savedLoan = loan;
-      debugPrint("✅ [addLoanAtomic] Loan added successfully: $loan (key: $loanKey)");
-
-      return true;
-
-    } catch (e, st) {
-      debugPrint("❌ [addLoanAtomic] Atomic operation failed: $e\n$st");
-
-      // Rollback logic
-      await _rollbackLoanAdd(
-          loanBox, expenseBox, incomeBox, walletBox,
-          savedLoan, createdExpense, createdIncome, affectedWallet, originalBalance
-      );
-
-      return false;
-    }
-  }
-
-  /// Rollback for failed loan addition
-  static Future<void> _rollbackLoanAdd(
-      Box<Loan> loanBox,
-      Box<Expense> expenseBox,
-      Box<Income> incomeBox,
-      Box<Wallet> walletBox,
-      Loan? savedLoan,
-      Expense? createdExpense,
-      Income? createdIncome,
-      Wallet? affectedWallet,
-      double originalBalance,
-      ) async {
-    try {
-      // Remove saved loan if any
-      if (savedLoan != null) {
-        final loanKey = loanBox.keyAt(loanBox.values.toList().indexOf(savedLoan));
-        await loanBox.delete(loanKey);
-        debugPrint("↩️ [rollback] Removed loan");
-      }
-
-      // Remove created expense if any
-      if (createdExpense != null) {
-        final expenseKey = expenseBox.keyAt(expenseBox.values.toList().indexOf(createdExpense));
-        await expenseBox.delete(expenseKey);
-        debugPrint("↩️ [rollback] Removed expense");
-      }
-
-      // Remove created income if any
-      if (createdIncome != null) {
-        final incomeKey = incomeBox.keyAt(incomeBox.values.toList().indexOf(createdIncome));
-        await incomeBox.delete(incomeKey);
-        debugPrint("↩️ [rollback] Removed income");
-      }
-
-      // Restore original wallet balance
-      if (affectedWallet != null) {
-        affectedWallet.balance = originalBalance;
-        affectedWallet.updatedAt = DateTime.now();
-        await affectedWallet.save();
-        debugPrint("↩️ [rollback] Restored wallet balance: $originalBalance");
-      }
-    } catch (e) {
-      debugPrint("⚠️ [rollback] Error during loan rollback: $e");
-    }
-  }
-
-  /// Atomic operation: Add payment to loan with transaction creation and rollback
-  static Future<bool> addPaymentAtomic({
-    required String loanId,
-    required double amount,
-    required String method,
-    String? note,
-    DateTime? date,
-  }) async {
-    debugPrint("💰 [addPaymentAtomic] Starting atomic payment operation...");
-
-    if (amount <= 0) {
-      debugPrint("❌ [addPaymentAtomic] Invalid amount: $amount");
-      return false;
-    }
-    if (method.trim().isEmpty) {
-      debugPrint("❌ [addPaymentAtomic] Method cannot be empty");
-      return false;
-    }
-
-    final loanBox = Hive.box<Loan>(AppConstants.loans);
-    final expenseBox = Hive.box<Expense>(AppConstants.expenses);
-    final incomeBox = Hive.box<Income>(AppConstants.incomes);
-    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
-
-    Loan? originalLoan;
-    Expense? createdExpense;
-    Income? createdIncome;
-    Wallet? affectedWallet;
-    double originalBalance = 0;
-    int? walletKey;
-
-    try {
-      // Step 1: Find loan
-      final loan = loanBox.values.firstWhere(
-            (l) => l.id == loanId,
-        orElse: () => throw Exception("Loan not found"),
-      );
-      originalLoan = _copyLoan(loan);
-
-      if (loan.isPaid) {
-        debugPrint("⚠️ [addPaymentAtomic] Loan is already fully paid");
-        return false;
-      }
-
-      if (amount > loan.remainingAmount) {
-        debugPrint("❌ [addPaymentAtomic] Payment amount ($amount) exceeds remaining amount (${loan.remainingAmount})");
-        return false;
-      }
-
-      // Step 2: Find or create wallet
-      final normalizedMethod = method.trim().toLowerCase();
-      try {
-        affectedWallet = walletBox.values.firstWhere(
-              (w) => w.type.toLowerCase() == normalizedMethod,
-        );
-        originalBalance = affectedWallet.balance;
-        walletKey = walletBox.keyAt(walletBox.values.toList().indexOf(affectedWallet));
-        debugPrint("💼 [addPaymentAtomic] Found existing wallet: ${affectedWallet.name}");
-      } catch (_) {
-        affectedWallet = Wallet(
-          name: method.trim(),
-          balance: 0,
-          updatedAt: DateTime.now(),
-          type: method.trim(),
-          createdAt: DateTime.now(),
-        );
-        debugPrint("🆕 [addPaymentAtomic] Creating new wallet: ${affectedWallet.name}");
-      }
-
-      // Step 3: Update wallet balance based on loan type
-      if (loan.type == LoanType.lent) {
-        // Receiving payment back - increase wallet balance
-        affectedWallet.balance += amount;
-        debugPrint("💵 [addPaymentAtomic] Receiving payment for lent money - increasing wallet balance");
-      } else {
-        // Paying back borrowed money - decrease wallet balance
-        affectedWallet.balance -= amount;
-        debugPrint("💸 [addPaymentAtomic] Paying back borrowed money - decreasing wallet balance");
-      }
-      affectedWallet.updatedAt = DateTime.now();
-
-      // Step 4: Save wallet
-      if (walletKey != null) {
-        await affectedWallet.save();
-      } else {
-        await walletBox.add(affectedWallet);
-      }
-      debugPrint("💵 [addPaymentAtomic] Wallet updated: ${affectedWallet.name} → Balance: ${affectedWallet.balance}");
-
-      // Step 5: Create corresponding transaction
-      final paymentNote = note?.isNotEmpty == true ? " - $note" : "";
-      final transactionDescription = loan.type == LoanType.lent
-          ? 'Payment received from ${loan.personName}$paymentNote'
-          : 'Payment made to ${loan.personName}$paymentNote';
-
-      if (loan.type == LoanType.lent) {
-        // Create income for received payment
-        final income = Income(
-          amount: amount,
-          date: date ?? DateTime.now(),
-          description: transactionDescription,
-          categoryKeys: loan.categoryKeys,
-        );
-        final incomeKey = await incomeBox.add(income);
-        createdIncome = income;
-        debugPrint("🧾 [addPaymentAtomic] Income created for received payment (key: $incomeKey)");
-      } else {
-        // Create expense for made payment
-        final expense = Expense(
-          amount: amount,
-          date: date ?? DateTime.now(),
-          description: transactionDescription,
-          categoryKeys: loan.categoryKeys,
-          method: method.trim(),
-        );
-        final expenseKey = await expenseBox.add(expense);
-        createdExpense = expense;
-        debugPrint("🧾 [addPaymentAtomic] Expense created for made payment (key: $expenseKey)");
-      }
-
-      // Step 6: Create payment object
-      final payment = LoanPayment(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        amount: amount,
-        date: date ?? DateTime.now(),
-        note: note,
-        method: method.trim(),
-      );
-
-      // Step 7: Update loan with payment
-      final updatedLoan = loan.addPayment(payment);
-      final loanKey = loanBox.keyAt(loanBox.values.toList().indexOf(loan));
-      await loanBox.put(loanKey, updatedLoan);
-
-      debugPrint("✅ [addPaymentAtomic] Loan updated: Paid: ${updatedLoan.paidAmount}, Remaining: ${updatedLoan.remainingAmount}");
-
-      return true;
-
-    } catch (e, st) {
-      debugPrint("❌ [addPaymentAtomic] Atomic operation failed: $e\n$st");
-
-      // Rollback logic
-      await _rollbackPaymentAdd(
-          loanBox, expenseBox, incomeBox, walletBox,
-          originalLoan, createdExpense, createdIncome, affectedWallet, originalBalance
-      );
-
-      return false;
-    }
-  }
-
-  /// Rollback for failed payment addition
-  static Future<void> _rollbackPaymentAdd(
-      Box<Loan> loanBox,
-      Box<Expense> expenseBox,
-      Box<Income> incomeBox,
-      Box<Wallet> walletBox,
-      Loan? originalLoan,
-      Expense? createdExpense,
-      Income? createdIncome,
-      Wallet? affectedWallet,
-      double originalBalance,
-      ) async {
-    try {
-      // Restore original loan state
-      if (originalLoan != null) {
-        final loanKey = loanBox.keyAt(loanBox.values.toList().indexOf(originalLoan));
-        await loanBox.put(loanKey, originalLoan);
-        debugPrint("↩️ [rollback] Restored original loan state");
-      }
-
-      // Remove created expense if any
-      if (createdExpense != null) {
-        final expenseKey = expenseBox.keyAt(expenseBox.values.toList().indexOf(createdExpense));
-        await expenseBox.delete(expenseKey);
-        debugPrint("↩️ [rollback] Removed expense");
-      }
-
-      // Remove created income if any
-      if (createdIncome != null) {
-        final incomeKey = incomeBox.keyAt(incomeBox.values.toList().indexOf(createdIncome));
-        await incomeBox.delete(incomeKey);
-        debugPrint("↩️ [rollback] Removed income");
-      }
-
-      // Restore original wallet balance
-      if (affectedWallet != null) {
-        affectedWallet.balance = originalBalance;
-        affectedWallet.updatedAt = DateTime.now();
-        await affectedWallet.save();
-        debugPrint("↩️ [rollback] Restored wallet balance: $originalBalance");
-      }
-    } catch (e) {
-      debugPrint("⚠️ [rollback] Error during payment rollback: $e");
-    }
-  }
-
-  /// Helper method to copy loan
-  static Loan _copyLoan(Loan loan) {
-    return Loan(
-      id: loan.id,
-      personName: loan.personName,
-      description: loan.description,
-      amount: loan.amount,
-      date: loan.date,
-      dueDate: loan.dueDate,
-      type: loan.type,
-      status: loan.status,
-      paidAmount: loan.paidAmount,
-      method: loan.method,
-      categoryKeys: List.from(loan.categoryKeys),
-      payments: List.from(loan.payments),
-      phoneNumber: loan.phoneNumber,
-      reminderEnabled: loan.reminderEnabled,
-      reminderDaysBefore: loan.reminderDaysBefore,
-    );
-  }
-}
-
-/// Extension for Loan model
-extension LoanExtension on Loan {
-  /// Get color based on status
-  Color get statusColor => LoanHelpers.getStatusColor(this);
-
-  /// Get icon based on status
-  IconData get statusIcon => LoanHelpers.getStatusIcon(this);
-
-  /// Get formatted remaining amount
-  String remainingFormatted(String currency) =>
-      LoanHelpers.formatAmount(remainingAmount, currency);
-
-  /// Get progress as percentage string
-  String get progressPercentage => '${(progress * 100).toInt()}%';
-
-  /// Get status text with emoji
-  String get statusTextWithEmoji => '$statusEmoji $statusText';
-
-  /// Get type text with icon indicator
-  String get typeTextWithIndicator => type == LoanType.lent ? '⬆️ Lent' : '⬇️ Borrowed';
 }

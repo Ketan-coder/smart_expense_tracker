@@ -45,6 +45,13 @@ void main() async {
   Hive.registerAdapter(LoanTypeAdapter());
   Hive.registerAdapter(LoanStatusAdapter());
 
+  Hive.registerAdapter(LoanCreditorTypeAdapter());
+  Hive.registerAdapter(InterestTypeAdapter());
+  Hive.registerAdapter(PaymentFrequencyAdapter());
+  Hive.registerAdapter(LoanPurposeAdapter());
+  Hive.registerAdapter(DocumentTypeAdapter());
+  Hive.registerAdapter(LoanDocumentAdapter());
+
   // Open boxes
   await Hive.openBox<Expense>(AppConstants.expenses);
   await Hive.openBox<Income>(AppConstants.incomes);

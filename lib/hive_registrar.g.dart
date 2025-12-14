@@ -16,14 +16,20 @@ import 'package:expense_tracker/data/model/wallet.dart';
 extension HiveRegistrar on HiveInterface {
   void registerAdapters() {
     registerAdapter(CategoryAdapter());
+    registerAdapter(DocumentTypeAdapter());
     registerAdapter(ExpenseAdapter());
     registerAdapter(GoalAdapter());
     registerAdapter(HabitAdapter());
     registerAdapter(IncomeAdapter());
+    registerAdapter(InterestTypeAdapter());
     registerAdapter(LoanAdapter());
+    registerAdapter(LoanCreditorTypeAdapter());
+    registerAdapter(LoanDocumentAdapter());
     registerAdapter(LoanPaymentAdapter());
+    registerAdapter(LoanPurposeAdapter());
     registerAdapter(LoanStatusAdapter());
     registerAdapter(LoanTypeAdapter());
+    registerAdapter(PaymentFrequencyAdapter());
     registerAdapter(RecurringAdapter());
     registerAdapter(UserAdapter());
     registerAdapter(WalletAdapter());
@@ -33,14 +39,20 @@ extension HiveRegistrar on HiveInterface {
 extension IsolatedHiveRegistrar on IsolatedHiveInterface {
   void registerAdapters() {
     registerAdapter(CategoryAdapter());
+    registerAdapter(DocumentTypeAdapter());
     registerAdapter(ExpenseAdapter());
     registerAdapter(GoalAdapter());
     registerAdapter(HabitAdapter());
     registerAdapter(IncomeAdapter());
+    registerAdapter(InterestTypeAdapter());
     registerAdapter(LoanAdapter());
+    registerAdapter(LoanCreditorTypeAdapter());
+    registerAdapter(LoanDocumentAdapter());
     registerAdapter(LoanPaymentAdapter());
+    registerAdapter(LoanPurposeAdapter());
     registerAdapter(LoanStatusAdapter());
     registerAdapter(LoanTypeAdapter());
+    registerAdapter(PaymentFrequencyAdapter());
     registerAdapter(RecurringAdapter());
     registerAdapter(UserAdapter());
     registerAdapter(WalletAdapter());

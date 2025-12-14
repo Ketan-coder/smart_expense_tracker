@@ -55,7 +55,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Future<void> _loadData() async {
     if (mounted) setState(() => _isLoading = true);
     _currentCurrency = await Helpers().getCurrentCurrency() ?? 'INR';
-    _totalBalance = _calculateTotalBalance(Hive.box<Wallet>(AppConstants.wallets));
+    _totalBalance = _calculateTotalBalance(
+      Hive.box<Wallet>(AppConstants.wallets),
+    );
     if (mounted) setState(() => _isLoading = false);
   }
 
@@ -144,10 +146,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     double total = 0;
     for (var recurring in recurringBox.values) {
       switch (recurring.interval.toLowerCase()) {
-        case 'daily': total += recurring.amount * 30; break;
-        case 'weekly': total += recurring.amount * 4; break;
-        case 'monthly': total += recurring.amount; break;
-        case 'yearly': total += recurring.amount / 12; break;
+        case 'daily':
+          total += recurring.amount * 30;
+          break;
+        case 'weekly':
+          total += recurring.amount * 4;
+          break;
+        case 'monthly':
+          total += recurring.amount;
+          break;
+        case 'yearly':
+          total += recurring.amount / 12;
+          break;
       }
     }
     return total;
@@ -167,8 +177,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         onRefresh: _loadData,
         animatedTexts: [
           _getWalletBalanceForHeader(Hive.box<Wallet>(AppConstants.wallets)),
-          _getLoanSummaryByType(Hive.box<Loan>(AppConstants.loans),LoanType.lent),
-          _getLoanSummaryByType(Hive.box<Loan>(AppConstants.loans),LoanType.borrowed),
+          _getLoanSummaryByType(
+            Hive.box<Loan>(AppConstants.loans),
+            LoanType.lent,
+          ),
+          _getLoanSummaryByType(
+            Hive.box<Loan>(AppConstants.loans),
+            LoanType.borrowed,
+          ),
         ],
         animationType: AnimationType.fadeInOut,
         animationEffect: AnimationEffect.smooth,
@@ -199,18 +215,21 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : Container(
-          margin: const EdgeInsets.all(8),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
-          ),
-          // BUG FIX: Wrapped content in ListenableBuilder to react to Privacy changes immediately
-          child: ListenableBuilder(
-            listenable: _privacyManager,
-            builder: (context, child) => _buildMainContent(theme, colorScheme),
-          ),
-        ),
+                margin: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  color: Helpers().isLightMode(context)
+                      ? Colors.white
+                      : Colors.black,
+                ),
+                // BUG FIX: Wrapped content in ListenableBuilder to react to Privacy changes immediately
+                child: ListenableBuilder(
+                  listenable: _privacyManager,
+                  builder: (context, child) =>
+                      _buildMainContent(theme, colorScheme),
+                ),
+              ),
       ),
     );
   }
@@ -223,28 +242,54 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           valueListenable: Hive.box<Income>(AppConstants.incomes).listenable(),
           builder: (context, incomeBox, _) {
             return ValueListenableBuilder(
-              valueListenable: Hive.box<Expense>(AppConstants.expenses).listenable(),
+              valueListenable: Hive.box<Expense>(
+                AppConstants.expenses,
+              ).listenable(),
               builder: (context, expenseBox, _) {
                 return ValueListenableBuilder(
-                  valueListenable: Hive.box<Recurring>(AppConstants.recurrings).listenable(),
+                  valueListenable: Hive.box<Recurring>(
+                    AppConstants.recurrings,
+                  ).listenable(),
                   builder: (context, recurringBox, _) {
                     // ADDED: Listener for Loans
                     return ValueListenableBuilder(
-                      valueListenable: Hive.box<Loan>(AppConstants.loans).listenable(),
+                      valueListenable: Hive.box<Loan>(
+                        AppConstants.loans,
+                      ).listenable(),
                       builder: (context, loanBox, _) {
-
                         // Data Preparation
-                        final filteredIncomes = _getFilteredIncomes(_startDate, _endDate);
-                        final filteredExpenses = _getFilteredExpenses(_startDate, _endDate);
-                        _periodIncome = filteredIncomes.fold(0.0, (sum, i) => sum + i.amount);
-                        _periodExpense = filteredExpenses.fold(0.0, (sum, e) => sum + e.amount);
-                        final monthlyRecurring = _getMonthlyRecurringTotal(recurringBox);
+                        final filteredIncomes = _getFilteredIncomes(
+                          _startDate,
+                          _endDate,
+                        );
+                        final filteredExpenses = _getFilteredExpenses(
+                          _startDate,
+                          _endDate,
+                        );
+                        _periodIncome = filteredIncomes.fold(
+                          0.0,
+                          (sum, i) => sum + i.amount,
+                        );
+                        _periodExpense = filteredExpenses.fold(
+                          0.0,
+                          (sum, e) => sum + e.amount,
+                        );
+                        final monthlyRecurring = _getMonthlyRecurringTotal(
+                          recurringBox,
+                        );
 
                         final wallets = walletBox.values.toList();
-                        final transactions = [...filteredIncomes, ...filteredExpenses];
+                        final transactions = [
+                          ...filteredIncomes,
+                          ...filteredExpenses,
+                        ];
                         transactions.sort((a, b) {
-                          final dateA = (a is Income ? a.date : (a as Expense).date);
-                          final dateB = (b is Income ? b.date : (b as Expense).date);
+                          final dateA = (a is Income
+                              ? a.date
+                              : (a as Expense).date);
+                          final dateB = (b is Income
+                              ? b.date
+                              : (b as Expense).date);
                           return dateB.compareTo(dateA);
                         });
 
@@ -260,25 +305,50 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               // 2. Wallets
                               SizedBox(
                                 height: 220,
-                                child: _buildCardsSection(wallets, theme, colorScheme),
+                                child: _buildCardsSection(
+                                  wallets,
+                                  theme,
+                                  colorScheme,
+                                ),
                               ),
                               const SizedBox(height: 24),
 
                               // 3. NEW: Loan Summary Section
                               if (loanBox.values.isNotEmpty) ...[
                                 GestureDetector(
-                                    onTap: () =>  Helpers.navigateTo(context, const LoanPage()),
-                                    child: _buildLoanSummary(theme, colorScheme, loanBox)),
+                                  onTap: () => Helpers.navigateTo(
+                                    context,
+                                    const LoanPage(),
+                                  ),
+                                  child: _buildLoanSummary(
+                                    theme,
+                                    colorScheme,
+                                    loanBox,
+                                  ),
+                                ),
                                 const SizedBox(height: 24),
                               ],
 
                               // 4. Quick Stats
-                              _buildQuickStats(theme, colorScheme, monthlyRecurring, recurringBox),
+                              _buildQuickStats(
+                                theme,
+                                colorScheme,
+                                monthlyRecurring,
+                                recurringBox,
+                              ),
                               const SizedBox(height: 24),
-                              Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                              Divider(
+                                color: colorScheme.outlineVariant.withValues(
+                                  alpha: 0.4,
+                                ),
+                              ),
 
                               // 5. Recent Transactions
-                              _buildTransactionsList(transactions, theme, colorScheme),
+                              _buildTransactionsList(
+                                transactions,
+                                theme,
+                                colorScheme,
+                              ),
                             ],
                           ),
                         );
@@ -295,7 +365,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   // --- NEW LOAN WIDGET ---
-  Widget _buildLoanSummary(ThemeData theme, ColorScheme colorScheme, Box<Loan> loanBox) {
+  Widget _buildLoanSummary(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    Box<Loan> loanBox,
+  ) {
     final isPrivate = _privacyManager.shouldHideSensitiveData();
 
     // Calculate totals
@@ -326,7 +400,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             children: [
               Text(
                 'Active Loans',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               // You can add a "See All" button here navigating to the Loan page if you have one
             ],
@@ -335,7 +411,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest, // Modern MD3 container
+              color:
+                  colorScheme.surfaceContainerHighest, // Modern MD3 container
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -347,7 +424,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.arrow_outward_rounded, size: 16, color: Colors.green[600]),
+                          Icon(
+                            Icons.arrow_outward_rounded,
+                            size: 16,
+                            color: Colors.green[600],
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             'To Receive',
@@ -359,7 +440,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       ),
                       const SizedBox(height: 4),
                       PrivacyCurrency(
-                        amount: '$_currentCurrency ${totalLent.toStringAsFixed(0)}',
+                        amount:
+                            '$_currentCurrency ${totalLent.toStringAsFixed(0)}',
                         isPrivacyActive: isPrivate,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
@@ -383,7 +465,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.arrow_downward_rounded, size: 16, color: Colors.red[600]),
+                          Icon(
+                            Icons.arrow_downward_rounded,
+                            size: 16,
+                            color: Colors.red[600],
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             'To Repay',
@@ -395,7 +481,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       ),
                       const SizedBox(height: 4),
                       PrivacyCurrency(
-                        amount: '$_currentCurrency ${totalBorrowed.toStringAsFixed(0)}',
+                        amount:
+                            '$_currentCurrency ${totalBorrowed.toStringAsFixed(0)}',
                         isPrivacyActive: isPrivate,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
@@ -420,7 +507,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [colorScheme.primaryContainer, colorScheme.secondaryContainer],
+          colors: [
+            colorScheme.primaryContainer,
+            colorScheme.secondaryContainer,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -432,11 +522,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Total Balance', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.onPrimaryContainer)),
+              Text(
+                'Total Balance',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              ),
               GestureDetector(
                 onTap: _togglePrivacy,
                 child: Icon(
-                  isPrivate ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  isPrivate
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                   color: colorScheme.onPrimaryContainer,
                   size: 20,
                 ),
@@ -447,14 +544,31 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           PrivacyCurrency(
             amount: '$_currentCurrency ${_totalBalance.toStringAsFixed(2)}',
             isPrivacyActive: isPrivate,
-            style: theme.textTheme.displaySmall?.copyWith(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
+            style: theme.textTheme.displaySmall?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildBalanceChip('Income', _periodIncome, Icons.arrow_downward_rounded, colorScheme.primary, theme, isPrivate),
+              _buildBalanceChip(
+                'Income',
+                _periodIncome,
+                Icons.arrow_downward_rounded,
+                colorScheme.primary,
+                theme,
+                isPrivate,
+              ),
               const SizedBox(width: 12),
-              _buildBalanceChip('Expense', _periodExpense, Icons.arrow_upward_rounded, colorScheme.error, theme, isPrivate),
+              _buildBalanceChip(
+                'Expense',
+                _periodExpense,
+                Icons.arrow_upward_rounded,
+                colorScheme.error,
+                theme,
+                isPrivate,
+              ),
             ],
           ),
         ],
@@ -462,7 +576,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildBalanceChip(String label, double amount, IconData icon, Color color, ThemeData theme, bool isPrivate) {
+  Widget _buildBalanceChip(
+    String label,
+    double amount,
+    IconData icon,
+    Color color,
+    ThemeData theme,
+    bool isPrivate,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -479,11 +600,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: theme.textTheme.labelSmall?.copyWith(color: color)),
+                  Text(
+                    label,
+                    style: theme.textTheme.labelSmall?.copyWith(color: color),
+                  ),
                   PrivacyCurrency(
                     amount: amount.toStringAsFixed(0),
                     isPrivacyActive: isPrivate,
-                    style: theme.textTheme.titleSmall?.copyWith(color: color, fontWeight: FontWeight.bold),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -494,7 +621,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildCardsSection(List<Wallet> wallets, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildCardsSection(
+    List<Wallet> wallets,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final isPrivate = _privacyManager.shouldHideSensitiveData();
     return StackedWalletCards(
       wallets: wallets,
@@ -508,7 +639,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildQuickStats(ThemeData theme, ColorScheme colorScheme, double monthlyRecurring, Box<Recurring> recurringBox) {
+  Widget _buildQuickStats(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    double monthlyRecurring,
+    Box<Recurring> recurringBox,
+  ) {
     final isPrivate = _privacyManager.shouldHideSensitiveData();
     final net = _periodIncome - _periodExpense;
     final savingsRate = _periodIncome > 0 ? (net / _periodIncome * 100) : 0;
@@ -517,13 +653,40 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(DateFormat('MMMM yyyy').format(_startDate), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+          Text(
+            DateFormat('MMMM yyyy').format(_startDate),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _buildStatCard('Savings', '$_currentCurrency ${net.toStringAsFixed(0)}', '${savingsRate.toStringAsFixed(1)}%', net >= 0 ? colorScheme.primary : colorScheme.error, Icons.savings_outlined, theme, colorScheme, isPrivate)),
+              Expanded(
+                child: _buildStatCard(
+                  'Savings',
+                  '$_currentCurrency ${net.toStringAsFixed(0)}',
+                  '${savingsRate.toStringAsFixed(1)}%',
+                  net >= 0 ? colorScheme.primary : colorScheme.error,
+                  Icons.savings_outlined,
+                  theme,
+                  colorScheme,
+                  isPrivate,
+                ),
+              ),
               const SizedBox(width: 12),
-              Expanded(child: _buildStatCard('Recurring', '$_currentCurrency ${monthlyRecurring.toStringAsFixed(0)}', '${recurringBox.values.length} active${recurringBox.values.length != 1 ? 's' : ''}', colorScheme.error, Icons.repeat_rounded, theme, colorScheme, isPrivate)),
+              Expanded(
+                child: _buildStatCard(
+                  'Recurring',
+                  '$_currentCurrency ${monthlyRecurring.toStringAsFixed(0)}',
+                  '${recurringBox.values.length} active${recurringBox.values.length != 1 ? 's' : ''}',
+                  colorScheme.error,
+                  Icons.repeat_rounded,
+                  theme,
+                  colorScheme,
+                  isPrivate,
+                ),
+              ),
             ],
           ),
         ],
@@ -531,10 +694,22 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildStatCard(String title, String amount, String subtitle, Color color, IconData icon, ThemeData theme, ColorScheme colorScheme, bool isPrivate) {
+  Widget _buildStatCard(
+    String title,
+    String amount,
+    String subtitle,
+    Color color,
+    IconData icon,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    bool isPrivate,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -544,27 +719,60 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               Icon(icon, color: color, size: 24),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                child: Text(title, style: theme.textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.bold)),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  title,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          PrivacyCurrency(amount: amount, isPrivacyActive: isPrivate, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          PrivacyCurrency(
+            amount: amount,
+            isPrivacyActive: isPrivate,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );
   }
 
   // ... (Keep _buildTransactionsList and helper methods _showWalletDetailsSheet, _showAddEditWalletSheet, _getWalletIcon etc.)
-  Widget _buildTransactionsList(List<dynamic> transactions, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildTransactionsList(
+    List<dynamic> transactions,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     // ... same as your original ...
     // Just for brevity in this response, assume the rest is identical to your original code
     // If you need the full block for this too, let me know, but the key changes are above.
 
     final isPrivate = _privacyManager.shouldHideSensitiveData();
+    double recentTotal = 0.0;
+
+    for (var transaction in transactions.take(5)) {
+      if (transaction is Income) {
+        recentTotal += transaction.amount;
+      } else {
+        recentTotal -= transaction.amount;
+      }
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -573,19 +781,57 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Recent', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              Text(
+                'Recent',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Spacer(),
               TextButton(
-                onPressed: () => Helpers.navigateTo(context, ExpenseListingPage()),
+                onPressed: () =>
+                    Helpers.navigateTo(context, ExpenseListingPage()),
                 child: const Text('See All'),
               ),
+              const SizedBox(width: 10,),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: PrivacyCurrency(
+                  amount:
+                      'Total: $_currentCurrency${recentTotal.abs().toStringAsFixed(0)}',
+                  isPrivacyActive: isPrivate,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    fontSize: theme.textTheme.bodySmall?.fontSize,
+                    color: recentTotal >= 0
+                        ? colorScheme.primary
+                        : colorScheme.error,
+                  ),
+                ),
+              ),
+
             ],
           ),
           const SizedBox(height: 8),
           if (transactions.isEmpty)
             Container(
               padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(color: colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(16)),
-              child: Center(child: Text('No transactions yet', style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant))),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: Text(
+                  'No transactions yet',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             )
           else
             ...transactions.take(5).map((t) {
@@ -599,20 +845,55 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(color: colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
                   leading: Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: (isIncome ? colorScheme.primaryContainer : colorScheme.errorContainer), borderRadius: BorderRadius.circular(12)),
-                    child: Icon(isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, color: isIncome ? colorScheme.onPrimaryContainer : colorScheme.onErrorContainer, size: 20),
+                    decoration: BoxDecoration(
+                      color: (isIncome
+                          ? colorScheme.primaryContainer
+                          : colorScheme.errorContainer),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      isIncome
+                          ? Icons.arrow_downward_rounded
+                          : Icons.arrow_upward_rounded,
+                      color: isIncome
+                          ? colorScheme.onPrimaryContainer
+                          : colorScheme.onErrorContainer,
+                      size: 20,
+                    ),
                   ),
-                  title: Text(t.description, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(categoryName, style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                  title: Text(
+                    t.description,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    categoryName,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   trailing: PrivacyCurrency(
-                    amount: '${isIncome ? '+' : '-'}$_currentCurrency${t.amount.toStringAsFixed(0)}',
+                    amount:
+                        '${isIncome ? '+' : '-'}$_currentCurrency${t.amount.toStringAsFixed(0)}',
                     isPrivacyActive: isPrivate,
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: isIncome ? colorScheme.primary : colorScheme.error),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: isIncome ? colorScheme.primary : colorScheme.error,
+                    ),
                   ),
                   onTap: () {
                     if (isIncome) {

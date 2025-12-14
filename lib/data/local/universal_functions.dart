@@ -1133,94 +1133,95 @@ class UniversalHiveFunctions {
 
         final defaultCategories = [
           // ========== INCOME CATEGORIES ==========
-          {'name': 'Salary', 'type': 'Income', 'color': Color(0xFF4CAF50), 'icon': 'work'},
-          {'name': 'Freelance', 'type': 'Income', 'color': Color(0xFF8BC34A), 'icon': 'computer'},
-          {'name': 'Business', 'type': 'Income', 'color': Color(0xFFCDDC39), 'icon': 'business_center'},
-          {'name': 'Investments', 'type': 'Income', 'color': Color(0xFF689F38), 'icon': 'trending_up'},
-          {'name': 'Dividends', 'type': 'Income', 'color': Color(0xFF33691E), 'icon': 'account_balance'},
-          {'name': 'Rental Income', 'type': 'Income', 'color': Color(0xFF558B2F), 'icon': 'house'},
-          {'name': 'Bonus', 'type': 'Income', 'color': Color(0xFF9CCC65), 'icon': 'celebration'},
-          {'name': 'Gifts', 'type': 'Income', 'color': Color(0xFF7CB342), 'icon': 'card_giftcard'},
-          {'name': 'Refunds', 'type': 'Income', 'color': Color(0xFFAED581), 'icon': 'assignment_return'},
-          {'name': 'Side Hustle', 'type': 'Income', 'color': Color(0xFFC5E1A5), 'icon': 'directions_run'},
+          {'name': 'Salary', 'type': 'Income', 'color': Color(0xFF4CAF50), 'icon': 'work'}, // 0
+          {'name': 'Freelance', 'type': 'Income', 'color': Color(0xFF8BC34A), 'icon': 'computer'}, // 1
+          {'name': 'Business', 'type': 'Income', 'color': Color(0xFFCDDC39), 'icon': 'business_center'}, // 2
+          {'name': 'Investments', 'type': 'Income', 'color': Color(0xFF689F38), 'icon': 'trending_up'}, // 3
+          {'name': 'Dividends', 'type': 'Income', 'color': Color(0xFF33691E), 'icon': 'account_balance'}, // 4
+          {'name': 'Rental Income', 'type': 'Income', 'color': Color(0xFF558B2F), 'icon': 'house'}, // 5
+          {'name': 'Bonus', 'type': 'Income', 'color': Color(0xFF9CCC65), 'icon': 'celebration'}, // 6
+          {'name': 'Gifts', 'type': 'Income', 'color': Color(0xFF7CB342), 'icon': 'card_giftcard'}, // 7
+          {'name': 'Refunds', 'type': 'Income', 'color': Color(0xFFAED581), 'icon': 'assignment_return'}, // 8
+          {'name': 'Side Hustle', 'type': 'Income', 'color': Color(0xFFC5E1A5), 'icon': 'directions_run'}, // 9
 
           // ========== EXPENSE CATEGORIES ==========
 
           // Food & Dining
-          {'name': 'Groceries', 'type': 'Expense', 'color': Color(0xFFF44336), 'icon': 'shopping_cart'},
-          {'name': 'Dining Out', 'type': 'Expense', 'color': Color(0xFFE53935), 'icon': 'restaurant'},
-          {'name': 'Food Delivery', 'type': 'Expense', 'color': Color(0xFFD32F2F), 'icon': 'delivery_dining'},
-          {'name': 'Coffee/Tea', 'type': 'Expense', 'color': Color(0xFFC62828), 'icon': 'local_cafe'},
-          {'name': 'Snacks', 'type': 'Expense', 'color': Color(0xFFB71C1C), 'icon': 'bakery_dining'},
+          {'name': 'Groceries', 'type': 'Expense', 'color': Color(0xFFF44336), 'icon': 'shopping_cart'}, // 10
+          {'name': 'Dining Out', 'type': 'Expense', 'color': Color(0xFFE53935), 'icon': 'restaurant'}, // 11
+          {'name': 'Food Delivery', 'type': 'Expense', 'color': Color(0xFFD32F2F), 'icon': 'delivery_dining'}, // 12
+          {'name': 'Coffee/Tea', 'type': 'Expense', 'color': Color(0xFFC62828), 'icon': 'local_cafe'}, // 13
+          {'name': 'Snacks', 'type': 'Expense', 'color': Color(0xFFB71C1C), 'icon': 'bakery_dining'}, // 14
 
           // Housing
-          {'name': 'Rent', 'type': 'Expense', 'color': Color(0xFF2196F3), 'icon': 'home'},
-          {'name': 'Mortgage', 'type': 'Expense', 'color': Color(0xFF1976D2), 'icon': 'real_estate_agent'},
-          {'name': 'Electricity', 'type': 'Expense', 'color': Color(0xFF1565C0), 'icon': 'flash_on'},
-          {'name': 'Water Bill', 'type': 'Expense', 'color': Color(0xFF0D47A1), 'icon': 'water_drop'},
-          {'name': 'Internet', 'type': 'Expense', 'color': Color(0xFF1E88E5), 'icon': 'wifi'},
-          {'name': 'Mobile Bill', 'type': 'Expense', 'color': Color(0xFF42A5F5), 'icon': 'smartphone'},
-          {'name': 'Maintenance', 'type': 'Expense', 'color': Color(0xFF64B5F6), 'icon': 'handyman'},
+          {'name': 'Rent', 'type': 'Expense', 'color': Color(0xFF2196F3), 'icon': 'home'}, // 15
+          {'name': 'Mortgage', 'type': 'Expense', 'color': Color(0xFF1976D2), 'icon': 'real_estate_agent'},// 16
+          {'name': 'Electricity', 'type': 'Expense', 'color': Color(0xFF1565C0), 'icon': 'flash_on'}, // 17
+          {'name': 'Water Bill', 'type': 'Expense', 'color': Color(0xFF0D47A1), 'icon': 'water_drop'}, // 18
+          {'name': 'Internet', 'type': 'Expense', 'color': Color(0xFF1E88E5), 'icon': 'wifi'}, // 19
+          {'name': 'Mobile Bill', 'type': 'Expense', 'color': Color(0xFF42A5F5), 'icon': 'smartphone'}, // 20
+          {'name': 'Maintenance', 'type': 'Expense', 'color': Color(0xFF64B5F6), 'icon': 'handyman'}, // 21
 
           // Transportation
-          {'name': 'Fuel', 'type': 'Expense', 'color': Color(0xFFFF9800), 'icon': 'local_gas_station'},
-          {'name': 'Public Transport', 'type': 'Expense', 'color': Color(0xFFF57C00), 'icon': 'directions_bus'},
-          {'name': 'Taxi/Ride Share', 'type': 'Expense', 'color': Color(0xFFEF6C00), 'icon': 'local_taxi'},
-          {'name': 'Car Insurance', 'type': 'Expense', 'color': Color(0xFFE65100), 'icon': 'car_rental'},
-          {'name': 'Car Maintenance', 'type': 'Expense', 'color': Color(0xFFFFB74D), 'icon': 'build'},
-          {'name': 'Parking', 'type': 'Expense', 'color': Color(0xFFFFA726), 'icon': 'local_parking'},
+          {'name': 'Fuel', 'type': 'Expense', 'color': Color(0xFFFF9800), 'icon': 'local_gas_station'}, // 22
+          {'name': 'Public Transport', 'type': 'Expense', 'color': Color(0xFFF57C00), 'icon': 'directions_bus'}, // 23
+          {'name': 'Taxi/Ride Share', 'type': 'Expense', 'color': Color(0xFFEF6C00), 'icon': 'local_taxi'}, // 24
+          {'name': 'Car Insurance', 'type': 'Expense', 'color': Color(0xFFE65100), 'icon': 'car_rental'}, // 25
+          {'name': 'Car Maintenance', 'type': 'Expense', 'color': Color(0xFFFFB74D), 'icon': 'build'}, // 26
+          {'name': 'Parking', 'type': 'Expense', 'color': Color(0xFFFFA726), 'icon': 'local_parking'}, // 27
 
           // Shopping
-          {'name': 'Clothing', 'type': 'Expense', 'color': Color(0xFF9C27B0), 'icon': 'checkroom'},
-          {'name': 'Electronics', 'type': 'Expense', 'color': Color(0xFF8E24AA), 'icon': 'devices'},
-          {'name': 'Personal Care', 'type': 'Expense', 'color': Color(0xFF7B1FA2), 'icon': 'spa'},
-          {'name': 'Home Supplies', 'type': 'Expense', 'color': Color(0xFF6A1B9A), 'icon': 'chair'},
-          {'name': 'Gifts', 'type': 'Expense', 'color': Color(0xFF4A148C), 'icon': 'card_giftcard'},
+          {'name': 'Clothing', 'type': 'Expense', 'color': Color(0xFF9C27B0), 'icon': 'checkroom'}, // 28
+          {'name': 'Electronics', 'type': 'Expense', 'color': Color(0xFF8E24AA), 'icon': 'devices'}, // 29
+          {'name': 'Personal Care', 'type': 'Expense', 'color': Color(0xFF7B1FA2), 'icon': 'spa'}, // 30
+          {'name': 'Home Supplies', 'type': 'Expense', 'color': Color(0xFF6A1B9A), 'icon': 'chair'}, // 31
+          {'name': 'Gifts', 'type': 'Expense', 'color': Color(0xFF4A148C), 'icon': 'card_giftcard'}, // 32
 
           // Entertainment & Leisure
-          {'name': 'Movies', 'type': 'Expense', 'color': Color(0xFFE91E63), 'icon': 'movie'},
-          {'name': 'Streaming Services', 'type': 'Expense', 'color': Color(0xFFD81B60), 'icon': 'live_tv'},
-          {'name': 'Hobbies', 'type': 'Expense', 'color': Color(0xFFC2185B), 'icon': 'palette'},
-          {'name': 'Sports', 'type': 'Expense', 'color': Color(0xFFAD1457), 'icon': 'sports_soccer'},
-          {'name': 'Games', 'type': 'Expense', 'color': Color(0xFF880E4F), 'icon': 'sports_esports'},
-          {'name': 'Books', 'type': 'Expense', 'color': Color(0xFFEC407A), 'icon': 'menu_book'},
+          {'name': 'Movies', 'type': 'Expense', 'color': Color(0xFFE91E63), 'icon': 'movie'}, // 33
+          {'name': 'Streaming Services', 'type': 'Expense', 'color': Color(0xFFD81B60), 'icon': 'live_tv'}, // 34
+          {'name': 'Hobbies', 'type': 'Expense', 'color': Color(0xFFC2185B), 'icon': 'palette'}, // 35
+          {'name': 'Sports', 'type': 'Expense', 'color': Color(0xFFAD1457), 'icon': 'sports_soccer'}, // 36
+          {'name': 'Games', 'type': 'Expense', 'color': Color(0xFF880E4F), 'icon': 'sports_esports'}, // 37
+          {'name': 'Books', 'type': 'Expense', 'color': Color(0xFFEC407A), 'icon': 'menu_book'}, // 38
 
           // Health & Fitness
-          {'name': 'Healthcare', 'type': 'Expense', 'color': Color(0xFF00BCD4), 'icon': 'local_hospital'},
-          {'name': 'Medicines', 'type': 'Expense', 'color': Color(0xFF00ACC1), 'icon': 'medication'},
-          {'name': 'Gym/Fitness', 'type': 'Expense', 'color': Color(0xFF0097A7), 'icon': 'fitness_center'},
-          {'name': 'Insurance', 'type': 'Expense', 'color': Color(0xFF00838F), 'icon': 'health_and_safety'},
-          {'name': 'Doctor Visits', 'type': 'Expense', 'color': Color(0xFF006064), 'icon': 'medical_services'},
+          {'name': 'Healthcare', 'type': 'Expense', 'color': Color(0xFF00BCD4), 'icon': 'local_hospital'}, // 39
+          {'name': 'Medicines', 'type': 'Expense', 'color': Color(0xFF00ACC1), 'icon': 'medication'}, // 40
+          {'name': 'Gym/Fitness', 'type': 'Expense', 'color': Color(0xFF0097A7), 'icon': 'fitness_center'}, // 41
+          {'name': 'Insurance', 'type': 'Expense', 'color': Color(0xFF00838F), 'icon': 'health_and_safety'}, // 42
+          {'name': 'Doctor Visits', 'type': 'Expense', 'color': Color(0xFF006064), 'icon': 'medical_services'}, // 43
+
 
           // Education
-          {'name': 'Tuition Fees', 'type': 'Expense', 'color': Color(0xFF673AB7), 'icon': 'school'},
-          {'name': 'Books & Supplies', 'type': 'Expense', 'color': Color(0xFF5E35B1), 'icon': 'book'},
-          {'name': 'Courses', 'type': 'Expense', 'color': Color(0xFF512DA8), 'icon': 'cast_for_education'},
-          {'name': 'Online Learning', 'type': 'Expense', 'color': Color(0xFF4527A0), 'icon': 'computer'},
+          {'name': 'Tuition Fees', 'type': 'Expense', 'color': Color(0xFF673AB7), 'icon': 'school'}, // 44
+          {'name': 'Books & Supplies', 'type': 'Expense', 'color': Color(0xFF5E35B1), 'icon': 'book'}, // 45
+          {'name': 'Courses', 'type': 'Expense', 'color': Color(0xFF512DA8), 'icon': 'cast_for_education'}, // 46
+          {'name': 'Online Learning', 'type': 'Expense', 'color': Color(0xFF4527A0), 'icon': 'computer'}, // 47
 
           // Travel
-          {'name': 'Flights', 'type': 'Expense', 'color': Color(0xFF795548), 'icon': 'flight'},
-          {'name': 'Hotels', 'type': 'Expense', 'color': Color(0xFF6D4C41), 'icon': 'hotel'},
-          {'name': 'Vacation', 'type': 'Expense', 'color': Color(0xFF5D4037), 'icon': 'beach_access'},
-          {'name': 'Travel Insurance', 'type': 'Expense', 'color': Color(0xFF4E342E), 'icon': 'travel_explore'},
+          {'name': 'Flights', 'type': 'Expense', 'color': Color(0xFF795548), 'icon': 'flight'}, // 48
+          {'name': 'Hotels', 'type': 'Expense', 'color': Color(0xFF6D4C41), 'icon': 'hotel'}, // 49
+          {'name': 'Vacation', 'type': 'Expense', 'color': Color(0xFF5D4037), 'icon': 'beach_access'}, // 50
+          {'name': 'Travel Insurance', 'type': 'Expense', 'color': Color(0xFF4E342E), 'icon': 'travel_explore'}, // 51
 
           // Financial
-          {'name': 'Loan Payment', 'type': 'Expense', 'color': Color(0xFF607D8B), 'icon': 'account_balance'},
-          {'name': 'Credit Card', 'type': 'Expense', 'color': Color(0xFF546E7A), 'icon': 'credit_card'},
-          {'name': 'Taxes', 'type': 'Expense', 'color': Color(0xFF455A64), 'icon': 'receipt_long'},
-          {'name': 'Bank Fees', 'type': 'Expense', 'color': Color(0xFF37474F), 'icon': 'payments'},
+          {'name': 'Loan Payment', 'type': 'Expense', 'color': Color(0xFF607D8B), 'icon': 'account_balance'}, // 52
+          {'name': 'Credit Card', 'type': 'Expense', 'color': Color(0xFF546E7A), 'icon': 'credit_card'}, // 53
+          {'name': 'Taxes', 'type': 'Expense', 'color': Color(0xFF455A64), 'icon': 'receipt_long'}, // 54
+          {'name': 'Bank Fees', 'type': 'Expense', 'color': Color(0xFF37474F), 'icon': 'payments'}, // 55
 
           // Personal & Miscellaneous
-          {'name': 'Donations', 'type': 'Expense', 'color': Color(0xFF009688), 'icon': 'volunteer_activism'},
-          {'name': 'Pet Care', 'type': 'Expense', 'color': Color(0xFF00897B), 'icon': 'pets'},
-          {'name': 'Childcare', 'type': 'Expense', 'color': Color(0xFF00796B), 'icon': 'child_friendly'},
-          {'name': 'Subscriptions', 'type': 'Expense', 'color': Color(0xFF00695C), 'icon': 'subscriptions'},
-          {'name': 'Repairs', 'type': 'Expense', 'color': Color(0xFF004D40), 'icon': 'construction'},
+          {'name': 'Donations', 'type': 'Expense', 'color': Color(0xFF009688), 'icon': 'volunteer_activism'}, // 56
+          {'name': 'Pet Care', 'type': 'Expense', 'color': Color(0xFF00897B), 'icon': 'pets'}, // 57
+          {'name': 'Childcare', 'type': 'Expense', 'color': Color(0xFF00796B), 'icon': 'child_friendly'}, // 58
+          {'name': 'Subscriptions', 'type': 'Expense', 'color': Color(0xFF00695C), 'icon': 'subscriptions'}, // 59
+          {'name': 'Repairs', 'type': 'Expense', 'color': Color(0xFF004D40), 'icon': 'construction'}, // 60
 
           // General
-          {'name': 'Other', 'type': 'Expense', 'color': Color(0xFF9E9E9E), 'icon': 'category'},
-          {'name': 'Miscellaneous', 'type': 'Expense', 'color': Color(0xFF757575), 'icon': 'more_horiz'},
-          {'name': 'Emergency', 'type': 'Expense', 'color': Color(0xFF616161), 'icon': 'warning'},
+          {'name': 'Other', 'type': 'Expense', 'color': Color(0xFF9E9E9E), 'icon': 'category'}, // 61
+          {'name': 'Miscellaneous', 'type': 'Expense', 'color': Color(0xFF757575), 'icon': 'more_horiz'}, // 62
+          {'name': 'Emergency', 'type': 'Expense', 'color': Color(0xFF616161), 'icon': 'warning'}, // 63
         ];
 
         // Add categories in batches to avoid overwhelming the system

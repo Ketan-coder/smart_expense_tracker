@@ -8,6 +8,13 @@ class AppConstants {
   static final String goals = 'goals';
   static const String loans = 'loans';
 
+  static const loanDocuments = 'loan_documents'; // typeId: 13
+  static const loanCreditorTypes = 'loan_creditor_types'; // typeId: 14
+  static const interestTypes = 'interest_types'; // typeId: 15
+  static const paymentFrequencies = 'payment_frequencies'; // typeId: 16
+  static const loanPurposes = 'loan_purposes'; // typeId: 17
+  static const documentTypes = 'document_types'; // typeId: 18
+
 // ---------------- Icon ----------------------------
   static const String successSendLottieJsonPath = 'assets/icons/SuccessSendLottie.json';
   static const String cellphoneJsonPath = 'assets/icons/Cellphone.json';

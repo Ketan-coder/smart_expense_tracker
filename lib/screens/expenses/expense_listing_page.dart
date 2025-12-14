@@ -618,6 +618,57 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                     const SizedBox(height: 12),
 
                     // Expense List
+                    // if (filteredExpenses.isEmpty)
+                    //   Center(
+                    //     child: Padding(
+                    //       padding: const EdgeInsets.all(40.0),
+                    //       child: Column(
+                    //         children: [
+                    //           Icon(
+                    //             Icons.filter_list_off_rounded,
+                    //             size: 64,
+                    //             color: colorScheme.onSurfaceVariant,
+                    //           ),
+                    //           const SizedBox(height: 16),
+                    //           Text(
+                    //             'No expenses found',
+                    //             style: theme.textTheme.titleMedium,
+                    //           ),
+                    //           const SizedBox(height: 8),
+                    //           Text(
+                    //             'Try adjusting your filters',
+                    //             style: theme.textTheme.bodyMedium?.copyWith(
+                    //               color: colorScheme.onSurfaceVariant,
+                    //             ),
+                    //           ),
+                    //         ],
+                    //       ),
+                    //     ),
+                    //   )
+                    // else
+                    //   ...groupedExpenses.entries.map((entry) {
+                    //     return Column(
+                    //       crossAxisAlignment: CrossAxisAlignment.start,
+                    //       children: [
+                    //         Padding(
+                    //           padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8),
+                    //           child: Text(
+                    //             _formatDateHeader(entry.key),
+                    //             style: theme.textTheme.titleSmall?.copyWith(
+                    //               color: colorScheme.onSurfaceVariant,
+                    //               fontWeight: FontWeight.w600,
+                    //             ),
+                    //           ),
+                    //         ),
+                    //         ...entry.value.map((expenseEntry) {
+                    //           return _buildExpenseTile(expenseEntry, colorScheme, theme,isPrivate);
+                    //         }),
+                    //         const SizedBox(height: 8),
+                    //       ],
+                    //     );
+                    //   }),
+
+                    // Expense List
                     if (filteredExpenses.isEmpty)
                       Center(
                         child: Padding(
@@ -647,21 +698,43 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                       )
                     else
                       ...groupedExpenses.entries.map((entry) {
+                        // Calculate total for this date
+                        double dailyTotal = entry.value.fold(0.0, (sum, expenseEntry) => sum + expenseEntry.value.amount);
+
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8),
-                              child: Text(
-                                _formatDateHeader(entry.key),
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8, right: 16),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _formatDateHeader(entry.key),
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.primary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Total: $_currentCurrency ${dailyTotal.toStringAsFixed(2)}',
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: colorScheme.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             ...entry.value.map((expenseEntry) {
-                              return _buildExpenseTile(expenseEntry, colorScheme, theme,isPrivate);
+                              return _buildExpenseTile(expenseEntry, colorScheme, theme, isPrivate);
                             }),
                             const SizedBox(height: 8),
                           ],
