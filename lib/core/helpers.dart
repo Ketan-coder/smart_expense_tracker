@@ -244,4 +244,36 @@ class Helpers {
     await prefs.setBool('showQuickActions', state);
   }
 
+  // Language code to name mapping
+  String getLanguageName(String code) {
+    const languageMap = {
+      'en': 'English',
+      'hi': 'Hindi',
+      'ta': 'Tamil',
+      'te': 'Telugu',
+      'kn': 'Kannada',
+      'ml': 'Malayalam',
+      'bn': 'Bengali',
+      'gu': 'Gujarati',
+      'mr': 'Marathi',
+      'pa': 'Punjabi',
+    };
+    return languageMap[code] ?? 'English';
+  }
+
+  String getLanguageCode(String name) {
+    const languageMap = {
+      'English': 'en',
+      'Hindi': 'hi',
+      'Tamil': 'ta',
+      'Telugu': 'te',
+      'Kannada': 'kn',
+      'Malayalam': 'ml',
+      'Bengali': 'bn',
+      'Gujarati': 'gu',
+      'Marathi': 'mr',
+      'Punjabi': 'pa',
+    };
+    return languageMap[name] ?? 'en';
+  }
 }

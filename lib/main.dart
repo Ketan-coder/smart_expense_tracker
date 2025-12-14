@@ -4,10 +4,12 @@ import 'package:expense_tracker/screens/habit_screen.dart';
 import 'package:expense_tracker/screens/loan_page.dart';
 import 'package:expense_tracker/screens/reports/reports_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_nav_bar.dart';
+import 'package:expense_tracker/services/langs/app_localalizations.dart';
 import 'package:expense_tracker/services/notification_service.dart';
 import 'package:expense_tracker/services/recurring_scheduler.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/helpers.dart';
 import 'data/model/category.dart';
 import 'data/model/expense.dart';
@@ -17,7 +19,6 @@ import 'data/model/income.dart';
 import 'data/model/recurring.dart';
 import 'data/model/wallet.dart';
 import 'package:dynamic_color/dynamic_color.dart';
-// Import your biometric service
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -77,18 +78,23 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
   bool _isLoading = true;
-  bool _dynamicColorEnabled = true; // Add this
+  bool _dynamicColorEnabled = true;
+  Locale _locale = const Locale('en'); // Default locale
 
   @override
   void initState() {
     super.initState();
-    _loadThemePreferences();
+    _loadPreferences();
   }
 
-  Future<void> _loadThemePreferences() async {
+  Future<void> _loadPreferences() async {
     final autoTheme = await Helpers().getCurrentAutoThemeState() ?? true;
     final darkTheme = await Helpers().getCurrentDarkThemeState() ?? false;
-    final dynamicColor = await Helpers().getCurrentDynamicColorState() ?? true; // Add this
+    final dynamicColor = await Helpers().getCurrentDynamicColorState() ?? true;
+    final language = await Helpers().getCurrentLanguage() ?? 'English';
+
+    // Map language name to locale code
+    final localeCode = _getLocaleCode(language);
 
     setState(() {
       if (autoTheme) {
@@ -96,9 +102,26 @@ class _MyAppState extends State<MyApp> {
       } else {
         _themeMode = darkTheme ? ThemeMode.dark : ThemeMode.light;
       }
-      _dynamicColorEnabled = dynamicColor; // Add this
+      _dynamicColorEnabled = dynamicColor;
+      _locale = Locale(localeCode);
       _isLoading = false;
     });
+  }
+
+  String _getLocaleCode(String languageName) {
+    const languageMap = {
+      'English': 'en',
+      'Hindi': 'hi',
+      'Tamil': 'ta',
+      'Telugu': 'te',
+      'Kannada': 'kn',
+      'Malayalam': 'ml',
+      'Bengali': 'bn',
+      'Gujarati': 'gu',
+      'Marathi': 'mr',
+      'Punjabi': 'pa',
+    };
+    return languageMap[languageName] ?? 'en';
   }
 
   static final _defaultLightColorScheme = ColorScheme.fromSeed(
@@ -128,7 +151,6 @@ class _MyAppState extends State<MyApp> {
         ColorScheme lightColorScheme;
         ColorScheme darkColorScheme;
 
-        // FIX: Using the stored preference
         if (lightDynamic != null && darkDynamic != null && _dynamicColorEnabled) {
           lightColorScheme = lightDynamic.harmonized();
           darkColorScheme = darkDynamic.harmonized();
@@ -143,10 +165,30 @@ class _MyAppState extends State<MyApp> {
           navigatorKey: NotificationService.navigatorKey,
           title: 'Expense Tracker',
           debugShowCheckedModeBanner: false,
+
+          // Localization Configuration
+          locale: _locale,
+          localizationsDelegates:  [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en'), // English
+            Locale('hi'), // Hindi
+            Locale('ta'), // Tamil
+            Locale('te'), // Telugu
+            Locale('kn'), // Kannada
+            Locale('ml'), // Malayalam
+            Locale('bn'), // Bengali
+            Locale('gu'), // Gujarati
+            Locale('mr'), // Marathi
+            Locale('pa'), // Punjabi
+          ],
+
           routes: {
             '/home': (_) => const BottomNavBar(currentIndex: 0),
-            // '/expense': (_) => const BottomNavBar(currentIndex: 1),
-            // '/income': (_) => const BottomNavBar(currentIndex: 2),
             '/reports': (_) => const ReportsPage(),
             '/goal': (_) => const BottomNavBar(currentIndex: 3),
             '/habit': (_) => const HabitPage(),

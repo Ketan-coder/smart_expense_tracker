@@ -15,6 +15,7 @@ import '../../data/model/income.dart';
 import '../../data/model/loan.dart';
 import '../../data/model/recurring.dart' show Recurring;
 import '../../data/model/wallet.dart';
+import '../../services/langs/localzation_extension.dart';
 import '../../services/notification_service.dart';
 import '../../services/biometric_auth.dart';
 import '../../services/privacy/privacy_manager.dart';
@@ -50,7 +51,6 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _adaptiveBrightnessEnabled = true;
   bool _showQuickActions = true;
 
-  // Currency and language lists remain the same...
   final List<Map<String, String>> _currencies = [
     {"code": "USD", "name": "US Dollar", "symbol": "\$"},
     {"code": "EUR", "name": "Euro", "symbol": "€"},
@@ -102,7 +102,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final dynamicColorState = await Helpers().getCurrentDynamicColorState() ?? true;
     final showQuickActions = await Helpers().getCurrentShowQuickActions() ?? true;
 
-
     if (mounted) {
       setState(() {
         _notificationState = notificationState;
@@ -141,7 +140,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-// Add these update methods:
   Future<void> _updatePrivacyMode(bool value) async {
     setState(() => _privacyModeEnabled = value);
     await PrivacyManager().setPrivacyMode(value);
@@ -149,7 +147,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "Privacy Mode enabled" : "Privacy Mode disabled",
+        message: value ? context.t('privacy_enabled') : context.t('privacy_disabled'),
         type: SnackBarType.success,
         behavior: SnackBarBehavior.floating,
       );
@@ -164,7 +162,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "Screenshot protection enabled" : "Screenshot protection disabled",
+        message: value ? context.t('screenshot_protection_enabled') : context.t('screenshot_protection_disabled'),
         type: SnackBarType.success,
         behavior: SnackBarBehavior.floating,
       );
@@ -178,42 +176,12 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "Shake to activate privacy enabled" : "Shake to activate privacy disabled",
+        message: value ? context.t('shake_enabled') : context.t('shake_disabled'),
         type: SnackBarType.info,
         behavior: SnackBarBehavior.floating,
       );
     }
   }
-
-  // Future<void> _updateFaceDetection(bool value) async {
-  //   if (value) {
-  //     // Show warning about camera usage
-  //     final confirmed = await Dialogs.showConfirmation(
-  //       context: context,
-  //       title: "Enable Face Detection?",
-  //       message: "This feature uses the front camera to detect when someone else is looking at your screen. "
-  //           "The camera is only active when the app is open and uses minimal battery.",
-  //       yesText: "Enable",
-  //       noText: "Cancel",
-  //     );
-  //
-  //     if (confirmed != true) {
-  //       return;
-  //     }
-  //   }
-  //
-  //   setState(() => _faceDetectionEnabled = value);
-  //   await PrivacyManager().setFaceDetection(value);
-  //
-  //   if (mounted) {
-  //     SnackBars.show(
-  //       context,
-  //       message: value ? "Face detection enabled" : "Face detection disabled",
-  //       type: SnackBarType.success,
-  //       behavior: SnackBarBehavior.floating,
-  //     );
-  //   }
-  // }
 
   Future<void> _updateAdaptiveBrightness(bool value) async {
     setState(() => _adaptiveBrightnessEnabled = value);
@@ -222,7 +190,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "Adaptive brightness enabled" : "Adaptive brightness disabled",
+        message: value ? context.t('adaptive_brightness_enabled') : context.t('adaptive_brightness_disabled'),
         type: SnackBarType.info,
         behavior: SnackBarBehavior.floating,
       );
@@ -232,10 +200,10 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _updateQuickActions(bool value) async {
     final confirmed = await Dialogs.showConfirmation(
       context: context,
-      title: value ? "Enable Quick Actions?" : "Disable Quick Actions ?",
-      message: "The app needs to restart to apply changes.",
-      yesText: value ? "Enable" : "Disable",
-      noText: "Cancel",
+      title: value ? context.t('enable_quick_actions_title') : context.t('disable_quick_actions_title'),
+      message: context.t('app_restart_required'),
+      yesText: value ? context.t('enable') : context.t('disable'),
+      noText: context.loc.cancel,
     );
 
     if (confirmed != true) {
@@ -249,77 +217,66 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "Quick actions enabled. Restarting..." : "Quick actions disabled. Restarting...",
+        message: value ? "${context.t('quick_actions_enabled')} ${context.t('restarting')}" : "${context.t('quick_actions_disabled')} ${context.t('restarting')}",
         type: SnackBarType.success,
       );
     }
     _restartApp();
   }
 
-  // --- CHANGED SECTION 2: REPLACED THIS ENTIRE FUNCTION ---
   Future<void> _updateNotificationState(bool value) async {
     if (value) {
-      // --- ENABLING NOTIFICATIONS ---
-
-      // 1. Request the correct notification permission first
       final status = await Permission.notification.request();
 
       if (status.isGranted) {
-        // 2. Permission granted, now update state and initialize service
         setState(() => _notificationState = true);
         await Helpers().setCurrentNotificationState(true);
-
-        // This call should now succeed without triggering the wrong permission screen
         await NotificationService.initialize();
 
         if (mounted) {
-          SnackBars.show(context, message: "Notifications enabled", type: SnackBarType.success);
+          SnackBars.show(context, message: context.t('notifications_enabled'), type: SnackBarType.success);
         }
       } else {
-        // 3. Permission was denied
-        setState(() => _notificationState = false); // Revert the switch
+        setState(() => _notificationState = false);
         if (mounted) {
           SnackBars.show(
             context,
-            message: "Notification permission was denied",
+            message: context.t('notification_permission_denied'),
             type: SnackBarType.warning,
           );
         }
       }
     } else {
-      // --- DISABLING NOTIFICATIONS ---
       final confirmed = await Dialogs.showConfirmation(
         context: context,
-        title: "Disable Notifications?",
-        message: "You will not receive any notifications. The app needs to restart.",
-        yesText: "Disable",
-        noText: "Cancel",
+        title: context.t('disable_notifications_title'),
+        message: context.t('disable_notifications_msg'),
+        yesText: context.t('disable'),
+        noText: context.loc.cancel,
       );
 
       if (confirmed != true) {
-        setState(() => _notificationState = true); // Revert switch
+        setState(() => _notificationState = true);
         return;
       }
 
-      // Proceed with disabling
       setState(() => _notificationState = false);
       await Helpers().setCurrentNotificationState(false);
       await NotificationService.cancelAllNotifications();
       if (mounted) {
-        SnackBars.show(context, message: "Notifications disabled. Restarting...", type: SnackBarType.warning);
+        SnackBars.show(context, message: "${context.t('notifications_disabled')} ${context.t('restarting')}", type: SnackBarType.warning);
       }
       _restartApp();
     }
   }
-  // -----------------------------------------------------
 
   Future<void> _updateDarkThemeState(bool value) async {
     final confirmed = await Dialogs.showConfirmation(
       context: context,
-      title: value ? "Enable Dark Theme?" : "Disable Dark Theme?",
-      message: "The app needs to restart to apply theme changes.",
-      yesText: value ? "Enable" : "Disable",
-      noText: "Cancel",
+      title: value ? context.t('enable_dark_theme_title') : context.t('disable_dark_theme_title'),
+      message: context.t('app_restart_required'),
+      yesText: value ? context.t('enable') : context.t('disable'),
+      noText: context.loc.cancel,
     );
 
     if (confirmed != true) {
@@ -334,7 +291,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "Dark theme enabled. Restarting..." : "Light theme enabled. Restarting...",
+        message: value ? "${context.t('dark_theme_enabled')} ${context.t('restarting')}" : "${context.t('light_theme_enabled')} ${context.t('restarting')}",
         type: SnackBarType.success,
       );
     }
@@ -344,10 +301,10 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _updateDynamicColorState(bool value) async {
     final confirmed = await Dialogs.showConfirmation(
       context: context,
-      title: value ? "Enable Dynamic Theme?" : "Disable Dynamic Theme?",
-      message: "The app needs to restart to apply theme changes.",
-      yesText: value ? "Enable" : "Disable",
-      noText: "Cancel",
+      title: value ? context.t('enable_dynamic_theme_title') : context.t('disable_dynamic_theme_title'),
+      message: context.t('app_restart_required'),
+      yesText: value ? context.t('enable') : context.t('disable'),
+      noText: context.loc.cancel,
     );
 
     if (confirmed != true) {
@@ -361,7 +318,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "Dynamic theme enabled. Restarting..." : "Dynamic theme disabled. Restarting...",
+        message: value ? "${context.t('dynamic_theme_enabled')} ${context.t('restarting')}" : "${context.t('dynamic_theme_disabled')} ${context.t('restarting')}",
         type: SnackBarType.success,
       );
     }
@@ -371,10 +328,10 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _updateAutoThemeState(bool value) async {
     final confirmed = await Dialogs.showConfirmation(
       context: context,
-      title: value ? "Enable Auto Theme?" : "Disable Auto Theme?",
-      message: "The app needs to restart to apply theme changes.",
-      yesText: value ? "Enable" : "Disable",
-      noText: "Cancel",
+      title: value ? context.t('enable_auto_theme_title') : context.t('disable_auto_theme_title'),
+      message: context.t('app_restart_required'),
+      yesText: value ? context.t('enable') : context.t('disable'),
+      noText: context.loc.cancel,
     );
 
     if (confirmed != true) {
@@ -388,7 +345,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "Auto theme enabled. Restarting..." : "Auto theme disabled. Restarting...",
+        message: value ? "${context.t('auto_theme_enabled')} ${context.t('restarting')}" : "${context.t('auto_theme_disabled')} ${context.t('restarting')}",
         type: SnackBarType.success,
       );
     }
@@ -407,7 +364,6 @@ class _SettingsPageState extends State<SettingsPage> {
       final biometricAuth = BiometricAuth();
 
       if (value) {
-        // ENABLING biometric
         debugPrint("🔐 Checking if biometric is available...");
 
         final isAvailable = await biometricAuth.isBiometricAvailable();
@@ -417,7 +373,7 @@ class _SettingsPageState extends State<SettingsPage> {
           if (mounted) {
             SnackBars.show(
               context,
-              message: "Biometric authentication is not available on this device",
+              message: context.t('biometric_not_available'),
               type: SnackBarType.error,
               behavior: SnackBarBehavior.floating,
             );
@@ -436,7 +392,7 @@ class _SettingsPageState extends State<SettingsPage> {
           if (mounted) {
             SnackBars.show(
               context,
-              message: "Please enroll fingerprint or face ID in device settings first",
+              message: context.t('enroll_biometric_first'),
               type: SnackBarType.error,
               behavior: SnackBarBehavior.floating,
             );
@@ -450,55 +406,51 @@ class _SettingsPageState extends State<SettingsPage> {
 
         debugPrint("🔐 Attempting authentication...");
         final authResponse = await biometricAuth.biometricAuthenticate(
-          reason: 'Authenticate to enable biometric login',
+          reason: context.t('authenticate_to_enable'),
         );
 
         debugPrint("🔐 Auth result: ${authResponse.result}");
 
         if (authResponse.isSuccess) {
-          // Success - enable biometric
           setState(() => _biometricState = true);
           await Helpers().setCurrentBiometricState(true);
 
           if (mounted) {
             SnackBars.show(
               context,
-              message: "✅ $_biometricType enabled successfully",
+              message: "✅ ${context.t('biometric_enabled_success')}",
               type: SnackBarType.success,
               behavior: SnackBarBehavior.floating,
             );
           }
         } else if (authResponse.isCancelled) {
-          // User cancelled
           setState(() => _biometricState = false);
           if (mounted) {
             SnackBars.show(
               context,
-              message: "Biometric authentication cancelled",
+              message: context.t('biometric_cancelled'),
               type: SnackBarType.info,
               behavior: SnackBarBehavior.floating,
             );
           }
         } else {
-          // Failed or error
           setState(() => _biometricState = false);
           if (mounted) {
             SnackBars.show(
               context,
-              message: authResponse.message ?? "Authentication failed",
+              message: authResponse.message ?? context.t('authentication_failed'),
               type: SnackBarType.error,
               behavior: SnackBarBehavior.floating,
             );
           }
         }
       } else {
-        // DISABLING biometric
         final confirmed = await Dialogs.showConfirmation(
           context: context,
-          title: "Disable $_biometricType?",
-          message: "You will no longer need biometric authentication to access the app.",
-          yesText: "Disable",
-          noText: "Cancel",
+          title: "${context.t('disable')} $_biometricType?",
+          message: context.t('biometric_disable_msg'),
+          yesText: context.t('disable'),
+          noText: context.loc.cancel,
         );
 
         if (confirmed != true) {
@@ -515,7 +467,7 @@ class _SettingsPageState extends State<SettingsPage> {
         if (mounted) {
           SnackBars.show(
             context,
-            message: "$_biometricType disabled. Restarting...",
+            message: "$_biometricType ${context.t('disabled')}. ${context.t('restarting')}",
             type: SnackBarType.success,
             behavior: SnackBarBehavior.floating,
           );
@@ -528,7 +480,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) {
         SnackBars.show(
           context,
-          message: "Error updating biometric settings",
+          message: context.t('error_updating_biometric'),
           type: SnackBarType.error,
           behavior: SnackBarBehavior.floating,
         );
@@ -544,10 +496,10 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _updateSmsParsingState(bool value) async {
     final confirmed = await Dialogs.showConfirmation(
       context: context,
-      title: value ? "Enable SMS Parsing?" : "Disable SMS Parsing?",
-      message: "The app needs to restart to apply changes.",
-      yesText: value ? "Enable" : "Disable",
-      noText: "Cancel",
+      title: value ? context.t('enable_sms_parsing_title') : context.t('disable_sms_parsing_title'),
+      message: context.t('app_restart_required'),
+      yesText: value ? context.t('enable') : context.t('disable'),
+      noText: context.loc.cancel,
     );
 
     if (confirmed != true) {
@@ -558,14 +510,13 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _smsParsingState = value);
     await Helpers().setCurrentSmsParsingState(value);
 
-    // Also update SharedPreferences for SmsReceiver
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('sms_parsing_enabled', value);
 
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "SMS parsing enabled. Restarting..." : "SMS parsing disabled. Restarting...",
+        message: value ? "${context.t('sms_parsing_enabled')} ${context.t('restarting')}" : "${context.t('sms_parsing_disabled')} ${context.t('restarting')}",
         type: SnackBarType.success,
       );
     }
@@ -581,7 +532,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void _showCurrencySearchSheet() {
     BottomSheetUtil.show(
       context: context,
-      title: 'Select Currency',
+      title: context.t('select_currency'),
       height: MediaQuery.sizeOf(context).height * 0.6,
       child: CurrencySearchSheet(
         currencies: _currencies,
@@ -589,10 +540,10 @@ class _SettingsPageState extends State<SettingsPage> {
         onCurrencySelected: (currencyCode, currencySymbol) async {
           final confirmed = await Dialogs.showConfirmation(
             context: context,
-            title: "Change Currency?",
-            message: "Changing currency to $currencyCode. The app needs to restart.",
-            yesText: "Change",
-            noText: "Cancel",
+            title: context.t('change_currency_title'),
+            message: "${context.t('change_currency_msg')} $currencyCode. ${context.t('app_restart_required')}",
+            yesText: context.t('change'),
+            noText: context.loc.cancel,
           );
 
           if (confirmed == true) {
@@ -602,7 +553,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Navigator.pop(context);
               SnackBars.show(
                 context,
-                message: "Currency changed to $currencyCode. Restarting...",
+                message: "${context.t('currency_changed')} $currencyCode. ${context.t('restarting')}",
                 type: SnackBarType.success,
               );
             }
@@ -616,7 +567,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void _showLanguageSearchSheet() {
     BottomSheetUtil.show(
       context: context,
-      title: 'Select Language',
+      title: context.t('select_language'),
       height: MediaQuery.sizeOf(context).height * 0.6,
       child: LanguageSearchSheet(
         languages: _languages,
@@ -624,10 +575,10 @@ class _SettingsPageState extends State<SettingsPage> {
         onLanguageSelected: (languageName) async {
           final confirmed = await Dialogs.showConfirmation(
             context: context,
-            title: "Change Language?",
-            message: "Changing language to $languageName. The app needs to restart.",
-            yesText: "Change",
-            noText: "Cancel",
+            title: context.t('change_language_title'),
+            message: "${context.t('change_language_msg')} $languageName. ${context.t('app_restart_required')}",
+            yesText: context.t('change'),
+            noText: context.loc.cancel,
           );
 
           if (confirmed == true) {
@@ -636,7 +587,7 @@ class _SettingsPageState extends State<SettingsPage> {
             if (mounted) {
               SnackBars.show(
                 context,
-                message: "Language changed to $languageName. Restarting...",
+                message: "${context.t('language_changed')} $languageName. ${context.t('restarting')}",
                 type: SnackBarType.success,
               );
             }
@@ -650,10 +601,10 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _showClearDataDialog() async {
     final confirmed = await Dialogs.showConfirmation(
       context: context,
-      title: "Clear All Data?",
-      message: "This will delete all expenses, incomes, wallets, and settings. This action cannot be undone.",
-      yesText: "Clear All",
-      noText: "Cancel",
+      title: context.t('clear_data_title'),
+      message: context.t('clear_data_warning'),
+      yesText: context.t('clear_all'),
+      noText: context.loc.cancel,
     );
 
     if (confirmed == true) {
@@ -661,24 +612,8 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // Future<void> _clearAllData() async {
-  //   final prefs = await SharedPreferences.getInstance();
-  //   await prefs.clear();
-  //   await _loadAllPreferences();
-  //
-  //   if (mounted) {
-  //     SnackBars.show(
-  //       context,
-  //       message: "All data cleared. Restarting...",
-  //       type: SnackBarType.success,
-  //     );
-  //     _restartApp();
-  //   }
-  // }
-
   Future<void> _clearAllData() async {
     try {
-      // Show loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -687,35 +622,28 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
 
-      // Clear SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
-
-      // Clear Hive boxes (simple method - just clear contents)
       await _clearHiveBoxes();
 
-      // Close loading indicator
       if (mounted) Navigator.of(context).pop();
 
       if (mounted) {
         SnackBars.show(
           context,
-          message: "All data cleared successfully",
+          message: context.t('data_cleared'),
           type: SnackBarType.success,
         );
-
-        // Refresh the current page
         setState(() {});
       }
     } catch (e) {
-      // Close loading indicator
       if (mounted) Navigator.of(context).pop();
 
       debugPrint('Error clearing data: ${e.toString()}');
       if (mounted) {
         SnackBars.show(
           context,
-          message: "Error clearing data",
+          message: context.t('error_clearing_data'),
           type: SnackBarType.error,
         );
       }
@@ -732,7 +660,6 @@ class _SettingsPageState extends State<SettingsPage> {
       await Hive.box<Goal>(AppConstants.goals).clear();
       await Hive.box<Habit>(AppConstants.habits).clear();
 
-      // If loans exist
       if (Hive.isBoxOpen(AppConstants.loans)) {
         await Hive.box<Loan>(AppConstants.loans).clear();
       }
@@ -743,27 +670,25 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // UPDATED: Face detection toggle with stronger warning
   Future<void> _updateFaceDetection(bool value) async {
     if (value) {
-      // Show battery warning dialog
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: Row(
-            children: const [
-              Icon(Icons.battery_alert, color: Colors.orange),
-              SizedBox(width: 8),
-              Text("Battery Warning"),
+            children: [
+              const Icon(Icons.battery_alert, color: Colors.orange),
+              const SizedBox(width: 8),
+              Text(context.t('battery_warning')),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "Gaze Detection uses the front camera continuously, which can significantly drain your battery.",
-                style: TextStyle(fontWeight: FontWeight.w500),
+              Text(
+                context.t('gaze_detection_warning'),
+                style: const TextStyle(fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 16),
               Container(
@@ -776,13 +701,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Column(
                   children: [
                     Row(
-                      children: const [
-                        Icon(Icons.battery_3_bar, color: Colors.orange),
-                        SizedBox(width: 8),
+                      children: [
+                        const Icon(Icons.battery_3_bar, color: Colors.orange),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            "Expected battery drain: ~5% per hour",
-                            style: TextStyle(
+                            context.t('battery_drain_expected'),
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.orange,
                             ),
@@ -791,31 +716,31 @@ class _SettingsPageState extends State<SettingsPage> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      "Camera stops when app is in background, but will restart when you return.",
-                      style: TextStyle(fontSize: 12),
+                    Text(
+                      context.t('camera_background_note'),
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                "Do you still want to enable this feature?",
-                style: TextStyle(fontWeight: FontWeight.w500),
+              Text(
+                context.t('enable_anyway_question'),
+                style: const TextStyle(fontWeight: FontWeight.w500),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text("Cancel"),
+              child: Text(context.loc.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.orange,
               ),
-              child: const Text("Enable Anyway"),
+              child: Text(context.t('enable_anyway')),
             ),
           ],
         ),
@@ -832,9 +757,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value
-            ? "⚠️ Face detection enabled - watch your battery"
-            : "Face detection disabled",
+        message: value ? context.t('face_detection_enabled_warning') : context.t('face_detection_disabled'),
         type: value ? SnackBarType.warning : SnackBarType.success,
         behavior: SnackBarBehavior.floating,
       );
@@ -863,13 +786,13 @@ class _SettingsPageState extends State<SettingsPage> {
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         animatedTexts: [
-          'Manage Privacy Settings',
-          'Customize Appearance',
-          'Adjust Notifications',
-          'Enable Biometric Authentication',
-          'Configure SMS Parsing',
-          'Set Currency',
-          'Select Language',
+          context.t('manage_privacy_settings'),
+          context.t('customize_appearance'),
+          context.t('adjust_notifications'),
+          context.t('enable_biometric_auth'),
+          context.t('configure_sms_parsing'),
+          context.t('set_currency'),
+          context.t('select_language_header'),
         ],
         animationType: AnimationType.fadeInOut,
         animationEffect: AnimationEffect.smooth,
@@ -893,7 +816,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
                       child: Text(
-                        'Integrated Services',
+                        context.t('integrated_services'),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -906,15 +829,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(height: 8),
 
 
-                // Notifications
                 ListTile(
                   leading: const Icon(Icons.notifications),
-                  title: const Text("Notifications"),
-                  subtitle: const Text("Enable app notifications"),
-                  trailing: Switch(
-                    value: _notificationState,
-                    onChanged: _updateNotificationState,
-                  ),
+                  title: Text(context.loc.notifications),
+                  subtitle: Text(context.loc.translate('enable_notifications')),
+                  trailing: Switch(value: _notificationState, onChanged: _updateNotificationState),
                 ),
 
                 // --- CHANGED SECTION 3: MODIFIED THIS LISTTILE ---
@@ -933,13 +852,13 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Text("SMS Auto-Parsing"),
+                      Text(context.t('sms_parsing')),
                     ],
                   ),
                   subtitle: Text(
                     _smsParsingState
-                        ? "Automatically track expenses from SMS"
-                        : "Disabled (saves battery)",
+                        ? context.t('sms_parsing_desc')
+                        : context.t('sms_parsing_disabled'),
                   ),
                   trailing: Switch(
                     value: _smsParsingState,
@@ -964,8 +883,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   title: Text("$_biometricType Authentication"),
                   subtitle: Text(
                     _biometricState
-                        ? "Enabled - Lock screen on app start"
-                        : "Disabled",
+                        ? context.t('biometric_enabled')
+                        : context.t('disabled'),
                   ),
                   trailing: Switch(
                     value: _biometricState,
@@ -983,7 +902,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
                       child: Text(
-                        'Appearance',
+                        context.t('appearance'),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -998,8 +917,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 // Auto Theme
                 ListTile(
                   leading: const Icon(Icons.brightness_auto),
-                  title: const Text("Auto Theme"),
-                  subtitle: const Text("Follow system theme settings"),
+                  title:  Text(context.t('auto_theme')),
+                  subtitle: Text(context.t('auto_theme_desc')),
                   trailing: Switch(
                     value: _autoThemeState,
                     onChanged: _updateAutoThemeState,
@@ -1010,8 +929,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 if (!_autoThemeState)
                   ListTile(
                     leading: const Icon(Icons.dark_mode),
-                    title: const Text("Dark Mode"),
-                    subtitle: const Text("Use dark theme"),
+                    title: Text(context.t('dark_theme')),
+                    subtitle: Text(context.t('dark_theme_desc')),
                     trailing: Switch(
                       value: _darkThemeState,
                       onChanged: _updateDarkThemeState,
@@ -1022,8 +941,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
                 ListTile(
                   leading: const Icon(Icons.palette),
-                  title: const Text("Dynamic Colors"),
-                  subtitle: const Text("Use device wallpaper colors"),
+                  title: Text(context.t('dynamic_colors')),
+                  subtitle: Text(context.t('dynamic_colors_desc')),
                   trailing: Switch(
                     value: _dynamicColorState,
                     onChanged: _updateDynamicColorState,
@@ -1034,8 +953,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
                 ListTile(
                   leading: const Icon(Icons.call_to_action_outlined),
-                  title: const Text("Show Quick Actions"),
-                  subtitle: const Text("Quickly add expenses and incomes"),
+                  title: Text(context.t('quick_actions')),
+                  subtitle: Text(context.t('quick_actions_desc')),
                   trailing: Switch(
                     value: _showQuickActions,
                     onChanged: _updateQuickActions,
@@ -1052,7 +971,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
                       child: Text(
-                        'Privacy & Security',
+                        context.t('privacy_security'),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -1101,11 +1020,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     _privacyModeEnabled ? Icons.shield : Icons.shield_outlined,
                     color: _privacyModeEnabled ? Colors.green : null,
                   ),
-                  title: const Text("Privacy Mode"),
+                  title: Text(context.t('privacy_mode')),
                   subtitle: Text(
                     _privacyModeEnabled
-                        ? "Hide sensitive data with blur/masks"
-                        : "All data visible",
+                        ? context.t('privacy_mode_active')
+                        : context.t('privacy_mode_inactive'),
                   ),
                   trailing: Switch(
                     value: _privacyModeEnabled,
@@ -1119,11 +1038,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     Icons.screenshot_monitor,
                     color: _screenshotProtectionEnabled ? Colors.blue : null,
                   ),
-                  title: const Text("Screenshot Protection"),
+                  title: Text(context.t('screenshot_protection')),
                   subtitle: Text(
                     _screenshotProtectionEnabled
-                        ? "Screenshots and screen recording blocked"
-                        : "Screenshots allowed",
+                        ? context.t('screenshot_blocked')
+                        : context.t('screenshot_allowed'),
                   ),
                   trailing: Switch(
                     value: _screenshotProtectionEnabled,
@@ -1138,11 +1057,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     Icons.phone_android,
                     color: _shakeToPrivacyEnabled ? Colors.orange : null,
                   ),
-                  title: const Text("Shake to Activate"),
+                  title: Text(context.t('shake_to_activate')),
                   subtitle: Text(
                     _shakeToPrivacyEnabled
-                        ? "Shake device or flip face-down to hide data"
-                        : "Gesture activation disabled",
+                        ? context.t('shake_enabled')
+                        : context.t('shake_disabled'),
                   ),
                   trailing: Switch(
                     value: _shakeToPrivacyEnabled,
@@ -1157,11 +1076,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     Icons.brightness_6,
                     color: _adaptiveBrightnessEnabled ? Colors.yellow.shade700 : null,
                   ),
-                  title: const Text("Adaptive Brightness"),
+                  title: Text(context.t('adaptive_brightness')),
                   subtitle: Text(
                     _adaptiveBrightnessEnabled
-                        ? "Dims screen when privacy is active"
-                        : "Normal brightness always",
+                        ? context.t('adaptive_brightness_active')
+                        : context.t('adaptive_brightness_inactive'),
                   ),
                   trailing: Switch(
                     value: _adaptiveBrightnessEnabled,
@@ -1178,7 +1097,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   title: Row(
                     children: [
-                      const Text("Gaze Detection"),
+                       Text(context.t('gaze_detection')),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1207,8 +1126,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   subtitle: Text(
                     _faceDetectionEnabled
-                        ? "⚠️ Camera active - may drain battery (~5%/hr)"
-                        : "Disabled (Recommended for battery)",
+                        ? context.t('gaze_detection_active_desc')
+                        : context.t('gaze_detection_subtitle'),
                   ),
                   trailing: Switch(
                     value: _faceDetectionEnabled,
@@ -1221,10 +1140,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       context: context,
                       builder: (context) => AlertDialog(
                         title: Row(
-                          children: const [
+                          children:  [
                             Icon(Icons.info_outline, color: Colors.orange),
                             SizedBox(width: 8),
-                            Text("About Gaze Detection"),
+                            Text(context.t('gaze_detection_about')),
                           ],
                         ),
                         content: Column(
@@ -1232,7 +1151,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "This feature uses the front camera to detect when multiple people are viewing your screen.",
+                              context.t('gaze_detection_desc_modal'),
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                             const SizedBox(height: 16),
@@ -1284,7 +1203,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text("Close"),
+                            child: Text(context.loc.cancel),
                           ),
                         ],
                       ),
