@@ -32,7 +32,7 @@ class PrivacyOverlay extends StatelessWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                 child: Container(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha:0.1),
                 ),
               ),
             ),
@@ -104,7 +104,7 @@ class PrivacyIndicator extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+              ? Theme.of(context).colorScheme.primary.withValues(alpha:0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
@@ -161,7 +161,7 @@ class MyDimmingOverlay extends StatelessWidget {
         duration: const Duration(milliseconds: 400),
         opacity: isActive ? 1.0 : 0.0,
         child: Container(
-          color: Colors.black.withOpacity(0.65), // Simple 15% black overlay
+          color: Colors.black.withValues(alpha:0.65), // Simple 15% black overlay
         ),
       ),
     );

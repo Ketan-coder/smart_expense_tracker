@@ -214,7 +214,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       // MODIFIED: Removed fixed width
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha:0.15),
         borderRadius: BorderRadius.circular(20), // Make it a chip
       ),
       child: Row(
@@ -366,7 +366,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+          side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
         ),
         color: colorScheme.surfaceContainer,
         child: InkWell(
@@ -438,7 +438,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+          side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
         ),
         color: colorScheme.surfaceContainer,
         child: InkWell(
@@ -517,7 +517,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       color: colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
       ),
       child: Padding(
         // MODIFIED: Scaled down padding
@@ -591,7 +591,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       color: colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
       ),
       child: Padding(
         // MODIFIED: Scaled down padding
@@ -639,7 +639,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       color: colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
       ),
       child: Padding(
         // MODIFIED: Scaled down padding
@@ -740,7 +740,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             color: colorScheme.surfaceContainer,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+              side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(40.0),
@@ -784,7 +784,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   color: colorScheme.surfaceContainer,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+                    side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
                   ),
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(

@@ -131,7 +131,7 @@ class BottomSheetUtil {
           },
           behavior: HitTestBehavior.opaque,
           child: Container(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha:0.4),
             padding: EdgeInsets.only(bottom: bottomPadding + safeAreaBottom),
             child: DraggableScrollableSheet(
               initialChildSize: 0.7,

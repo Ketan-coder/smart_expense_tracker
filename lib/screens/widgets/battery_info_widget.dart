@@ -384,7 +384,7 @@ class _BatteryMonitorWidgetState extends State<BatteryMonitorWidget> {
       child: Material(
         elevation: 6,
         borderRadius: BorderRadius.circular(16),
-        color: Colors.black.withOpacity(0.9),
+        color: Colors.black.withValues(alpha:0.9),
         child: Container(
           width: 300,
           padding: const EdgeInsets.all(16),
@@ -427,7 +427,7 @@ class _BatteryMonitorWidgetState extends State<BatteryMonitorWidget> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: _getBatteryStateColor().withOpacity(0.2),
+                                color: _getBatteryStateColor().withValues(alpha:0.2),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(color: _getBatteryStateColor()),
                               ),
@@ -455,9 +455,9 @@ class _BatteryMonitorWidgetState extends State<BatteryMonitorWidget> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.15),
+                  color: Colors.red.withValues(alpha:0.15),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withOpacity(0.5)),
+                  border: Border.all(color: Colors.red.withValues(alpha:0.5)),
                 ),
                 child: Row(
                   children: [
@@ -541,7 +541,7 @@ class _BatteryMonitorWidgetState extends State<BatteryMonitorWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: healthColor.withOpacity(0.2),
+        color: healthColor.withValues(alpha:0.2),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: healthColor),
       ),
@@ -696,7 +696,7 @@ class _BatteryMonitorWidgetState extends State<BatteryMonitorWidget> {
               padding: const EdgeInsets.only(left: 14, top: 2),
               child: LinearProgressIndicator(
                 value: percentage / 100,
-                backgroundColor: Colors.grey.withOpacity(0.2),
+                backgroundColor: Colors.grey.withValues(alpha:0.2),
                 valueColor: AlwaysStoppedAnimation<Color>(color),
                 minHeight: 3,
               ),
@@ -714,7 +714,7 @@ class _BatteryMonitorWidgetState extends State<BatteryMonitorWidget> {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.5),
+        color: Colors.black.withValues(alpha:0.5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(

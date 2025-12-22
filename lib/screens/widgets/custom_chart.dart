@@ -904,17 +904,17 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
                       colors: isHighlighted
                           ? [Colors.amber.shade400, Colors.amber.shade600]
                           : isHovered
-                          ? [widget.config.hoverColor.withOpacity(1.0), widget.config.hoverColor.withOpacity(0.6)]
+                          ? [widget.config.hoverColor.withValues(alpha:1.0), widget.config.hoverColor.withValues(alpha:0.6)]
                           : Helpers().isLightMode(context)
-                          ? [widget.config.primaryColor.withOpacity(0.9), widget.config.primaryColor.withOpacity(0.3)]
-                          : [widget.config.primaryColor, widget.config.primaryColor.withOpacity(0.7)],
+                          ? [widget.config.primaryColor.withValues(alpha:0.9), widget.config.primaryColor.withValues(alpha:0.3)]
+                          : [widget.config.primaryColor, widget.config.primaryColor.withValues(alpha:0.7)],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
                     boxShadow: isHighlighted || isHovered
                         ? [
                       BoxShadow(
-                        color: isHighlighted ? Colors.amber.withOpacity(0.5) : widget.config.primaryColor.withOpacity(0.3),
+                        color: isHighlighted ? Colors.amber.withValues(alpha:0.5) : widget.config.primaryColor.withValues(alpha:0.3),
                         blurRadius: isHighlighted ? 12 : 8,
                         offset: const Offset(0, 2),
                         spreadRadius: isHighlighted ? 2 : 0,
@@ -950,7 +950,7 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
                     height: 18,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: Colors.amber.withOpacity(0.6), blurRadius: 12, spreadRadius: 2)],
+                      boxShadow: [BoxShadow(color: Colors.amber.withValues(alpha:0.6), blurRadius: 12, spreadRadius: 2)],
                     ),
                   ),
                   Icon(Icons.emoji_events_outlined, color: Colors.amber.shade600, size: 18),
@@ -1102,7 +1102,7 @@ class _CustomBarChartCanvasState extends State<_CustomBarChartCanvas> with Singl
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: isHighlighted ? Colors.amber.shade300 : Colors.grey.shade300, width: isHighlighted ? 2 : 1),
               boxShadow: isHighlighted
-                  ? [BoxShadow(color: Colors.amber.withOpacity(0.3), blurRadius: 8, spreadRadius: 1)]
+                  ? [BoxShadow(color: Colors.amber.withValues(alpha:0.3), blurRadius: 8, spreadRadius: 1)]
                   : null,
             ),
             child: Column(
@@ -1181,7 +1181,7 @@ class _LineChartPainter extends CustomPainter {
     // Gradient fill
     final Paint fillPaint = Paint()
       ..shader = LinearGradient(
-        colors: [config.primaryColor.withOpacity(0.4), config.primaryColor.withOpacity(0.0)],
+        colors: [config.primaryColor.withValues(alpha:0.4), config.primaryColor.withValues(alpha:0.0)],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ).createShader(Rect.fromLTWH(0, 0, size.width, chartHeight));

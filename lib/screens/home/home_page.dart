@@ -11,6 +11,7 @@ import '../../data/model/income.dart';
 import '../../data/model/wallet.dart';
 import '../../data/model/recurring.dart';
 import '../../data/model/loan.dart'; //
+import '../../services/langs/localzation_extension.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../expenses/expense_listing_page.dart';
 import '../loan_page.dart';
@@ -88,11 +89,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   String _getWalletBalanceForHeader(Box<Wallet> walletBox) {
     if (_calculateTotalBalance(walletBox) == 0) {
-      return 'You Spend All of your Income/savings';
+      return context.t('spent_all_your_savings');
     } else if (_calculateTotalBalance(walletBox) > 0) {
-      return 'Great! You have money left.';
+      return context.t('you_have_money_left');
     } else {
-      return 'Expend Wisely! You have no money left.';
+      return context.t('no_money_left');
     }
   }
 
@@ -113,16 +114,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
     if (total == 0) {
       if (type == LoanType.lent) {
-        return "You haven’t lent money to anyone 🎉";
+        return context.t('no_lent_money');
       } else {
-        return "You have no borrowed loans left 🎉";
+        return context.t('no_borrowed_money');
       }
     }
 
     if (type == LoanType.lent) {
-      return "You lent ₹$total. Waiting for repayment 👍";
+      return context.t('dynamic_waiting_for_repayment').replaceAll('--', _currentCurrency).replaceAll('__', total.toString());
+      // return "You lent ₹$total. Waiting for repayment 👍";
     } else {
-      return "You borrowed ₹$total. Stay mindful 💡";
+      return context.t('dynamic_borrowed_money').replaceAll('--', _currentCurrency).replaceAll('__', total.toString());
+      // return "You borrowed ₹$total. Stay mindful 💡";
     }
   }
 
@@ -193,14 +196,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         actionItems: [
           CustomAppBarActionItem(
             icon: Icons.calendar_month_rounded,
-            label: "Filter by Date Range",
-            tooltip: "Select Date Range to filter out Transactions",
+            label: context.t('filter_by_date_range'),
+            tooltip: context.t('desc_for_filter_by_date_range'),
             onPressed: _selectDateRange,
           ),
           CustomAppBarActionItem(
             icon: Icons.trending_up,
-            label: "Go to Reports Page",
-            tooltip: "View Analysis Reports and Trends",
+            label: context.t('go_to_reports_page'),
+            tooltip: context.t('analysis_report'),
             onPressed: () => Helpers.navigateTo(context, const ReportsPage()),
           ),
           // IconButton(
@@ -399,7 +402,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Active Loans',
+                context.t('active_loans'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -431,7 +434,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'To Receive',
+                            context.t('to_receive'),
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -472,7 +475,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'To Repay',
+                            context.t('to_repay'),
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -523,7 +526,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Total Balance',
+                context.t('total_balance'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: colorScheme.onPrimaryContainer,
                 ),
@@ -553,7 +556,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           Row(
             children: [
               _buildBalanceChip(
-                'Income',
+                context.loc.income,
                 _periodIncome,
                 Icons.arrow_downward_rounded,
                 colorScheme.primary,
@@ -562,7 +565,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               ),
               const SizedBox(width: 12),
               _buildBalanceChip(
-                'Expense',
+                context.loc.expense,
                 _periodExpense,
                 Icons.arrow_upward_rounded,
                 colorScheme.error,
@@ -588,7 +591,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha:0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -664,7 +667,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             children: [
               Expanded(
                 child: _buildStatCard(
-                  'Savings',
+                  context.loc.savings,
                   '$_currentCurrency ${net.toStringAsFixed(0)}',
                   '${savingsRate.toStringAsFixed(1)}%',
                   net >= 0 ? colorScheme.primary : colorScheme.error,
@@ -677,7 +680,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               const SizedBox(width: 12),
               Expanded(
                 child: _buildStatCard(
-                  'Recurring',
+                  context.loc.recurring,
                   '$_currentCurrency ${monthlyRecurring.toStringAsFixed(0)}',
                   '${recurringBox.values.length} active${recurringBox.values.length != 1 ? 's' : ''}',
                   colorScheme.error,
@@ -720,7 +723,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha:0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -782,7 +785,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Recent',
+                context.loc.recent,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -791,13 +794,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               TextButton(
                 onPressed: () =>
                     Helpers.navigateTo(context, ExpenseListingPage()),
-                child: const Text('See All'),
+                child: Text(context.loc.see_all),
               ),
               const SizedBox(width: 10,),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.1),
+                  color: colorScheme.primary.withValues(alpha:0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: PrivacyCurrency(
@@ -826,7 +829,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               ),
               child: Center(
                 child: Text(
-                  'No transactions yet',
+                  context.t('no_transactions_yet'),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -916,7 +919,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       title: wallet.name,
       child: Column(
         children: [
-          Text('Wallet Details'),
+          Text(context.t('wallet_details')),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: () {
@@ -924,7 +927,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               _showAddEditWalletSheet(key: key, wallet: wallet);
             },
             icon: const Icon(Icons.edit_rounded),
-            label: const Text('Edit Wallet'),
+            label: Text(context.t('edit_wallet')),
           ),
         ],
       ),
@@ -943,7 +946,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
     BottomSheetUtil.show(
       context: context,
-      title: isEditing ? 'Edit Wallet' : 'Add Wallet',
+      title: isEditing ? context.t('edit_wallet') : context.t('add_wallet'),
       child: StatefulBuilder(
         builder: (context, setModalState) {
           return Column(
@@ -951,8 +954,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Wallet Name',
+                decoration: InputDecoration(
+                  labelText: context.t('wallet_name'),
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -960,7 +963,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               TextField(
                 controller: balanceController,
                 decoration: InputDecoration(
-                  labelText: 'Balance',
+                  labelText: context.t('balance'),
                   border: OutlineInputBorder(),
                   prefixText: '$_currentCurrency ',
                 ),
@@ -971,8 +974,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: selectedType,
-                decoration: const InputDecoration(
-                  labelText: 'Type',
+                decoration: InputDecoration(
+                  labelText: context.t('wallet_type'),
                   border: OutlineInputBorder(),
                 ),
                 items: const [
@@ -998,7 +1001,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     Navigator.pop(context);
                     SnackBars.show(
                       context,
-                      message: 'Please enter wallet name',
+                      message: context.t('wallet_name_error'),
                       type: SnackBarType.error,
                     );
                     return;
@@ -1019,7 +1022,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       Navigator.pop(context);
                       SnackBars.show(
                         context,
-                        message: 'Wallet updated',
+                        message: context.t('wallet_updated'),
                         type: SnackBarType.success,
                       );
                     }
@@ -1029,14 +1032,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       Navigator.pop(context);
                       SnackBars.show(
                         context,
-                        message: 'Wallet added',
+                        message: context.t('wallet_added'),
                         type: SnackBarType.success,
                       );
                     }
                   }
                   _loadData();
                 },
-                child: Text(isEditing ? 'Update Wallet' : 'Add Wallet'),
+                child: Text(isEditing ? context.t('edit_wallet') : context.t('add_wallet')),
               ),
             ],
           );

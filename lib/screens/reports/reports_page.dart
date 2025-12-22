@@ -607,7 +607,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               color: colorScheme.surfaceContainer,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+                side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(0, 12, 12, 0),
@@ -643,7 +643,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               color: colorScheme.surfaceContainer,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+                side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(0, 12, 12, 0),
@@ -786,7 +786,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             Text(
               label,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: textColor.withOpacity(0.8),
+                color: textColor.withValues(alpha:0.8),
                 fontSize: 11,
               ),
             ),
@@ -814,7 +814,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       color: colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -883,7 +883,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           margin: const EdgeInsets.only(bottom: 8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+            side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
           ),
           child: ListTile(
             leading: CircleAvatar(
@@ -917,7 +917,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       color: colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -968,7 +968,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
       ),
       child: InkWell(
         onTap: onTap,
@@ -1044,7 +1044,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1131,7 +1131,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isNeedsAttention ? healthColor : colorScheme.outlineVariant.withOpacity(0.3),
+          color: isNeedsAttention ? healthColor : colorScheme.outlineVariant.withValues(alpha:0.3),
           width: isNeedsAttention ? 2 : 1,
         ),
       ),
@@ -1145,7 +1145,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: healthColor.withOpacity(0.15),
+                    color: healthColor.withValues(alpha:0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(healthIcon, color: healthColor, size: 32),
@@ -1197,7 +1197,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       color: colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(40.0),

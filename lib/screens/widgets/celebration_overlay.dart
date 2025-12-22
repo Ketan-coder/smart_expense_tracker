@@ -177,11 +177,11 @@ class _CelebrationOverlayWidgetState extends State<_CelebrationOverlayWidget>
         margin: const EdgeInsets.symmetric(horizontal: 32),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         decoration: BoxDecoration(
-          color: colorScheme.primaryContainer.withOpacity(0.95),
+          color: colorScheme.primaryContainer.withValues(alpha:0.95),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha:0.1),
               blurRadius: 20,
               offset: const Offset(0, 4),
             ),
@@ -208,7 +208,7 @@ class _CelebrationOverlayWidgetState extends State<_CelebrationOverlayWidget>
               Text(
                 'Big income of ₹${widget.amount!.toStringAsFixed(0)}!',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onPrimaryContainer.withOpacity(0.8),
+                  color: colorScheme.onPrimaryContainer.withValues(alpha:0.8),
                 ),
               ),
             ],

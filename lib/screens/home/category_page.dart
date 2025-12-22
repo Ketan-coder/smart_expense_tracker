@@ -277,9 +277,9 @@ class _CategoryPageState extends State<CategoryPage> {
                     height: 60,
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: selectedColor.withOpacity(0.2),
+                      color: selectedColor.withValues(alpha:0.2),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: selectedColor.withOpacity(0.5)),
+                      border: Border.all(color: selectedColor.withValues(alpha:0.5)),
                     ),
                     child: Icon(
                       _getIconData(selectedIcon),
@@ -315,8 +315,8 @@ class _CategoryPageState extends State<CategoryPage> {
                           child: Container(
                             decoration: BoxDecoration(
                               color: selectedIcon == icon
-                                  ? selectedColor.withOpacity(0.3)
-                                  : Colors.grey.withOpacity(0.1),
+                                  ? selectedColor.withValues(alpha:0.3)
+                                  : Colors.grey.withValues(alpha:0.1),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: selectedIcon == icon
@@ -610,10 +610,10 @@ class _CategoryPageState extends State<CategoryPage> {
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.1),
+            color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha:0.1),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+              color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha:0.3),
             ),
           ),
           child: Column(
@@ -1056,8 +1056,8 @@ class _CategoryPageState extends State<CategoryPage> {
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
               color: isDark
-                  ? colorScheme.outlineVariant.withOpacity(0.5)
-                  : colorScheme.outline.withOpacity(0.2),
+                  ? colorScheme.outlineVariant.withValues(alpha:0.5)
+                  : colorScheme.outline.withValues(alpha:0.2),
             )),
         clipBehavior: Clip.antiAlias, // Ensures content respects border radius
         child: ListTile(
@@ -1108,7 +1108,7 @@ class _CategoryPageState extends State<CategoryPage> {
               //     borderRadius: BorderRadius.circular(12),
               //     border: Border.all(
               //       color: isDark
-              //           ? colorScheme.outlineVariant.withOpacity(0.5)
+              //           ? colorScheme.outlineVariant.withValues(alpha:0.5)
               //           : colorScheme.outline
               //     )
               //   ),

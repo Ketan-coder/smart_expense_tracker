@@ -67,7 +67,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TabBar(
@@ -220,9 +220,9 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: loan.isOverdue ? Colors.red.withOpacity(0.5) :
-            loan.isPaid ? Colors.green.withOpacity(0.3) :
-            loan.isDueSoon ? Colors.orange.withOpacity(0.3) :
+            color: loan.isOverdue ? Colors.red.withValues(alpha:0.5) :
+            loan.isPaid ? Colors.green.withValues(alpha:0.3) :
+            loan.isDueSoon ? Colors.orange.withValues(alpha:0.3) :
             Colors.transparent,
             width: 2,
           ),
@@ -242,7 +242,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: (isLent ? Colors.green : Colors.red).withOpacity(0.15),
+                        color: (isLent ? Colors.green : Colors.red).withValues(alpha:0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -273,7 +273,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: Colors.blue.withOpacity(0.15),
+                                    color: Colors.blue.withValues(alpha:0.15),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -340,7 +340,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.1),
+                            color: Colors.orange.withValues(alpha:0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
@@ -363,7 +363,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
+                            color: Colors.blue.withValues(alpha:0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
@@ -409,7 +409,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: LoanHelpers.getStatusColor(loan).withOpacity(0.15),
+                        color: LoanHelpers.getStatusColor(loan).withValues(alpha:0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -436,7 +436,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
+                          color: Colors.blue.withValues(alpha:0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -479,9 +479,9 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
+                      color: Colors.red.withValues(alpha:0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      border: Border.all(color: Colors.red.withValues(alpha:0.3)),
                     ),
                     child: Row(
                       children: [
@@ -1041,7 +1041,7 @@ class _AddLoanContentState extends State<_AddLoanContent> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.15) : Colors.grey.shade100,
+          color: isSelected ? color.withValues(alpha:0.15) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? color : Colors.transparent,
@@ -1067,7 +1067,7 @@ class _AddLoanContentState extends State<_AddLoanContent> {
                     subtitle,
                     style: TextStyle(
                       fontSize: 10,
-                      color: isSelected ? color.withOpacity(0.8) : Colors.grey,
+                      color: isSelected ? color.withValues(alpha:0.8) : Colors.grey,
                     ),
                   ),
                 ],
@@ -1236,7 +1236,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.1),
+            color: Colors.blue.withValues(alpha:0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -1314,7 +1314,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
                 return Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: Colors.orange.withValues(alpha:0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -1468,7 +1468,7 @@ class _LoanDetailsContent extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: (isLent ? Colors.green : Colors.red).withOpacity(0.15),
+                          color: (isLent ? Colors.green : Colors.red).withValues(alpha:0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(
@@ -1585,7 +1585,7 @@ class _LoanDetailsContent extends StatelessWidget {
           // Payment Schedule
           if (loan.nextPaymentDate != null && !loan.isPaid) ...[
             Card(
-              color: Colors.blue.withOpacity(0.05),
+              color: Colors.blue.withValues(alpha:0.05),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(

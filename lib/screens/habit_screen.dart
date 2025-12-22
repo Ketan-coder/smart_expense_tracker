@@ -170,7 +170,7 @@ class _HabitPageState extends State<HabitPage>
                 decoration: BoxDecoration(
                   color: Theme.of(
                     context,
-                  ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TabBar(
@@ -380,9 +380,9 @@ class _HabitPageState extends State<HabitPage>
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
             color: isOverdue
-                ? Colors.red.withOpacity(0.5)
+                ? Colors.red.withValues(alpha:0.5)
                 : isCompleted
-                ? Colors.green.withOpacity(0.3)
+                ? Colors.green.withValues(alpha:0.3)
                 : Colors.transparent,
             width: 2,
           ),
@@ -405,7 +405,7 @@ class _HabitPageState extends State<HabitPage>
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: habitColor.withOpacity(0.2),
+                        color: habitColor.withValues(alpha:0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -457,10 +457,10 @@ class _HabitPageState extends State<HabitPage>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.2),
+                          color: Colors.orange.withValues(alpha:0.2),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.orange.withOpacity(0.3),
+                            color: Colors.orange.withValues(alpha:0.3),
                           ),
                         ),
                         child: Row(
@@ -510,11 +510,11 @@ class _HabitPageState extends State<HabitPage>
                             ),
                             backgroundColor: Helpers()
                                 .hexToColor(cat.color)
-                                .withOpacity(0.2),
+                                .withValues(alpha:0.2),
                             side: BorderSide(
                               color: Helpers()
                                   .hexToColor(cat.color)
-                                  .withOpacity(0.3),
+                                  .withValues(alpha:0.3),
                             ),
                             materialTapTargetSize:
                                 MaterialTapTargetSize.shrinkWrap,
@@ -573,10 +573,10 @@ class _HabitPageState extends State<HabitPage>
             decoration: BoxDecoration(
               color: Theme.of(
                 context,
-              ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              ).colorScheme.surfaceContainerHighest.withValues(alpha:0.3),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                color: Theme.of(context).colorScheme.outline.withValues(alpha:0.2),
               ),
             ),
             child: Column(
@@ -619,10 +619,10 @@ class _HabitPageState extends State<HabitPage>
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            color: Theme.of(context).colorScheme.outline.withValues(alpha:0.2),
           ),
         ),
         child: Row(

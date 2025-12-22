@@ -747,7 +747,7 @@ class _TransactionsPageState extends State<TransactionsPage>
 
               // Show recent transactions or empty state
               if (filteredTransactions.isEmpty)
-                Container( padding: const EdgeInsets.all(20), margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration( color: colorScheme.surfaceContainerHighest.withOpacity(0.3), borderRadius: BorderRadius.circular(12), border: Border.all( color: colorScheme.outline.withOpacity(0.2), ), ), child: Row( children: [ Icon( isExpense ? Icons.receipt_long_outlined : Icons.account_balance_wallet_outlined, size: 20, color: colorScheme.onSurfaceVariant, ), const SizedBox(width: 12), Expanded( child: Text( isExpense ? 'No expenses recorded yet' : 'No income recorded yet', style: theme.textTheme.bodySmall?.copyWith( color: colorScheme.onSurfaceVariant, ), ), ), ], ), )
+                Container( padding: const EdgeInsets.all(20), margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration( color: colorScheme.surfaceContainerHighest.withValues(alpha:0.3), borderRadius: BorderRadius.circular(12), border: Border.all( color: colorScheme.outline.withValues(alpha:0.2), ), ), child: Row( children: [ Icon( isExpense ? Icons.receipt_long_outlined : Icons.account_balance_wallet_outlined, size: 20, color: colorScheme.onSurfaceVariant, ), const SizedBox(width: 12), Expanded( child: Text( isExpense ? 'No expenses recorded yet' : 'No income recorded yet', style: theme.textTheme.bodySmall?.copyWith( color: colorScheme.onSurfaceVariant, ), ), ), ], ), )
               else
                 ...filteredTransactions.toList().reversed.take(5).map((transaction) {
                   final categoryBox = Hive.box<Category>(AppConstants.categories);

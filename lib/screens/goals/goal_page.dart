@@ -271,7 +271,7 @@ class _GoalsPageState extends State<GoalsPage>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: colorScheme.outline.withOpacity(0.2),
+          color: colorScheme.outline.withValues(alpha:0.2),
         ),
       ),
       child: InkWell(

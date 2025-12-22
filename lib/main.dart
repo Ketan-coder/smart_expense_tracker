@@ -6,10 +6,11 @@ import 'package:expense_tracker/screens/reports/reports_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_nav_bar.dart';
 import 'package:expense_tracker/services/langs/app_localalizations.dart';
 import 'package:expense_tracker/services/notification_service.dart';
-import 'package:expense_tracker/services/recurring_scheduler.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'dart:io' show Platform;
 import 'core/helpers.dart';
 import 'data/model/category.dart';
 import 'data/model/expense.dart';
@@ -20,19 +21,28 @@ import 'data/model/recurring.dart';
 import 'data/model/wallet.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 
+// Conditional import for recurring scheduler
+import 'package:expense_tracker/services/recurring_scheduler.dart'
+if (dart.library.html) 'package:expense_tracker/services/recurring_scheduler_web.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-  // Continue with app initialization
-  final bool notificationState = await Helpers().getCurrentNotificationState() ?? false;
-  debugPrint('Notification state: $notificationState');
+  // Only initialize notifications on mobile platforms
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    final bool notificationState = await Helpers().getCurrentNotificationState() ?? false;
+    debugPrint('Notification state: $notificationState');
 
-  if (notificationState == true) {
-    await NotificationService.initialize();
+    if (notificationState == true) {
+      await NotificationService.initialize();
+    }
+  } else {
+    debugPrint('Notifications not supported on this platform');
   }
 
   await Hive.initFlutter();
+
   // Register adapters
   Hive.registerAdapter(ExpenseAdapter());
   Hive.registerAdapter(IncomeAdapter());
@@ -45,7 +55,6 @@ void main() async {
   Hive.registerAdapter(LoanPaymentAdapter());
   Hive.registerAdapter(LoanTypeAdapter());
   Hive.registerAdapter(LoanStatusAdapter());
-
   Hive.registerAdapter(LoanCreditorTypeAdapter());
   Hive.registerAdapter(InterestTypeAdapter());
   Hive.registerAdapter(PaymentFrequencyAdapter());
@@ -63,7 +72,17 @@ void main() async {
   await Hive.openBox<Goal>(AppConstants.goals);
   await Hive.openBox<Loan>(AppConstants.loans);
 
-  await registerRecurringTask();
+  // Only register recurring task on mobile platforms
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    try {
+      await registerRecurringTask();
+      debugPrint('Recurring task registered successfully');
+    } catch (e) {
+      debugPrint('Error registering recurring task: $e');
+    }
+  } else {
+    debugPrint('Recurring task scheduler not available on this platform');
+  }
 
   runApp(const MyApp());
 }
@@ -79,7 +98,7 @@ class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
   bool _isLoading = true;
   bool _dynamicColorEnabled = true;
-  Locale _locale = const Locale('en'); // Default locale
+  Locale _locale = const Locale('en');
 
   @override
   void initState() {
@@ -93,7 +112,6 @@ class _MyAppState extends State<MyApp> {
     final dynamicColor = await Helpers().getCurrentDynamicColorState() ?? true;
     final language = await Helpers().getCurrentLanguage() ?? 'English';
 
-    // Map language name to locale code
     final localeCode = _getLocaleCode(language);
 
     setState(() {
@@ -151,7 +169,7 @@ class _MyAppState extends State<MyApp> {
         ColorScheme lightColorScheme;
         ColorScheme darkColorScheme;
 
-        if (lightDynamic != null && darkDynamic != null && _dynamicColorEnabled) {
+        if (lightDynamic != null && darkDynamic != null && _dynamicColorEnabled && !kIsWeb) {
           lightColorScheme = lightDynamic.harmonized();
           darkColorScheme = darkDynamic.harmonized();
           debugPrint('🎨 Using dynamic colors');
@@ -165,28 +183,25 @@ class _MyAppState extends State<MyApp> {
           navigatorKey: NotificationService.navigatorKey,
           title: 'Expense Tracker',
           debugShowCheckedModeBanner: false,
-
-          // Localization Configuration
           locale: _locale,
-          localizationsDelegates:  [
+          localizationsDelegates: [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: const [
-            Locale('en'), // English
-            Locale('hi'), // Hindi
-            Locale('ta'), // Tamil
-            Locale('te'), // Telugu
-            Locale('kn'), // Kannada
-            Locale('ml'), // Malayalam
-            Locale('bn'), // Bengali
-            Locale('gu'), // Gujarati
-            Locale('mr'), // Marathi
-            Locale('pa'), // Punjabi
+            Locale('en'),
+            Locale('hi'),
+            Locale('ta'),
+            Locale('te'),
+            Locale('kn'),
+            Locale('ml'),
+            Locale('bn'),
+            Locale('gu'),
+            Locale('mr'),
+            Locale('pa'),
           ],
-
           routes: {
             '/home': (_) => const BottomNavBar(currentIndex: 0),
             '/reports': (_) => const ReportsPage(),

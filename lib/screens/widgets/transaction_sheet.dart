@@ -1,6 +1,7 @@
 // utils/transaction_sheet.dart
 import 'package:expense_tracker/core/app_constants.dart';
 import 'package:flutter/material.dart';
+import '../../services/langs/localzation_extension.dart';
 import 'dynamic_lottie_colors.dart';
 import 'celebration_overlay.dart';
 
@@ -121,7 +122,7 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
                 if (widget.isIncome && widget.amount >= 15000)
                   const Text('🎉 ', style: TextStyle(fontSize: 20)),
                 Text(
-                  widget.isIncome ? 'Income Added!' : 'Expense Recorded!',
+                  widget.isIncome ? context.t('income_added') : context.t('expense_recorded'),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: colorScheme.onSurface,

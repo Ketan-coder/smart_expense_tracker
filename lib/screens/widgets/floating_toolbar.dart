@@ -450,12 +450,12 @@
 //               color: colorScheme.primaryContainer.withValues(alpha: .35),
 //               borderRadius: BorderRadius.circular(15),
 //               border: Border.all(
-//                 color: colorScheme.primary.withOpacity(0.4),
+//                 color: colorScheme.primary.withValues(alpha:0.4),
 //                 width: 1.5,
 //               ),
 //               boxShadow: [
 //                 BoxShadow(
-//                   color: colorScheme.primary.withOpacity(0.1),
+//                   color: colorScheme.primary.withValues(alpha:0.1),
 //                   blurRadius: 4,
 //                   offset: const Offset(0, 2),
 //                 ),
@@ -507,7 +507,7 @@
 //                   borderRadius: widget.borderRadius ??
 //                       BorderRadius.circular(widget.height! / 2),
 //                   color: widget.backgroundColor ??
-//                       colorScheme.surfaceContainerHigh.withOpacity(0.95),
+//                       colorScheme.surfaceContainerHigh.withValues(alpha:0.95),
 //                   child: Container(
 //                     height: widget.height,
 //                     padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -554,7 +554,7 @@
 //           borderRadius: BorderRadius.circular(24),
 //           boxShadow: [
 //             BoxShadow(
-//               color: colorScheme.primary.withOpacity(0.4),
+//               color: colorScheme.primary.withValues(alpha:0.4),
 //               blurRadius: 16,
 //               spreadRadius: 2,
 //               offset: const Offset(0, 6),
@@ -623,7 +623,7 @@
 //                 decoration: BoxDecoration(
 //                   color: Color.lerp(
 //                     Colors.transparent,
-//                     selectedColor.withOpacity(0.12),
+//                     selectedColor.withValues(alpha:0.12),
 //                     value,
 //                   ),
 //                   borderRadius: BorderRadius.circular(20),
@@ -1290,12 +1290,12 @@ class _FloatingToolbarWithQuickActionsState
               border: isIOS
                   ? null
                   : Border.all(
-                color: colorScheme.primary.withOpacity(0.4),
+                color: colorScheme.primary.withValues(alpha:0.4),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: colorScheme.primary.withOpacity(isIOS ? 0.15 : 0.1),
+                  color: colorScheme.primary.withValues(alpha:isIOS ? 0.15 : 0.1),
                   blurRadius: isIOS ? 8 : 4,
                   offset: const Offset(0, 2),
                 ),
@@ -1350,7 +1350,7 @@ class _FloatingToolbarWithQuickActionsState
                   color: isIOS
                       ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.75)
                       : (widget.backgroundColor ??
-                      colorScheme.surfaceContainerHigh.withOpacity(0.95)),
+                      colorScheme.surfaceContainerHigh.withValues(alpha:0.95)),
                   child: ClipRRect(
                     borderRadius: widget.borderRadius ??
                         BorderRadius.circular(widget.height! / 2),
@@ -1414,7 +1414,7 @@ class _FloatingToolbarWithQuickActionsState
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: colorScheme.primary.withOpacity(isIOS ? 0.5 : 0.4),
+              color: colorScheme.primary.withValues(alpha:isIOS ? 0.5 : 0.4),
               blurRadius: isIOS ? 20 : 16,
               spreadRadius: isIOS ? 1 : 2,
               offset: Offset(0, isIOS ? 4 : 6),
@@ -1484,7 +1484,7 @@ class _FloatingToolbarWithQuickActionsState
                 decoration: BoxDecoration(
                   color: Color.lerp(
                     Colors.transparent,
-                    selectedColor.withOpacity(isIOS ? 0.18 : 0.12),
+                    selectedColor.withValues(alpha:isIOS ? 0.18 : 0.12),
                     value,
                   ),
                   borderRadius: BorderRadius.circular(20),

@@ -278,7 +278,7 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
                       margin: const EdgeInsets.only(right: 8),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? _selectedColor.withOpacity(0.2)
+                            ? _selectedColor.withValues(alpha:0.2)
                             : Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
@@ -369,8 +369,8 @@ class _AddEditHabitSheetState extends State<AddEditHabitSheet> {
                       }
                     });
                   },
-                  backgroundColor: Helpers().hexToColor(category.color).withOpacity(0.1),
-                  selectedColor: Helpers().hexToColor(category.color).withOpacity(0.3),
+                  backgroundColor: Helpers().hexToColor(category.color).withValues(alpha:0.1),
+                  selectedColor: Helpers().hexToColor(category.color).withValues(alpha:0.3),
                 );
               }).toList(),
             ),

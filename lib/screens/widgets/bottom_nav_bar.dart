@@ -1,8 +1,917 @@
+// import 'dart:async';
+// import 'dart:io';
+// import 'package:expense_tracker/core/app_constants.dart';
+// import 'package:expense_tracker/data/model/wallet.dart';
+// import 'package:expense_tracker/data/model/recurring.dart';
+// import 'package:expense_tracker/screens/goals/goal_page.dart';
+// import 'package:expense_tracker/screens/habit_screen.dart';
+// import 'package:expense_tracker/screens/settings/settings_page.dart';
+// import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
+// import 'package:expense_tracker/screens/widgets/privacy_overlay_widget.dart';
+// import 'package:expense_tracker/screens/widgets/quick_actions.dart';
+// import 'package:expense_tracker/screens/widgets/snack_bar.dart';
+// import 'package:expense_tracker/screens/widgets/transaction_sheet.dart';
+// import 'package:flutter/foundation.dart' hide Category;
+// import 'package:flutter/material.dart';
+// import 'package:flutter/services.dart';
+// import 'package:hive_ce/hive.dart';
+// import 'package:shared_preferences/shared_preferences.dart';
+// import '../../core/helpers.dart';
+// import '../../data/local/universal_functions.dart';
+// import '../../data/model/category.dart';
+// import '../../services/biometric_auth.dart';
+// import '../../services/habit_detection_service.dart';
+// import '../../services/langs/localzation_extension.dart';
+// import '../../services/notification_helper.dart';
+// import '../../services/privacy/adaptive_brightness_service.dart';
+// import '../../services/privacy/privacy_manager.dart';
+// import '../../services/privacy/secure_window_manager.dart';
+// import '../../services/privacy/shake_detector.dart';
+// import '../../services/sms_service.dart';
+// import '../add_edit_habit_bottom_sheet.dart';
+// import '../goals/add_edit_goal_sheet.dart';
+// import '../home/home_page.dart';
+// import '../transaction_page.dart';
+// import 'floating_toolbar.dart';
+// import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+//
+// class BottomNavBar extends StatefulWidget {
+//   final int currentIndex;
+//
+//   const BottomNavBar({super.key, required this.currentIndex});
+//
+//   @override
+//   State<BottomNavBar> createState() => _BottomNavBarState();
+// }
+//
+// class _BottomNavBarState extends State<BottomNavBar>
+//     with WidgetsBindingObserver {
+//   int _currentIndex = 0;
+//   String _currentCurrency = 'INR';
+//
+//   final List<Widget> _tabs = const [
+//     HomePage(),
+//     TransactionsPage(),
+//     // ExpensePage(),
+//     // IncomePage(),
+//     GoalsPage(),
+//     HabitPage(),
+//     SettingsPage(),
+//   ];
+//
+//   // SMS tracking
+//   bool isListening = false;
+//   bool permissionsGranted = false;
+//
+//   // Biometric authentication
+//   bool _isAuthenticating = false;
+//   bool _isAuthenticated = false;
+//   bool _biometricRequired = false;
+//
+//   // Privacy Focused
+//   final PrivacyManager _privacyManager = PrivacyManager();
+//   ShakeDetector? _shakeDetector; // Make nullable, only create if needed
+//   final AdaptiveBrightnessService _brightnessService =
+//       AdaptiveBrightnessService();
+//   // GazeDetectionManager? _gazeDetectionManager;
+//   final bool _showWatcherAlert = false;
+//   Timer? _watcherAlertTimer;
+//   List<String>? defaultExpenseCategories = [];
+//   List<String>? defaultIncomeCategories = [];
+//
+//   List<QuickAction> _quickActions = [];
+//   bool _showQuickActions = false;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     WidgetsBinding.instance.addObserver(this);
+//     _currentIndex = widget.currentIndex;
+//     if (kIsWeb) {
+//       _initializeFirstTimeSetup();
+//       _loadQuickActions();
+//     } else {
+//       _initializeApp();
+//       _initializePrivacyServices();
+//       _scheduleHabitDetection();
+//       _loadQuickActions();
+//
+//       // Check for arguments after the build frame
+//       WidgetsBinding.instance.addPostFrameCallback((_) {
+//         final args = ModalRoute.of(context)?.settings.arguments;
+//         if (args != null && args is String) {
+//           if (args.toString().contains("new_habit")) {
+//             // Open your "Add Habit" dialog automatically with this name
+//             BottomSheetUtil.show(
+//               context: context,
+//               title: 'Add New Habit',
+//               height: MediaQuery.of(context).size.height / 1.35,
+//               child: AddEditHabitSheet(hideTitle: true, initialTitle: args),
+//             );
+//           }
+//           else if (args.toString().contains("new_expense")) {
+//             _showAddExpenseSheet();
+//           }
+//           else if (args.toString().contains("new_income")) {
+//             _showAddIncomeSheet();
+//           }
+//           else if (args.toString().contains("new_goal")) {
+//             BottomSheetUtil.show(
+//               context: context,
+//               title: 'Add New Habit',
+//               height: MediaQuery.of(context).size.height / 1.35,
+//               child: AddEditGoalSheet(initialTitle: args),
+//             );
+//           }
+//         }
+//       });
+//     }
+//
+//   }
+//
+//   Future<void> _loadQuickActions() async {
+//     _quickActions = await QuickActionManager.loadQuickActions();
+//     if (mounted) setState(() {});
+//   }
+//
+//   void _scheduleHabitDetection() {
+//     // Run detection once per day
+//     Future.delayed(const Duration(seconds: 5), () async {
+//       final prefs = await SharedPreferences.getInstance();
+//       final lastRun = prefs.getString('last_habit_detection');
+//       final now = DateTime.now();
+//
+//       if (lastRun == null || DateTime.parse(lastRun).day != now.day) {
+//         // Run detection
+//         await HabitDetectionService().runAutoDetection();
+//         await prefs.setString('last_habit_detection', now.toIso8601String());
+//       }
+//     });
+//   }
+//
+//   Future<void> _initializePrivacyServices() async {
+//     debugPrint("🔒 ========================================");
+//     debugPrint("🔒 Initializing Privacy Services (Optimized)");
+//
+//     // Initialize privacy manager
+//     await _privacyManager.initialize();
+//
+//     // Listen to privacy state changes
+//     _privacyManager.addListener(_onPrivacyStateChanged);
+//
+//     // IMPORTANT: Only setup shake detection if user has it enabled
+//     if (_privacyManager.shakeToPrivacyEnabled) {
+//       _initializeShakeDetection();
+//     }
+//
+//     // Setup screenshot protection (no battery impact)
+//     if (_privacyManager.screenshotProtectionEnabled) {
+//       await SecureWindowManager.enableProtection();
+//     }
+//
+//     // Apply initial privacy state
+//     _onPrivacyStateChanged();
+//
+//     debugPrint("🔒 Privacy services initialized (Battery optimized)");
+//     debugPrint(
+//       "🔒 Shake detection: ${_shakeDetector != null ? 'Active' : 'Disabled'}",
+//     );
+//     debugPrint("🔒 Face detection: Disabled (enable in settings if needed)");
+//     debugPrint("🔒 ========================================");
+//   }
+//
+//   void _initializeShakeDetection() {
+//     if (_shakeDetector != null) return; // Already initialized
+//
+//     _shakeDetector = ShakeDetector();
+//     _shakeDetector!.startListening(
+//       onShake: () {
+//         debugPrint("📳 Shake detected - toggling privacy");
+//         _privacyManager.togglePrivacyActive();
+//
+//         // Haptic feedback
+//         HapticFeedback.mediumImpact();
+//       },
+//       onFaceDown: () {
+//         debugPrint("📱 Face-down detected - activating privacy");
+//         if (!_privacyManager.isPrivacyActive) {
+//           _privacyManager.activatePrivacy(reason: "Face-down");
+//           HapticFeedback.lightImpact();
+//         }
+//       },
+//     );
+//
+//     debugPrint("📳 Shake detection initialized");
+//   }
+//
+//   void _cleanupShakeDetection() {
+//     if (_shakeDetector == null) return;
+//     _shakeDetector!.dispose();
+//     _shakeDetector = null;
+//     debugPrint("📳 Shake detection cleaned up");
+//   }
+//
+//   // Add this callback method:
+//   void _onPrivacyStateChanged() {
+//     if (!mounted) return;
+//
+//     setState(() {});
+//
+//     // Handle shake detection based on settings
+//     if (_privacyManager.shakeToPrivacyEnabled && _shakeDetector == null) {
+//       _initializeShakeDetection();
+//     } else if (!_privacyManager.shakeToPrivacyEnabled &&
+//         _shakeDetector != null) {
+//       _cleanupShakeDetection();
+//     }
+//
+//     // Handle brightness (minimal battery impact)
+//     if (_privacyManager.adaptiveBrightnessEnabled) {
+//       if (_privacyManager.isPrivacyActive) {
+//         _brightnessService.dimForPrivacy();
+//       } else {
+//         _brightnessService.resetToSystem();
+//       }
+//     }
+//
+//     // Handle screenshot protection (no battery impact)
+//     SecureWindowManager.toggleProtection(
+//       _privacyManager.screenshotProtectionEnabled &&
+//           _privacyManager.isPrivacyActive,
+//     );
+//
+//     // NOTE: Face detection is NOT handled here to save battery
+//     // Users must explicitly enable and start it via settings
+//   }
+//
+//   @override
+//   void didChangeAppLifecycleState(AppLifecycleState state) {
+//     super.didChangeAppLifecycleState(state);
+//
+//     // Existing biometric check...
+//     if (state == AppLifecycleState.resumed &&
+//         _biometricRequired &&
+//         !_isAuthenticated) {
+//       debugPrint("🔐 App resumed - biometric re-authentication required");
+//       Future.delayed(const Duration(milliseconds: 300), () {
+//         if (mounted && !_isAuthenticated) {
+//           _checkAndRequestBiometric();
+//         }
+//       });
+//     } else if (state == AppLifecycleState.paused && _biometricRequired) {
+//       setState(() => _isAuthenticated = false);
+//       debugPrint("🔐 App paused - biometric will be required on resume");
+//     }
+//
+//     // OPTIMIZED: Privacy lifecycle handling
+//     if (state == AppLifecycleState.paused) {
+//       // CRITICAL: Stop ALL sensors to save battery
+//       _shakeDetector?.stopListening();
+//       _brightnessService.restoreBrightness();
+//
+//       debugPrint("🔋 Battery optimization: All privacy sensors stopped");
+//     } else if (state == AppLifecycleState.resumed) {
+//       // Resume ONLY if enabled
+//       if (_privacyManager.shakeToPrivacyEnabled && _shakeDetector != null) {
+//         _shakeDetector!.startListening(
+//           onShake: () => _privacyManager.togglePrivacyActive(),
+//           onFaceDown: () {
+//             if (!_privacyManager.isPrivacyActive) {
+//               _privacyManager.activatePrivacy(reason: "Face-down");
+//             }
+//           },
+//         );
+//         debugPrint("📳 Shake detection resumed");
+//       }
+//
+//       _onPrivacyStateChanged();
+//     } else if (state == AppLifecycleState.inactive) {
+//       // User might be switching apps - stop sensors immediately
+//       _shakeDetector?.stopListening();
+//       debugPrint("🔋 App inactive - sensors paused");
+//     }
+//   }
+//
+//   // OPTIMIZED DISPOSE
+//   @override
+//   void dispose() {
+//     WidgetsBinding.instance.removeObserver(this);
+//     SmsListener.stopListening();
+//
+//     // Cleanup privacy services
+//     _privacyManager.removeListener(_onPrivacyStateChanged);
+//     _shakeDetector?.dispose();
+//     _brightnessService.restoreBrightness();
+//
+//     debugPrint("🔒 Privacy services disposed");
+//
+//     super.dispose();
+//   }
+//
+//   Future<void> _initializeApp() async {
+//     try {
+//       debugPrint("🚀 ========================================");
+//       debugPrint("🚀 INITIALIZING APP");
+//       debugPrint("🚀 ========================================");
+//
+//       // Load currency first
+//       await _loadInitialData();
+//
+//       // Check biometric requirement
+//       final biometricEnabled =
+//           await Helpers().getCurrentBiometricState() ?? false;
+//       _biometricRequired = biometricEnabled;
+//
+//       debugPrint("🔐 Biometric required: $_biometricRequired");
+//
+//       if (_biometricRequired) {
+//         // Request biometric authentication
+//         await _checkAndRequestBiometric();
+//       } else {
+//         // No biometric required, proceed normally
+//         setState(() => _isAuthenticated = true);
+//         await _initializePlatformFeatures();
+//         await _initializeFirstTimeSetup();
+//       }
+//
+//       // Check if current time is between 8 PM and 10 PM
+//       if (Helpers().isWithinNotificationHours(startHour: 20, endHour: 22)) {
+//         debugPrint("🔔 Triggering scheduled notifications...");
+//         NotificationHelper().sendFinancialSummary();
+//         NotificationHelper().checkSpendingPatterns();
+//       }
+//
+//       debugPrint("🚀 App initialization complete");
+//       debugPrint("🚀 ========================================");
+//     } catch (e) {
+//       debugPrint("❌ Error initializing app: $e");
+//       if (mounted) {
+//         SnackBars.show(
+//           context,
+//           message: context.t('error_initializing'),
+//           type: SnackBarType.error,
+//           behavior: SnackBarBehavior.floating,
+//         );
+//       }
+//     }
+//   }
+//
+//   Future<void> _checkAndRequestBiometric() async {
+//     if (_isAuthenticating) return;
+//
+//     setState(() => _isAuthenticating = true);
+//
+//     try {
+//       debugPrint("🔐 ========================================");
+//       debugPrint("🔐 REQUESTING BIOMETRIC AUTHENTICATION");
+//
+//       final biometricAuth = BiometricAuth();
+//       final authResponse = await biometricAuth.biometricAuthenticate(
+//         reason: context.t('auth_to_access'),
+//       );
+//
+//       debugPrint("🔐 Auth result: ${authResponse.result}");
+//
+//       if (authResponse.isSuccess) {
+//         // Success - grant access
+//         setState(() {
+//           _isAuthenticated = true;
+//           _isAuthenticating = false;
+//         });
+//
+//         // Initialize app features after successful authentication
+//         await _initializePlatformFeatures();
+//         await _initializeFirstTimeSetup();
+//
+//         debugPrint("🔐 ✅ Authentication successful");
+//       } else if (authResponse.isCancelled) {
+//         // User cancelled
+//         setState(() => _isAuthenticating = false);
+//         debugPrint("🔐 ⚠️ User cancelled authentication");
+//         _showBiometricCancelledDialog();
+//       } else {
+//         // Failed
+//         setState(() => _isAuthenticating = false);
+//         debugPrint("🔐 ❌ Authentication failed: ${authResponse.message}");
+//
+//         if (mounted) {
+//           SnackBars.show(
+//             context,
+//             message: authResponse.message ?? context.t('auth_failed'),
+//             type: SnackBarType.error,
+//             behavior: SnackBarBehavior.floating,
+//           );
+//         }
+//
+//         // Retry after delay
+//         await Future.delayed(const Duration(seconds: 2));
+//         if (mounted && !_isAuthenticated) {
+//           _checkAndRequestBiometric();
+//         }
+//       }
+//
+//       debugPrint("🔐 ========================================");
+//     } catch (e) {
+//       debugPrint("❌ Biometric error: $e");
+//       setState(() => _isAuthenticating = false);
+//       _showBiometricErrorDialog();
+//     }
+//   }
+//
+//   void _showBiometricCancelledDialog() {
+//     showDialog(
+//       context: context,
+//       barrierDismissible: false,
+//       builder: (context) => AlertDialog(
+//         title: Text(context.t('auth_required')),
+//         content: Text(context.t('auth_to_access_2')),
+//         actions: [
+//           TextButton(
+//             onPressed: () {
+//               Navigator.pop(context);
+//               _checkAndRequestBiometric();
+//             },
+//             child: Text(context.loc.tryAgain),
+//           ),
+//           TextButton(
+//             onPressed: () {
+//               Navigator.pop(context);
+//               exit(0);
+//             },
+//             child: Text(context.loc.exit, style: TextStyle(color: Colors.red)),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   void _showBiometricErrorDialog() {
+//     showDialog(
+//       context: context,
+//       barrierDismissible: false,
+//       builder: (context) => AlertDialog(
+//         title: Text(context.t('auth_error')),
+//         content: Text(
+//           context.t('auth_error_desc')
+//         ),
+//         actions: [
+//           TextButton(
+//             onPressed: () async {
+//               await Helpers().setCurrentBiometricState(false);
+//               setState(() {
+//                 _biometricRequired = false;
+//                 _isAuthenticated = true;
+//               });
+//               if (mounted) {
+//                 Navigator.pop(context);
+//                 SnackBars.show(
+//                   context,
+//                   message: context.t('biometric_disabled'),
+//                   type: SnackBarType.info,
+//                   behavior: SnackBarBehavior.floating,
+//                 );
+//               }
+//               await _initializePlatformFeatures();
+//               await _initializeFirstTimeSetup();
+//             },
+//             child: Text(context.t('disable_biometric')),
+//           ),
+//           TextButton(
+//             onPressed: () {
+//               Navigator.pop(context);
+//               _checkAndRequestBiometric();
+//             },
+//             child: Text(context.loc.tryAgain),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Future<void> _loadInitialData() async {
+//     _currentCurrency = await Helpers().getCurrentCurrency() ?? 'INR';
+//     _showQuickActions = await Helpers().getCurrentShowQuickActions() ?? true;
+//     debugPrint("💰 Current currency: $_currentCurrency");
+//     if (mounted) setState(() {});
+//   }
+//
+//   Future<void> _initializePlatformFeatures() async {
+//     if (_biometricRequired && !_isAuthenticated) {
+//       debugPrint("⚠️ Skipping platform init - not authenticated");
+//       return;
+//     }
+//
+//     debugPrint("📱 ========================================");
+//     debugPrint("📱 INITIALIZING PLATFORM FEATURES");
+//
+//     if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
+//       if (mounted) {
+//         SnackBars.show(
+//           context,
+//           message: context.t('sms_parsing_platform_error'),
+//           type: SnackBarType.info,
+//           behavior: SnackBarBehavior.floating,
+//         );
+//       }
+//       return;
+//     }
+//
+//     bool smsParsingEnabled =
+//         await Helpers().getCurrentSmsParsingState() ?? true;
+//
+//     if (!smsParsingEnabled) {
+//       debugPrint("📱 SMS parsing disabled by user");
+//       return;
+//     }
+//
+//     bool hasPermissions = await SmsListener.initialize();
+//
+//     if (!mounted) return;
+//
+//     setState(() => permissionsGranted = hasPermissions);
+//
+//     if (hasPermissions) {
+//       _startListening();
+//       debugPrint("📱 ✅ SMS listener initialized");
+//     } else {
+//       debugPrint("📱 ⚠️ SMS permissions not granted");
+//       SnackBars.show(
+//         context,
+//         message: context.t('sms_permission_needed'),
+//         type: SnackBarType.warning,
+//         behavior: SnackBarBehavior.floating,
+//       );
+//     }
+//
+//     debugPrint("📱 ========================================");
+//   }
+//
+//   Future<void> _initializeFirstTimeSetup() async {
+//     try {
+//       final prefs = await SharedPreferences.getInstance();
+//       bool isFirstTime = prefs.getBool('isFirstTime') ?? true;
+//
+//       if (isFirstTime) {
+//         debugPrint("🎯 First time setup - initializing categories");
+//         await UniversalHiveFunctions().initCategories();
+//         if (mounted) {
+//           await prefs.setBool('isFirstTime', false);
+//         }
+//       }
+//     } catch (e) {
+//       debugPrint('❌ First-time setup failed: $e');
+//     }
+//   }
+//
+//   Future<List<int>> _getDefaultExpenseCategoryKeys() async {
+//     final defaultCategories = await Helpers().getDefaultExpenseCategory() ?? [];
+//     if (defaultCategories.isEmpty) {
+//       return [14]; // Fallback to default keys (Snacks)
+//     }
+//
+//     final categoryBox = Hive.box<Category>(AppConstants.categories);
+//     final List<int> keys = [];
+//
+//     for (final categoryName in defaultCategories) {
+//       final category = categoryBox.values.firstWhere(
+//         (cat) => cat.name == categoryName,
+//         orElse: () => Category(
+//           name: 'Other',
+//           type: 'Expense',
+//           color: '#808080',
+//           icon: 'category',
+//         ),
+//       );
+//
+//       final categoryKey = categoryBox.keyAt(
+//         categoryBox.values.toList().indexOf(category),
+//       );
+//       if (categoryKey != null) {
+//         keys.add(categoryKey as int);
+//       }
+//     }
+//
+//     return keys.isNotEmpty ? keys : [14]; // Fallback if no keys found
+//   }
+//
+//   // IDs 0-9 are Incomes based
+//   Future<List<int>> _getDefaultIncomeCategoryKeys() async {
+//     final defaultCategories = await Helpers().getDefaultIncomeCategory() ?? [];
+//     if (defaultCategories.isEmpty) {
+//       return [7]; // Fallback to default keys (Gifts)
+//     }
+//
+//     final categoryBox = Hive.box<Category>(AppConstants.categories);
+//     final List<int> keys = [];
+//
+//     for (final categoryName in defaultCategories) {
+//       final category = categoryBox.values.firstWhere(
+//         (cat) => cat.name == categoryName,
+//         orElse: () => Category(
+//           name: 'Other',
+//           type: 'Income',
+//           color: '#808080',
+//           icon: 'category',
+//         ),
+//       );
+//
+//       final categoryKey = categoryBox.keyAt(
+//         categoryBox.values.toList().indexOf(category),
+//       );
+//       if (categoryKey != null) {
+//         keys.add(categoryKey as int);
+//       }
+//     }
+//
+//     return keys.isNotEmpty ? keys : [7]; // Fallback if no keys found
+//   }
+//
+//   void _startListening() {
+//     SmsListener.startListening(_onSmsReceived);
+//     setState(() => isListening = true);
+//     debugPrint("📱 SMS listener started successfully");
+//   }
+//
+//   Future<void> _onSmsReceived(
+//     String sender,
+//     String message,
+//     int timestamp,
+//   ) async {
+//     debugPrint("📨 ========================================");
+//     debugPrint("📨 SMS RECEIVED IN BOTTOM NAV BAR");
+//     debugPrint("📨 Sender: $sender");
+//     debugPrint("📨 Message length: ${message.length}");
+//
+//     Map<String, dynamic>? transaction = SmsListener.parseTransactionSms(
+//       sender,
+//       message,
+//       timestamp,
+//     );
+//
+//     if (transaction != null) {
+//       final double amount =
+//           double.tryParse(transaction['amount'].toString()) ?? 0.0;
+//       final String bankName = transaction['bankName'] ?? sender;
+//       final String description = 'Auto: $bankName';
+//       final String method = transaction['method'] ?? 'UPI';
+//
+//       debugPrint("📨 Transaction parsed:");
+//       debugPrint("📨   Type: ${transaction['type']}");
+//       debugPrint("📨   Amount: $_currentCurrency $amount");
+//       debugPrint("📨   Bank: $bankName");
+//       debugPrint("📨   Method: $method");
+//
+//       bool success = false;
+//
+//       if (transaction['type'] == 'debit') {
+//         success = await UniversalHiveFunctions().addExpense(
+//           amount: amount,
+//           description: description,
+//           method: method,
+//           categoryKeys:
+//               await _getDefaultExpenseCategoryKeys(), // Default expense category keys
+//         );
+//       } else if (transaction['type'] == 'credit') {
+//         success = await UniversalHiveFunctions().addIncome(
+//           amount: amount,
+//           description: description,
+//           method: method,
+//           categoryKeys:
+//               await _getDefaultIncomeCategoryKeys(), // Default income category keys
+//         );
+//       }
+//
+//       if (mounted && success) {
+//         final isCredit = transaction['type'] == 'credit';
+//         TransactionSheet.show(
+//           context: context,
+//           isIncome: isCredit,
+//           amount: amount,
+//           currency: _currentCurrency,
+//           description: description,
+//         );
+//         // SnackBars.show(
+//         //   context,
+//         //   message: '${isCredit ? '✅ Income' : '💸 Expense'}: $_currentCurrency $amount',
+//         //   type: isCredit ? SnackBarType.success : SnackBarType.error,
+//         //   behavior: SnackBarBehavior.floating,
+//         // );
+//         debugPrint("📨 ✅ Transaction saved successfully");
+//       } else {
+//         debugPrint("📨 ❌ Failed to save transaction");
+//       }
+//     } else {
+//       debugPrint("📨 ⚠️ Not a transaction SMS or parsing failed");
+//     }
+//
+//     debugPrint("📨 ========================================");
+//   }
+//
+//   void _onTabTapped(int index) {
+//     setState(() => _currentIndex = index);
+//   }
+//
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     // Show biometric lock screen if required and not authenticated
+//     if (_biometricRequired && !_isAuthenticated) {
+//       return Scaffold(
+//         body: Center(
+//           child: Column(
+//             mainAxisAlignment: MainAxisAlignment.center,
+//             children: [
+//               Icon(
+//                 Icons.fingerprint,
+//                 size: 80,
+//                 color: Theme.of(context).colorScheme.primary,
+//               ),
+//               const SizedBox(height: 24),
+//               Text(
+//                 context.t('auth_required'),
+//                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+//                   fontWeight: FontWeight.bold,
+//                 ),
+//               ),
+//               const SizedBox(height: 12),
+//               Text(
+//                 context.t('auth_subtitle'),
+//                 style: Theme.of(
+//                   context,
+//                 ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+//               ),
+//               const SizedBox(height: 32),
+//               if (_isAuthenticating)
+//                 const CircularProgressIndicator()
+//               else
+//                 ElevatedButton.icon(
+//                   onPressed: _checkAndRequestBiometric,
+//                   icon: const Icon(Icons.fingerprint),
+//                   label:Text(context.t('authenticate')),
+//                   style: ElevatedButton.styleFrom(
+//                     padding: const EdgeInsets.symmetric(
+//                       horizontal: 32,
+//                       vertical: 16,
+//                     ),
+//                   ),
+//                 ),
+//             ],
+//           ),
+//         ),
+//       );
+//     }
+//
+//     // Main app UI
+//     final scheme = Theme.of(context).colorScheme;
+//
+//     return Scaffold(
+//       backgroundColor: scheme.surface,
+//
+//       // --- START OF CHANGES ---
+//       body: Stack(
+//         children: [
+//           // Your main content
+//           _tabs[_currentIndex],
+//
+//           // Privacy vignette overlay
+//           MyDimmingOverlay(
+//             isActive:
+//                 _privacyManager.isPrivacyActive &&
+//                 _privacyManager.adaptiveBrightnessEnabled,
+//           ),
+//
+//           // Multiple watchers alert
+//           if (_showWatcherAlert) const MultipleWatchersAlert(),
+//
+//           // if (kDebugMode)
+//           //   BatteryMonitorWidget(
+//           //    shakeDetectorActive: _shakeDetector?.isListening ?? false,
+//           //    faceDetectionActive: false, // or your face detection state
+//           //    privacyModeActive: _privacyManager.isPrivacyActive,
+//           //    adaptiveBrightnessActive: _privacyManager.adaptiveBrightnessEnabled,
+//           //  ),
+//
+//           // Privacy indicator in top-right corner
+//           SafeArea(
+//             child: Padding(
+//               padding: const EdgeInsets.only(right: 16, top: 8),
+//               child: Align(
+//                 alignment: Alignment.topRight,
+//                 child: PrivacyIndicator(
+//                   isActive: _privacyManager.isPrivacyActive,
+//                   onTap: () {
+//                     _privacyManager.togglePrivacyActive();
+//                   },
+//                 ),
+//               ),
+//             ),
+//           ),
+//
+//           // SMS Status Dot Overlay
+//           if (kDebugMode)
+//             SafeArea(
+//               child: Padding(
+//                 padding: const EdgeInsets.only(left: 15.0, top: 5.0),
+//                 child: Container(
+//                   width: 10,
+//                   height: 10,
+//                   decoration: BoxDecoration(
+//                     color: isListening
+//                         ? Colors.green.shade400
+//                         : Colors.red.shade400,
+//                     shape: BoxShape.circle,
+//                     border: Border.all(
+//                       color: Colors.white.withValues(alpha:0.8),
+//                       width: 1.5,
+//                     ),
+//                     boxShadow: [
+//                       BoxShadow(
+//                         color: Colors.black.withValues(alpha:0.3),
+//                         blurRadius: 4,
+//                       ),
+//                     ],
+//                   ),
+//                 ),
+//               ),
+//             ),
+//         ],
+//       ),
+//
+//       // --- END OF CHANGES ---
+//       floatingActionButton: FloatingToolbarWithQuickActions(
+//         items: [
+//           FloatingToolbarItem(icon: Icons.home, label: context.loc.home),
+//           FloatingToolbarItem(icon: Icons.money_off, label: context.loc.transactions),
+//           // FloatingToolbarItem(icon: Icons.monetization_on, label: 'Incomes'),
+//           FloatingToolbarItem(icon: Icons.flag_outlined, label: context.loc.goals),
+//           FloatingToolbarItem(icon: Icons.track_changes, label: context.loc.habits),
+//           FloatingToolbarItem(icon: Icons.settings, label: context.loc.settings),
+//         ],
+//         primaryButton: _currentIndex != 4
+//             ? Icon(_currentIndex == 0 ? Icons.tune_rounded : Icons.add)
+//             : null,
+//         onPrimaryPressed: () {
+//           switch (_currentIndex) {
+//             case 0:
+//               _showReportsAddMenu(context);
+//               break;
+//             case 1:
+//               _showAddTransactionSheet();
+//               break;
+//             case 2:
+//               _showAddGoalSheet();
+//             // case 2:
+//             //   _showAddIncomeSheet();
+//             //   break;
+//             // case 3:
+//             //   _showAddCategorySheet();
+//             //   break;
+//             case 3:
+//               BottomSheetUtil.show(
+//                 context: context,
+//                 title: context.t('add_habit'),
+//                 height: MediaQuery.of(context).size.height / 1.35,
+//                 child: AddEditHabitSheet(hideTitle: true),
+//               );
+//               // showModalBottomSheet(
+//               //   context: context,
+//               //   isScrollControlled: true,
+//               //   builder: (context) => const AddEditHabitSheet(),
+//               // );
+//               break;
+//             case 4:
+//               // TransactionSheet.show(
+//               //   context: context,
+//               //   isIncome: true,
+//               //   amount: 1500,
+//               //   currency: _currentCurrency,
+//               //   description: 'Income Added',
+//               // );
+//               // SnackBars.show(
+//               //   context,
+//               //   message: "Under Development",
+//               //   type: SnackBarType.info,
+//               // );
+//               break;
+//           }
+//         },
+//         selectedIndex: _currentIndex,
+//         onItemTapped: _onTabTapped,
+//         showQuickActions: _showQuickActions ? _currentIndex == 1 : false, // Only show on Transaction page
+//         quickActions: _quickActions,
+//         onQuickActionTap: _handleQuickActionTap,
+//         onQuickActionEdit: (action) => _showQuickActionSheet(action), // Changed
+//         onAddQuickAction: () => _showQuickActionSheet(),
+//       ),
+//       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+//     );
+//   }
+
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' show Platform, exit;
 import 'package:expense_tracker/core/app_constants.dart';
-import 'package:expense_tracker/data/model/wallet.dart';
 import 'package:expense_tracker/data/model/recurring.dart';
+import 'package:expense_tracker/data/model/wallet.dart';
 import 'package:expense_tracker/screens/goals/goal_page.dart';
 import 'package:expense_tracker/screens/habit_screen.dart';
 import 'package:expense_tracker/screens/settings/settings_page.dart';
@@ -14,13 +923,16 @@ import 'package:expense_tracker/screens/widgets/transaction_sheet.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../core/helpers.dart';
 import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../services/biometric_auth.dart';
 import '../../services/habit_detection_service.dart';
+import '../../services/langs/localzation_extension.dart';
 import '../../services/notification_helper.dart';
 import '../../services/privacy/adaptive_brightness_service.dart';
 import '../../services/privacy/privacy_manager.dart';
@@ -32,7 +944,6 @@ import '../goals/add_edit_goal_sheet.dart';
 import '../home/home_page.dart';
 import '../transaction_page.dart';
 import 'floating_toolbar.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 class BottomNavBar extends StatefulWidget {
   final int currentIndex;
@@ -51,32 +962,29 @@ class _BottomNavBarState extends State<BottomNavBar>
   final List<Widget> _tabs = const [
     HomePage(),
     TransactionsPage(),
-    // ExpensePage(),
-    // IncomePage(),
     GoalsPage(),
     HabitPage(),
     SettingsPage(),
   ];
 
-  // SMS tracking
+  // Platform capabilities
+  bool _isMobilePlatform = false;
+
+  // SMS tracking (mobile only)
   bool isListening = false;
   bool permissionsGranted = false;
 
-  // Biometric authentication
+  // Biometric authentication (mobile only)
   bool _isAuthenticating = false;
   bool _isAuthenticated = false;
   bool _biometricRequired = false;
 
-  // Privacy Focused
+  // Privacy Focused (mobile only)
   final PrivacyManager _privacyManager = PrivacyManager();
-  ShakeDetector? _shakeDetector; // Make nullable, only create if needed
-  final AdaptiveBrightnessService _brightnessService =
-      AdaptiveBrightnessService();
-  // GazeDetectionManager? _gazeDetectionManager;
+  ShakeDetector? _shakeDetector;
+  final AdaptiveBrightnessService _brightnessService = AdaptiveBrightnessService();
   final bool _showWatcherAlert = false;
   Timer? _watcherAlertTimer;
-  List<String>? defaultExpenseCategories = [];
-  List<String>? defaultIncomeCategories = [];
 
   List<QuickAction> _quickActions = [];
   bool _showQuickActions = false;
@@ -86,40 +994,52 @@ class _BottomNavBarState extends State<BottomNavBar>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _currentIndex = widget.currentIndex;
-    _initializeApp();
-    _initializePrivacyServices();
-    _scheduleHabitDetection();
-    _loadQuickActions();
 
-    // Check for arguments after the build frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args != null && args is String) {
-        if (args.toString().contains("new_habit")) {
-          // Open your "Add Habit" dialog automatically with this name
-          BottomSheetUtil.show(
-            context: context,
-            title: 'Add New Habit',
-            height: MediaQuery.of(context).size.height / 1.35,
-            child: AddEditHabitSheet(hideTitle: true, initialTitle: args),
-          );
-        }
-        else if (args.toString().contains("new_expense")) {
-          _showAddExpenseSheet();
-        }
-        else if (args.toString().contains("new_income")) {
-          _showAddIncomeSheet();
-        }
-        else if (args.toString().contains("new_goal")) {
-          BottomSheetUtil.show(
-            context: context,
-            title: 'Add New Habit',
-            height: MediaQuery.of(context).size.height / 1.35,
-            child: AddEditGoalSheet(initialTitle: args),
-          );
-        }
+    // Check if running on mobile platform
+    _isMobilePlatform = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+    if (kIsWeb) {
+      debugPrint('🌐 Running on Web platform');
+      _initializeFirstTimeSetup();
+      _loadQuickActions();
+    } else {
+      debugPrint('📱 Running on ${Platform.operatingSystem}');
+      _initializeApp();
+      if (_isMobilePlatform) {
+        _initializePrivacyServices();
       }
-    });
+      _scheduleHabitDetection();
+      _loadQuickActions();
+
+      // Check for arguments after the build frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final args = ModalRoute.of(context)?.settings.arguments;
+        if (args != null && args is String) {
+          if (args.toString().contains("new_habit")) {
+            BottomSheetUtil.show(
+              context: context,
+              title: 'Add New Habit',
+              height: MediaQuery.of(context).size.height / 1.35,
+              child: AddEditHabitSheet(hideTitle: true, initialTitle: args),
+            );
+          }
+          else if (args.toString().contains("new_expense")) {
+            _showAddExpenseSheet();
+          }
+          else if (args.toString().contains("new_income")) {
+            _showAddIncomeSheet();
+          }
+          else if (args.toString().contains("new_goal")) {
+            BottomSheetUtil.show(
+              context: context,
+              title: 'Add New Goal',
+              height: MediaQuery.of(context).size.height / 1.35,
+              child: AddEditGoalSheet(initialTitle: args),
+            );
+          }
+        }
+      });
+    }
   }
 
   Future<void> _loadQuickActions() async {
@@ -128,14 +1048,12 @@ class _BottomNavBarState extends State<BottomNavBar>
   }
 
   void _scheduleHabitDetection() {
-    // Run detection once per day
     Future.delayed(const Duration(seconds: 5), () async {
       final prefs = await SharedPreferences.getInstance();
       final lastRun = prefs.getString('last_habit_detection');
       final now = DateTime.now();
 
       if (lastRun == null || DateTime.parse(lastRun).day != now.day) {
-        // Run detection
         await HabitDetectionService().runAutoDetection();
         await prefs.setString('last_habit_detection', now.toIso8601String());
       }
@@ -143,46 +1061,35 @@ class _BottomNavBarState extends State<BottomNavBar>
   }
 
   Future<void> _initializePrivacyServices() async {
+    if (!_isMobilePlatform) return;
+
     debugPrint("🔒 ========================================");
     debugPrint("🔒 Initializing Privacy Services (Optimized)");
 
-    // Initialize privacy manager
     await _privacyManager.initialize();
-
-    // Listen to privacy state changes
     _privacyManager.addListener(_onPrivacyStateChanged);
 
-    // IMPORTANT: Only setup shake detection if user has it enabled
     if (_privacyManager.shakeToPrivacyEnabled) {
       _initializeShakeDetection();
     }
 
-    // Setup screenshot protection (no battery impact)
     if (_privacyManager.screenshotProtectionEnabled) {
       await SecureWindowManager.enableProtection();
     }
 
-    // Apply initial privacy state
     _onPrivacyStateChanged();
-
     debugPrint("🔒 Privacy services initialized (Battery optimized)");
-    debugPrint(
-      "🔒 Shake detection: ${_shakeDetector != null ? 'Active' : 'Disabled'}",
-    );
-    debugPrint("🔒 Face detection: Disabled (enable in settings if needed)");
     debugPrint("🔒 ========================================");
   }
 
   void _initializeShakeDetection() {
-    if (_shakeDetector != null) return; // Already initialized
+    if (_shakeDetector != null || !_isMobilePlatform) return;
 
     _shakeDetector = ShakeDetector();
     _shakeDetector!.startListening(
       onShake: () {
         debugPrint("📳 Shake detected - toggling privacy");
         _privacyManager.togglePrivacyActive();
-
-        // Haptic feedback
         HapticFeedback.mediumImpact();
       },
       onFaceDown: () {
@@ -193,7 +1100,6 @@ class _BottomNavBarState extends State<BottomNavBar>
         }
       },
     );
-
     debugPrint("📳 Shake detection initialized");
   }
 
@@ -204,21 +1110,17 @@ class _BottomNavBarState extends State<BottomNavBar>
     debugPrint("📳 Shake detection cleaned up");
   }
 
-  // Add this callback method:
   void _onPrivacyStateChanged() {
-    if (!mounted) return;
+    if (!mounted || !_isMobilePlatform) return;
 
     setState(() {});
 
-    // Handle shake detection based on settings
     if (_privacyManager.shakeToPrivacyEnabled && _shakeDetector == null) {
       _initializeShakeDetection();
-    } else if (!_privacyManager.shakeToPrivacyEnabled &&
-        _shakeDetector != null) {
+    } else if (!_privacyManager.shakeToPrivacyEnabled && _shakeDetector != null) {
       _cleanupShakeDetection();
     }
 
-    // Handle brightness (minimal battery impact)
     if (_privacyManager.adaptiveBrightnessEnabled) {
       if (_privacyManager.isPrivacyActive) {
         _brightnessService.dimForPrivacy();
@@ -227,24 +1129,18 @@ class _BottomNavBarState extends State<BottomNavBar>
       }
     }
 
-    // Handle screenshot protection (no battery impact)
     SecureWindowManager.toggleProtection(
-      _privacyManager.screenshotProtectionEnabled &&
-          _privacyManager.isPrivacyActive,
+      _privacyManager.screenshotProtectionEnabled && _privacyManager.isPrivacyActive,
     );
-
-    // NOTE: Face detection is NOT handled here to save battery
-    // Users must explicitly enable and start it via settings
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Existing biometric check...
-    if (state == AppLifecycleState.resumed &&
-        _biometricRequired &&
-        !_isAuthenticated) {
+    // Biometric check (mobile only)
+    if (_isMobilePlatform && state == AppLifecycleState.resumed &&
+        _biometricRequired && !_isAuthenticated) {
       debugPrint("🔐 App resumed - biometric re-authentication required");
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted && !_isAuthenticated) {
@@ -256,15 +1152,14 @@ class _BottomNavBarState extends State<BottomNavBar>
       debugPrint("🔐 App paused - biometric will be required on resume");
     }
 
-    // OPTIMIZED: Privacy lifecycle handling
+    // Privacy lifecycle handling (mobile only)
+    if (!_isMobilePlatform) return;
+
     if (state == AppLifecycleState.paused) {
-      // CRITICAL: Stop ALL sensors to save battery
       _shakeDetector?.stopListening();
       _brightnessService.restoreBrightness();
-
       debugPrint("🔋 Battery optimization: All privacy sensors stopped");
     } else if (state == AppLifecycleState.resumed) {
-      // Resume ONLY if enabled
       if (_privacyManager.shakeToPrivacyEnabled && _shakeDetector != null) {
         _shakeDetector!.startListening(
           onShake: () => _privacyManager.togglePrivacyActive(),
@@ -276,28 +1171,23 @@ class _BottomNavBarState extends State<BottomNavBar>
         );
         debugPrint("📳 Shake detection resumed");
       }
-
       _onPrivacyStateChanged();
     } else if (state == AppLifecycleState.inactive) {
-      // User might be switching apps - stop sensors immediately
       _shakeDetector?.stopListening();
       debugPrint("🔋 App inactive - sensors paused");
     }
   }
 
-  // OPTIMIZED DISPOSE
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    SmsListener.stopListening();
-
-    // Cleanup privacy services
-    _privacyManager.removeListener(_onPrivacyStateChanged);
-    _shakeDetector?.dispose();
-    _brightnessService.restoreBrightness();
-
-    debugPrint("🔒 Privacy services disposed");
-
+    if (_isMobilePlatform) {
+      SmsListener.stopListening();
+      _privacyManager.removeListener(_onPrivacyStateChanged);
+      _shakeDetector?.dispose();
+      _brightnessService.restoreBrightness();
+      debugPrint("🔒 Privacy services disposed");
+    }
     super.dispose();
   }
 
@@ -307,28 +1197,28 @@ class _BottomNavBarState extends State<BottomNavBar>
       debugPrint("🚀 INITIALIZING APP");
       debugPrint("🚀 ========================================");
 
-      // Load currency first
       await _loadInitialData();
 
-      // Check biometric requirement
-      final biometricEnabled =
-          await Helpers().getCurrentBiometricState() ?? false;
-      _biometricRequired = biometricEnabled;
+      // Only check biometric on mobile
+      if (_isMobilePlatform) {
+        final biometricEnabled = await Helpers().getCurrentBiometricState() ?? false;
+        _biometricRequired = biometricEnabled;
+        debugPrint("🔐 Biometric required: $_biometricRequired");
 
-      debugPrint("🔐 Biometric required: $_biometricRequired");
-
-      if (_biometricRequired) {
-        // Request biometric authentication
-        await _checkAndRequestBiometric();
+        if (_biometricRequired) {
+          await _checkAndRequestBiometric();
+        } else {
+          setState(() => _isAuthenticated = true);
+          await _initializePlatformFeatures();
+          await _initializeFirstTimeSetup();
+        }
       } else {
-        // No biometric required, proceed normally
         setState(() => _isAuthenticated = true);
-        await _initializePlatformFeatures();
         await _initializeFirstTimeSetup();
       }
 
-      // Check if current time is between 8 PM and 10 PM
-      if (Helpers().isWithinNotificationHours(startHour: 20, endHour: 22)) {
+      // Notifications (mobile only)
+      if (_isMobilePlatform && Helpers().isWithinNotificationHours(startHour: 20, endHour: 22)) {
         debugPrint("🔔 Triggering scheduled notifications...");
         NotificationHelper().sendFinancialSummary();
         NotificationHelper().checkSpendingPatterns();
@@ -341,7 +1231,7 @@ class _BottomNavBarState extends State<BottomNavBar>
       if (mounted) {
         SnackBars.show(
           context,
-          message: 'Error initializing app',
+          message: context.t('error_initializing'),
           type: SnackBarType.error,
           behavior: SnackBarBehavior.floating,
         );
@@ -350,7 +1240,7 @@ class _BottomNavBarState extends State<BottomNavBar>
   }
 
   Future<void> _checkAndRequestBiometric() async {
-    if (_isAuthenticating) return;
+    if (_isAuthenticating || !_isMobilePlatform) return;
 
     setState(() => _isAuthenticating = true);
 
@@ -360,43 +1250,36 @@ class _BottomNavBarState extends State<BottomNavBar>
 
       final biometricAuth = BiometricAuth();
       final authResponse = await biometricAuth.biometricAuthenticate(
-        reason: 'Authenticate to access your expense tracker',
+        reason: context.t('auth_to_access'),
       );
 
       debugPrint("🔐 Auth result: ${authResponse.result}");
 
       if (authResponse.isSuccess) {
-        // Success - grant access
         setState(() {
           _isAuthenticated = true;
           _isAuthenticating = false;
         });
-
-        // Initialize app features after successful authentication
         await _initializePlatformFeatures();
         await _initializeFirstTimeSetup();
-
         debugPrint("🔐 ✅ Authentication successful");
       } else if (authResponse.isCancelled) {
-        // User cancelled
         setState(() => _isAuthenticating = false);
         debugPrint("🔐 ⚠️ User cancelled authentication");
         _showBiometricCancelledDialog();
       } else {
-        // Failed
         setState(() => _isAuthenticating = false);
         debugPrint("🔐 ❌ Authentication failed: ${authResponse.message}");
 
         if (mounted) {
           SnackBars.show(
             context,
-            message: authResponse.message ?? "Authentication failed",
+            message: authResponse.message ?? context.t('auth_failed'),
             type: SnackBarType.error,
             behavior: SnackBarBehavior.floating,
           );
         }
 
-        // Retry after delay
         await Future.delayed(const Duration(seconds: 2));
         if (mounted && !_isAuthenticated) {
           _checkAndRequestBiometric();
@@ -416,22 +1299,24 @@ class _BottomNavBarState extends State<BottomNavBar>
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text("Authentication Required"),
-        content: const Text("You need to authenticate to access the app."),
+        title: Text(context.t('auth_required')),
+        content: Text(context.t('auth_to_access_2')),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _checkAndRequestBiometric();
             },
-            child: const Text("Try Again"),
+            child: Text(context.loc.tryAgain),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              exit(0);
+              if (_isMobilePlatform) {
+                SystemNavigator.pop();
+              }
             },
-            child: const Text("Exit", style: TextStyle(color: Colors.red)),
+            child: Text(context.loc.exit, style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -443,11 +1328,8 @@ class _BottomNavBarState extends State<BottomNavBar>
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text("Authentication Error"),
-        content: const Text(
-          "There was an error with biometric authentication. "
-          "Would you like to disable biometric lock or try again?",
-        ),
+        title: Text(context.t('auth_error')),
+        content: Text(context.t('auth_error_desc')),
         actions: [
           TextButton(
             onPressed: () async {
@@ -460,7 +1342,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                 Navigator.pop(context);
                 SnackBars.show(
                   context,
-                  message: "Biometric disabled",
+                  message: context.t('biometric_disabled'),
                   type: SnackBarType.info,
                   behavior: SnackBarBehavior.floating,
                 );
@@ -468,14 +1350,14 @@ class _BottomNavBarState extends State<BottomNavBar>
               await _initializePlatformFeatures();
               await _initializeFirstTimeSetup();
             },
-            child: const Text("Disable Biometric"),
+            child: Text(context.t('disable_biometric')),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _checkAndRequestBiometric();
             },
-            child: const Text("Try Again"),
+            child: Text(context.loc.tryAgain),
           ),
         ],
       ),
@@ -490,6 +1372,11 @@ class _BottomNavBarState extends State<BottomNavBar>
   }
 
   Future<void> _initializePlatformFeatures() async {
+    if (!_isMobilePlatform) {
+      debugPrint("⚠️ Platform features not available on web");
+      return;
+    }
+
     if (_biometricRequired && !_isAuthenticated) {
       debugPrint("⚠️ Skipping platform init - not authenticated");
       return;
@@ -498,20 +1385,7 @@ class _BottomNavBarState extends State<BottomNavBar>
     debugPrint("📱 ========================================");
     debugPrint("📱 INITIALIZING PLATFORM FEATURES");
 
-    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
-      if (mounted) {
-        SnackBars.show(
-          context,
-          message: "SMS parsing isn't supported on this platform.",
-          type: SnackBarType.info,
-          behavior: SnackBarBehavior.floating,
-        );
-      }
-      return;
-    }
-
-    bool smsParsingEnabled =
-        await Helpers().getCurrentSmsParsingState() ?? true;
+    bool smsParsingEnabled = await Helpers().getCurrentSmsParsingState() ?? true;
 
     if (!smsParsingEnabled) {
       debugPrint("📱 SMS parsing disabled by user");
@@ -531,7 +1405,7 @@ class _BottomNavBarState extends State<BottomNavBar>
       debugPrint("📱 ⚠️ SMS permissions not granted");
       SnackBars.show(
         context,
-        message: 'SMS permissions needed for auto-tracking',
+        message: context.t('sms_permission_needed'),
         type: SnackBarType.warning,
         behavior: SnackBarBehavior.floating,
       );
@@ -560,7 +1434,7 @@ class _BottomNavBarState extends State<BottomNavBar>
   Future<List<int>> _getDefaultExpenseCategoryKeys() async {
     final defaultCategories = await Helpers().getDefaultExpenseCategory() ?? [];
     if (defaultCategories.isEmpty) {
-      return [14]; // Fallback to default keys (Snacks)
+      return [14];
     }
 
     final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -568,7 +1442,7 @@ class _BottomNavBarState extends State<BottomNavBar>
 
     for (final categoryName in defaultCategories) {
       final category = categoryBox.values.firstWhere(
-        (cat) => cat.name == categoryName,
+            (cat) => cat.name == categoryName,
         orElse: () => Category(
           name: 'Other',
           type: 'Expense',
@@ -585,14 +1459,13 @@ class _BottomNavBarState extends State<BottomNavBar>
       }
     }
 
-    return keys.isNotEmpty ? keys : [14]; // Fallback if no keys found
+    return keys.isNotEmpty ? keys : [14];
   }
 
-  // IDs 0-9 are Incomes based
   Future<List<int>> _getDefaultIncomeCategoryKeys() async {
     final defaultCategories = await Helpers().getDefaultIncomeCategory() ?? [];
     if (defaultCategories.isEmpty) {
-      return [7]; // Fallback to default keys (Gifts)
+      return [7];
     }
 
     final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -600,7 +1473,7 @@ class _BottomNavBarState extends State<BottomNavBar>
 
     for (final categoryName in defaultCategories) {
       final category = categoryBox.values.firstWhere(
-        (cat) => cat.name == categoryName,
+            (cat) => cat.name == categoryName,
         orElse: () => Category(
           name: 'Other',
           type: 'Income',
@@ -617,20 +1490,21 @@ class _BottomNavBarState extends State<BottomNavBar>
       }
     }
 
-    return keys.isNotEmpty ? keys : [7]; // Fallback if no keys found
+    return keys.isNotEmpty ? keys : [7];
   }
 
   void _startListening() {
+    if (!_isMobilePlatform) return;
     SmsListener.startListening(_onSmsReceived);
     setState(() => isListening = true);
     debugPrint("📱 SMS listener started successfully");
   }
 
   Future<void> _onSmsReceived(
-    String sender,
-    String message,
-    int timestamp,
-  ) async {
+      String sender,
+      String message,
+      int timestamp,
+      ) async {
     debugPrint("📨 ========================================");
     debugPrint("📨 SMS RECEIVED IN BOTTOM NAV BAR");
     debugPrint("📨 Sender: $sender");
@@ -643,8 +1517,7 @@ class _BottomNavBarState extends State<BottomNavBar>
     );
 
     if (transaction != null) {
-      final double amount =
-          double.tryParse(transaction['amount'].toString()) ?? 0.0;
+      final double amount = double.tryParse(transaction['amount'].toString()) ?? 0.0;
       final String bankName = transaction['bankName'] ?? sender;
       final String description = 'Auto: $bankName';
       final String method = transaction['method'] ?? 'UPI';
@@ -662,16 +1535,14 @@ class _BottomNavBarState extends State<BottomNavBar>
           amount: amount,
           description: description,
           method: method,
-          categoryKeys:
-              await _getDefaultExpenseCategoryKeys(), // Default expense category keys
+          categoryKeys: await _getDefaultExpenseCategoryKeys(),
         );
       } else if (transaction['type'] == 'credit') {
         success = await UniversalHiveFunctions().addIncome(
           amount: amount,
           description: description,
           method: method,
-          categoryKeys:
-              await _getDefaultIncomeCategoryKeys(), // Default income category keys
+          categoryKeys: await _getDefaultIncomeCategoryKeys(),
         );
       }
 
@@ -684,12 +1555,6 @@ class _BottomNavBarState extends State<BottomNavBar>
           currency: _currentCurrency,
           description: description,
         );
-        // SnackBars.show(
-        //   context,
-        //   message: '${isCredit ? '✅ Income' : '💸 Expense'}: $_currentCurrency $amount',
-        //   type: isCredit ? SnackBarType.success : SnackBarType.error,
-        //   behavior: SnackBarBehavior.floating,
-        // );
         debugPrint("📨 ✅ Transaction saved successfully");
       } else {
         debugPrint("📨 ❌ Failed to save transaction");
@@ -705,11 +1570,10 @@ class _BottomNavBarState extends State<BottomNavBar>
     setState(() => _currentIndex = index);
   }
 
-
   @override
   Widget build(BuildContext context) {
-    // Show biometric lock screen if required and not authenticated
-    if (_biometricRequired && !_isAuthenticated) {
+    // Show biometric lock screen if required and not authenticated (mobile only)
+    if (_isMobilePlatform && _biometricRequired && !_isAuthenticated) {
       return Scaffold(
         body: Center(
           child: Column(
@@ -722,17 +1586,17 @@ class _BottomNavBarState extends State<BottomNavBar>
               ),
               const SizedBox(height: 24),
               Text(
-                "Authentication Required",
+                context.t('auth_required'),
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 12),
               Text(
-                "Please authenticate to continue",
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                context.t('auth_subtitle'),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey,
+                ),
               ),
               const SizedBox(height: 32),
               if (_isAuthenticating)
@@ -741,7 +1605,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                 ElevatedButton.icon(
                   onPressed: _checkAndRequestBiometric,
                   icon: const Icon(Icons.fingerprint),
-                  label: const Text("Authenticate"),
+                  label: Text(context.t('authenticate')),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 32,
@@ -760,49 +1624,41 @@ class _BottomNavBarState extends State<BottomNavBar>
 
     return Scaffold(
       backgroundColor: scheme.surface,
-
-      // --- START OF CHANGES ---
       body: Stack(
         children: [
           // Your main content
           _tabs[_currentIndex],
 
-          // Privacy vignette overlay
-          MyDimmingOverlay(
-            isActive:
-                _privacyManager.isPrivacyActive &&
-                _privacyManager.adaptiveBrightnessEnabled,
-          ),
+          // Privacy vignette overlay (mobile only)
+          if (_isMobilePlatform)
+            MyDimmingOverlay(
+              isActive: _privacyManager.isPrivacyActive &&
+                  _privacyManager.adaptiveBrightnessEnabled,
+            ),
 
-          // Multiple watchers alert
-          if (_showWatcherAlert) const MultipleWatchersAlert(),
+          // Multiple watchers alert (mobile only)
+          if (_isMobilePlatform && _showWatcherAlert)
+            const MultipleWatchersAlert(),
 
-          // if (kDebugMode)
-          //   BatteryMonitorWidget(
-          //    shakeDetectorActive: _shakeDetector?.isListening ?? false,
-          //    faceDetectionActive: false, // or your face detection state
-          //    privacyModeActive: _privacyManager.isPrivacyActive,
-          //    adaptiveBrightnessActive: _privacyManager.adaptiveBrightnessEnabled,
-          //  ),
-
-          // Privacy indicator in top-right corner
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16, top: 8),
-              child: Align(
-                alignment: Alignment.topRight,
-                child: PrivacyIndicator(
-                  isActive: _privacyManager.isPrivacyActive,
-                  onTap: () {
-                    _privacyManager.togglePrivacyActive();
-                  },
+          // Privacy indicator in top-right corner (mobile only)
+          if (_isMobilePlatform)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16, top: 8),
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: PrivacyIndicator(
+                    isActive: _privacyManager.isPrivacyActive,
+                    onTap: () {
+                      _privacyManager.togglePrivacyActive();
+                    },
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // SMS Status Dot Overlay
-          if (kDebugMode)
+          // SMS Status Dot Overlay (debug only, mobile only)
+          if (kDebugMode && _isMobilePlatform)
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.only(left: 15.0, top: 5.0),
@@ -815,12 +1671,12 @@ class _BottomNavBarState extends State<BottomNavBar>
                         : Colors.red.shade400,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withValues(alpha: 0.3),
                         blurRadius: 4,
                       ),
                     ],
@@ -828,18 +1684,38 @@ class _BottomNavBarState extends State<BottomNavBar>
                 ),
               ),
             ),
+
+          // Web platform indicator (web only)
+          if (kIsWeb)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 15.0, top: 5.0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    '🌐 Web',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
-
-      // --- END OF CHANGES ---
       floatingActionButton: FloatingToolbarWithQuickActions(
         items: [
-          FloatingToolbarItem(icon: Icons.home, label: 'Home'),
-          FloatingToolbarItem(icon: Icons.money_off, label: 'Transaction'),
-          // FloatingToolbarItem(icon: Icons.monetization_on, label: 'Incomes'),
-          FloatingToolbarItem(icon: Icons.flag_outlined, label: 'Goals'),
-          FloatingToolbarItem(icon: Icons.track_changes, label: 'Habits'),
-          FloatingToolbarItem(icon: Icons.settings, label: 'Settings'),
+          FloatingToolbarItem(icon: Icons.home, label: context.loc.home),
+          FloatingToolbarItem(icon: Icons.money_off, label: context.loc.transactions),
+          FloatingToolbarItem(icon: Icons.flag_outlined, label: context.loc.goals),
+          FloatingToolbarItem(icon: Icons.track_changes, label: context.loc.habits),
+          FloatingToolbarItem(icon: Icons.settings, label: context.loc.settings),
         ],
         primaryButton: _currentIndex != 4
             ? Icon(_currentIndex == 0 ? Icons.tune_rounded : Icons.add)
@@ -854,52 +1730,31 @@ class _BottomNavBarState extends State<BottomNavBar>
               break;
             case 2:
               _showAddGoalSheet();
-            // case 2:
-            //   _showAddIncomeSheet();
-            //   break;
-            // case 3:
-            //   _showAddCategorySheet();
-            //   break;
+              break;
             case 3:
               BottomSheetUtil.show(
                 context: context,
-                title: 'Add New Habit',
+                title: context.t('add_habit'),
                 height: MediaQuery.of(context).size.height / 1.35,
                 child: AddEditHabitSheet(hideTitle: true),
               );
-              // showModalBottomSheet(
-              //   context: context,
-              //   isScrollControlled: true,
-              //   builder: (context) => const AddEditHabitSheet(),
-              // );
               break;
             case 4:
-              // TransactionSheet.show(
-              //   context: context,
-              //   isIncome: true,
-              //   amount: 1500,
-              //   currency: _currentCurrency,
-              //   description: 'Income Added',
-              // );
-              // SnackBars.show(
-              //   context,
-              //   message: "Under Development",
-              //   type: SnackBarType.info,
-              // );
               break;
           }
         },
         selectedIndex: _currentIndex,
         onItemTapped: _onTabTapped,
-        showQuickActions: _showQuickActions ? _currentIndex == 1 : false, // Only show on Transaction page
+        showQuickActions: _showQuickActions ? _currentIndex == 1 : false,
         quickActions: _quickActions,
         onQuickActionTap: _handleQuickActionTap,
-        onQuickActionEdit: (action) => _showQuickActionSheet(action), // Changed
+        onQuickActionEdit: (action) => _showQuickActionSheet(action),
         onAddQuickAction: () => _showQuickActionSheet(),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
+
 
   void _logBatteryOptimization() {
     debugPrint("🔋 ========================================");
@@ -923,7 +1778,7 @@ class _BottomNavBarState extends State<BottomNavBar>
   void _showAddGoalSheet() {
     BottomSheetUtil.show(
       context: context,
-      title: 'Create New Goal',
+      title: context.t('add_goal'),
       height: MediaQuery.of(context).size.height / 1.35,
       child: AddEditGoalSheet(),
     );
@@ -942,7 +1797,7 @@ class _BottomNavBarState extends State<BottomNavBar>
           children: [
             ListTile(
               leading: const Icon(Icons.account_balance_wallet_rounded),
-              title: const Text('Manage Wallets'),
+              title: Text(context.t('manage_wallets')),
               onTap: () {
                 Navigator.pop(context);
                 _showManageWalletsSheet();
@@ -950,7 +1805,7 @@ class _BottomNavBarState extends State<BottomNavBar>
             ),
             ListTile(
               leading: const Icon(Icons.repeat_rounded),
-              title: const Text('Manage Recurring Payments'),
+              title: Text(context.t('manage_recurring')),
               onTap: () {
                 Navigator.pop(context);
                 _showManageRecurringSheet();
@@ -978,7 +1833,7 @@ class _BottomNavBarState extends State<BottomNavBar>
       if (mounted) {
         SnackBars.show(
           context,
-          message: 'Quick action deleted',
+          message: context.t('quick_action_deleted'),
           type: SnackBarType.success,
           behavior: SnackBarBehavior.floating,
         );
@@ -994,8 +1849,8 @@ class _BottomNavBarState extends State<BottomNavBar>
         SnackBars.show(
           context,
           message: existing != null
-              ? 'Quick action updated'
-              : 'Quick action added',
+              ? context.t('quick_action_updated')
+              : context.t('quick_action_added'),
           type: SnackBarType.success,
           behavior: SnackBarBehavior.floating,
         );
@@ -1041,7 +1896,7 @@ class _BottomNavBarState extends State<BottomNavBar>
 
     BottomSheetUtil.show(
       context: context,
-      title: 'Manage Wallets',
+      title: context.t('manage_wallets'),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.7,
@@ -1055,24 +1910,24 @@ class _BottomNavBarState extends State<BottomNavBar>
                 Navigator.pop(context);
                 _showAddEditWalletSheet();
               },
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.add),
-                  SizedBox(width: 8),
-                  Text('Add New Wallet'),
+                  const Icon(Icons.add),
+                  const SizedBox(width: 8),
+                  Text(context.t('add_wallet')),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             Flexible(
               child: wallets.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Padding(
-                        padding: EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.all(16.0),
                         child: Text(
-                          'No wallets found',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                          context.t('no_wallets'),
+                          style: const TextStyle(fontSize: 16, color: Colors.grey),
                         ),
                       ),
                     )
@@ -1110,13 +1965,13 @@ class _BottomNavBarState extends State<BottomNavBar>
                                 }
                               },
                               itemBuilder: (context) => [
-                                const PopupMenuItem(
+                                PopupMenuItem(
                                   value: 'edit',
-                                  child: Text('Edit'),
+                                  child: Text(context.loc.edit),
                                 ),
-                                const PopupMenuItem(
+                                 PopupMenuItem(
                                   value: 'delete',
-                                  child: Text('Delete'),
+                                  child: Text(context.loc.delete),
                                 ),
                               ],
                             ),
@@ -1145,7 +2000,7 @@ class _BottomNavBarState extends State<BottomNavBar>
 
     BottomSheetUtil.show(
       context: context,
-      title: isEditing ? 'Edit Wallet' : 'Add Wallet',
+      title: isEditing ? context.t('edit_wallet') : context.t('add_wallet'),
       child: StatefulBuilder(
         builder: (context, setModalState) {
           return Column(
@@ -1153,16 +2008,16 @@ class _BottomNavBarState extends State<BottomNavBar>
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Wallet Name',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('wallet_name'),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: balanceController,
                 decoration: InputDecoration(
-                  labelText: 'Balance',
+                  labelText: context.t('balance'),
                   border: const OutlineInputBorder(),
                   prefixText: '$_currentCurrency ',
                 ),
@@ -1173,8 +2028,8 @@ class _BottomNavBarState extends State<BottomNavBar>
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: selectedType,
-                decoration: const InputDecoration(
-                  labelText: 'Type',
+                decoration: InputDecoration(
+                  labelText: context.t('wallet_type'),
                   border: OutlineInputBorder(),
                 ),
                 items: const [
@@ -1198,7 +2053,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                     Navigator.pop(context);
                     SnackBars.show(
                       context,
-                      message: 'Please enter wallet name',
+                      message: context.t('wallet_name_error'),
                       type: SnackBarType.error,
                     );
                     return;
@@ -1223,12 +2078,12 @@ class _BottomNavBarState extends State<BottomNavBar>
                     Navigator.pop(context);
                     SnackBars.show(
                       context,
-                      message: isEditing ? 'Wallet updated' : 'Wallet added',
+                      message: isEditing ? context.t('wallet_updated') : context.t('wallet_added'),
                       type: SnackBarType.success,
                     );
                   }
                 },
-                child: Text(isEditing ? 'Update Wallet' : 'Add Wallet'),
+                child: Text(isEditing ? context.t('edit_wallet') : context.t('add_wallet')),
               ),
             ],
           );
@@ -1241,8 +2096,8 @@ class _BottomNavBarState extends State<BottomNavBar>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Wallet'),
-        content: Text('Are you sure you want to delete "${wallet.name}"?'),
+        title: Text(context.t('delete_wallet')),
+        content: Text('${context.t('delete_wallet_confirm')} "${wallet.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1257,12 +2112,12 @@ class _BottomNavBarState extends State<BottomNavBar>
                 Navigator.pop(context);
                 SnackBars.show(
                   context,
-                  message: 'Wallet deleted',
+                  message: context.t('wallet_deleted'),
                   type: SnackBarType.success,
                 );
               }
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(context.loc.delete, style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1305,7 +2160,7 @@ class _BottomNavBarState extends State<BottomNavBar>
 
     BottomSheetUtil.show(
       context: context,
-      title: 'Manage Recurring Payments',
+      title: context.t('manage_recurring'),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.7,
@@ -1319,24 +2174,24 @@ class _BottomNavBarState extends State<BottomNavBar>
                 Navigator.pop(context);
                 _showAddEditRecurringSheet();
               },
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.add),
-                  SizedBox(width: 8),
-                  Text('Add New Recurring'),
+                  const Icon(Icons.add),
+                  const SizedBox(width: 8),
+                  Text(context.t('add_recurring')),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             Flexible(
               child: recurrings.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Padding(
-                        padding: EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.all(16.0),
                         child: Text(
-                          'No recurring payments found',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                          context.t('no_recurring_found'),
+                          style: const TextStyle(fontSize: 16, color: Colors.grey),
                         ),
                       ),
                     )
@@ -1393,13 +2248,13 @@ class _BottomNavBarState extends State<BottomNavBar>
                                 }
                               },
                               itemBuilder: (context) => [
-                                const PopupMenuItem(
+                                PopupMenuItem(
                                   value: 'edit',
-                                  child: Text('Edit'),
+                                  child: Text(context.loc.edit),
                                 ),
-                                const PopupMenuItem(
+                                 PopupMenuItem(
                                   value: 'delete',
-                                  child: Text('Delete'),
+                                  child: Text(context.loc.delete),
                                 ),
                               ],
                             ),
@@ -1434,7 +2289,7 @@ class _BottomNavBarState extends State<BottomNavBar>
 
     BottomSheetUtil.show(
       context: context,
-      title: isEditing ? 'Edit Recurring Payment' : 'Add Recurring Payment',
+      title: isEditing ? context.t('edit_recurring') : context.t('add_recurring'),
       child: StatefulBuilder(
         builder: (context, setModalState) {
           final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -1447,8 +2302,8 @@ class _BottomNavBarState extends State<BottomNavBar>
               children: [
                 TextField(
                   controller: descController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
+                  decoration: InputDecoration(
+                    labelText: context.loc.description,
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -1456,7 +2311,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                 TextField(
                   controller: amountController,
                   decoration: InputDecoration(
-                    labelText: 'Amount',
+                    labelText: context.loc.amount,
                     border: const OutlineInputBorder(),
                     prefixText: '$_currentCurrency ',
                   ),
@@ -1466,7 +2321,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                 ),
                 const SizedBox(height: 16),
                 ListTile(
-                  title: const Text('Deduction Date'),
+                  title: Text(context.t('deduction_date')),
                   subtitle: Text(
                     '${selectedDeductionDate.day}/${selectedDeductionDate.month}/${selectedDeductionDate.year}',
                   ),
@@ -1485,11 +2340,11 @@ class _BottomNavBarState extends State<BottomNavBar>
                 ),
                 const SizedBox(height: 16),
                 ListTile(
-                  title: const Text('End Date (Optional)'),
+                  title: Text(context.t('end_date')),
                   subtitle: Text(
                     selectedEndDate != null
                         ? '${selectedEndDate?.day}/${selectedEndDate?.month}/${selectedEndDate?.year}'
-                        : 'No end date',
+                        : context.t('no_end_date'),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1521,15 +2376,15 @@ class _BottomNavBarState extends State<BottomNavBar>
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   initialValue: selectedInterval,
-                  decoration: const InputDecoration(
-                    labelText: 'Frequency',
+                  decoration: InputDecoration(
+                    labelText: context.t('frequency'),
                     border: OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'daily', child: Text('Daily')),
-                    DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
-                    DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
-                    DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
+                  items: [
+                    DropdownMenuItem(value: 'daily', child: Text(context.t('daily'))),
+                    DropdownMenuItem(value: 'weekly', child: Text(context.t('weekly'))),
+                    DropdownMenuItem(value: 'monthly', child: Text(context.t('monthly'))),
+                    DropdownMenuItem(value: 'yearly', child: Text(context.t('yearly'))),
                   ],
                   onChanged: (value) {
                     setModalState(() => selectedInterval = value!);
@@ -1537,7 +2392,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Categories',
+                  context.loc.categories,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 8),
@@ -1578,7 +2433,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                       Navigator.pop(context);
                       SnackBars.show(
                         context,
-                        message: 'Please fill all fields and select a category',
+                        message: context.t('empty_fields_error'),
                         type: SnackBarType.error,
                       );
                       return;
@@ -1589,7 +2444,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                       Navigator.pop(context);
                       SnackBars.show(
                         context,
-                        message: 'Deduction date cannot be in the past',
+                        message: context.t('deduction_date_past_date_error'),
                         type: SnackBarType.error,
                       );
                       return;
@@ -1621,13 +2476,13 @@ class _BottomNavBarState extends State<BottomNavBar>
                       SnackBars.show(
                         context,
                         message: isEditing
-                            ? 'Recurring payment updated'
-                            : 'Recurring payment added',
+                            ? context.t('recurring_updated')
+                            : context.t('recurring_added'),
                         type: SnackBarType.success,
                       );
                     }
                   },
-                  child: Text(isEditing ? 'Update' : 'Add Recurring Payment'),
+                  child: Text(isEditing ? context.t('update') : context.t('add_recurring_payment')),
                 ),
               ],
             ),
@@ -1641,14 +2496,14 @@ class _BottomNavBarState extends State<BottomNavBar>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Recurring Payment'),
+        title: Text(context.t('delete_recurring_payment')),
         content: Text(
-          'Are you sure you want to delete "${recurring.description}"?',
+          context.t('dynamic_delete_recurring_payment_desc').replaceAll('__', recurring.description),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.loc.cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -1659,12 +2514,12 @@ class _BottomNavBarState extends State<BottomNavBar>
                 Navigator.pop(context);
                 SnackBars.show(
                   context,
-                  message: 'Recurring payment deleted',
+                  message: context.t('recurring_deleted'),
                   type: SnackBarType.success,
                 );
               }
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(context.loc.delete, style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1695,28 +2550,28 @@ class _BottomNavBarState extends State<BottomNavBar>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.1),
+        color: statusColor.withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: statusColor.withOpacity(0.3)),
+        border: Border.all(color: statusColor.withValues(alpha:0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Status: $statusText',
+            '${context.t('status')}: $statusText',
             style: TextStyle(fontWeight: FontWeight.bold, color: statusColor),
           ),
           if (nextDeduction != null) ...[
             const SizedBox(height: 4),
             Text(
-              'Next deduction: ${_formatDate(nextDeduction)}',
+              '${(context.t('next_deduction'))}: ${_formatDate(nextDeduction)}',
               style: const TextStyle(fontSize: 12),
             ),
           ],
           if (recurring.endDate != null) ...[
             const SizedBox(height: 4),
             Text(
-              'Ends: ${_formatDate(recurring.endDate!)}',
+              '${context.t('ends')}: ${_formatDate(recurring.endDate!)}',
               style: const TextStyle(fontSize: 12),
             ),
           ],
@@ -1811,7 +2666,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Add Transaction',
+                      context.t('add_transaction'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -1827,8 +2682,8 @@ class _BottomNavBarState extends State<BottomNavBar>
                 // Expense Option
                 _buildTransactionOption(
                   context,
-                  title: 'Add Expense',
-                  subtitle: 'Record money spent',
+                  title: context.loc.addExpense,
+                  subtitle: context.t('add_expense_desc'),
                   icon: Icons.arrow_upward_rounded,
                   iconColor: Theme.of(context).colorScheme.error,
                   backgroundColor: Theme.of(context).colorScheme.errorContainer,
@@ -1842,8 +2697,8 @@ class _BottomNavBarState extends State<BottomNavBar>
                 // Income Option
                 _buildTransactionOption(
                   context,
-                  title: 'Add Income',
-                  subtitle: 'Record money received',
+                  title: context.loc.addIncome,
+                  subtitle: context.t('add_income_desc'),
                   icon: Icons.arrow_downward_rounded,
                   iconColor: Theme.of(context).colorScheme.primary,
                   backgroundColor: Theme.of(
@@ -1877,7 +2732,7 @@ class _BottomNavBarState extends State<BottomNavBar>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+          color: Theme.of(context).colorScheme.outline.withValues(alpha:0.1),
         ),
       ),
       child: InkWell(
@@ -2166,8 +3021,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                     Navigator.pop(context);
                     SnackBars.show(
                       context,
-                      message:
-                          "Please enter all fields and select at least one category",
+                      message: context.t('empty_fields_error'),
                       type: SnackBarType.error,
                     );
                     return;
@@ -2192,7 +3046,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                     );
                   }
                 },
-                child: const Text("Save"),
+                child: Text(context.loc.save),
               ),
             ],
           );
@@ -2268,11 +3122,11 @@ class _BottomNavBarState extends State<BottomNavBar>
                 ),
                 actions: [
                   TextButton(
-                    child: const Text('Cancel'),
+                    child: Text(context.loc.cancel),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   FilledButton(
-                    child: const Text('Select'),
+                    child: Text(context.loc.select),
                     onPressed: () {
                       Navigator.of(context).pop();
                     },
@@ -2294,8 +3148,8 @@ class _BottomNavBarState extends State<BottomNavBar>
             children: [
               TextField(
                 controller: addController,
-                decoration: const InputDecoration(
-                  labelText: "Category Name",
+                decoration: InputDecoration(
+                  labelText: context.t('category_name'),
                   border: OutlineInputBorder(),
                   hintText: "e.g., Groceries, Salary, etc.",
                 ),
@@ -2305,8 +3159,8 @@ class _BottomNavBarState extends State<BottomNavBar>
               // Category Type Selection
               DropdownButtonFormField<String>(
                 initialValue: selectedCategoryType,
-                decoration: const InputDecoration(
-                  labelText: "Category Type",
+                decoration: InputDecoration(
+                  labelText: context.t('category_icon'),
                   border: OutlineInputBorder(),
                 ),
                 items: ['expense', 'income']
@@ -2337,8 +3191,8 @@ class _BottomNavBarState extends State<BottomNavBar>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    "Category Color",
+                   Text(
+                   context.t('category_color'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
                   GestureDetector(
@@ -2352,15 +3206,15 @@ class _BottomNavBarState extends State<BottomNavBar>
                         border: Border.all(color: Colors.grey.shade400),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha:0.1),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       alignment: Alignment.center,
-                      child: const Text(
-                        "Change Color",
+                      child: Text(
+                        context.t('change_color'),
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -2380,13 +3234,13 @@ class _BottomNavBarState extends State<BottomNavBar>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Category Icon",
+                   Text(
+                    context.t('category_icon'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "Selected:",
+                    "${context.t('selected')}:",
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.outline,
                     ),
@@ -2398,9 +3252,9 @@ class _BottomNavBarState extends State<BottomNavBar>
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(
-                      color: selectedColor.withOpacity(0.2),
+                      color: selectedColor.withValues(alpha:0.2),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: selectedColor.withOpacity(0.5)),
+                      border: Border.all(color: selectedColor.withValues(alpha:0.5)),
                     ),
                     child: Icon(
                       _getIconData(selectedIcon),
@@ -2438,8 +3292,8 @@ class _BottomNavBarState extends State<BottomNavBar>
                           child: Container(
                             decoration: BoxDecoration(
                               color: selectedIcon == icon
-                                  ? selectedColor.withOpacity(0.3)
-                                  : Colors.grey.withOpacity(0.1),
+                                  ? selectedColor.withValues(alpha:0.3)
+                                  : Colors.grey.withValues(alpha:0.1),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: selectedIcon == icon
@@ -2494,7 +3348,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                           Text(
                             addController.text.isNotEmpty
                                 ? addController.text
-                                : "Category Name",
+                                : context.t('category_name'),
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           Text(
@@ -2518,7 +3372,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                     Navigator.pop(context);
                     SnackBars.show(
                       context,
-                      message: "Please enter category name",
+                      message: context.t('category_name_error'),
                       type: SnackBarType.error,
                     );
                     return;
@@ -2535,13 +3389,13 @@ class _BottomNavBarState extends State<BottomNavBar>
                     Navigator.pop(context);
                     SnackBars.show(
                       context,
-                      message: "Category Added",
+                      message: context.t('category_added'),
                       type: SnackBarType.success,
                     );
                   } else if (context.mounted) {
                     SnackBars.show(
                       context,
-                      message: "Error adding category",
+                      message: context.t('category_add_error'),
                       type: SnackBarType.error,
                     );
                   }
@@ -2549,7 +3403,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
                 ),
-                child: const Text("Create Category"),
+                child: Text(context.t('create_category')),
               ),
             ],
           );

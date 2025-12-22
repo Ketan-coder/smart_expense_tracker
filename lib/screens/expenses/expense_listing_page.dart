@@ -572,7 +572,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                                 Text(
                                   'Total Spent',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onErrorContainer.withOpacity(0.7),
+                                    color: colorScheme.onErrorContainer.withValues(alpha:0.7),
                                   ),
                                 ),
                               ],
@@ -719,7 +719,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: colorScheme.primary.withOpacity(0.1),
+                                      color: colorScheme.primary.withValues(alpha:0.1),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
@@ -963,7 +963,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                   final isSelected = selectedCategoryKeys.contains(catKey);
                   return ChoiceChip(
                     label: Text(category.name),
-                    backgroundColor: (Helpers().hexToColor(category.color)).withOpacity(0.5),
+                    backgroundColor: (Helpers().hexToColor(category.color)).withValues(alpha:0.5),
                     selected: isSelected,
                     onSelected: (selected) {
                       setModalState(() {

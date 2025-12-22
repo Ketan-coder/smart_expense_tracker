@@ -325,7 +325,7 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
   Widget build(BuildContext context) {
     if (_isCalculating || _targetRect == null) {
       return Container(
-        color: Colors.black.withOpacity(0.85),
+        color: Colors.black.withValues(alpha:0.85),
         child: Center(
           child: CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(
@@ -380,20 +380,20 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
                       end: Alignment.bottomRight,
                       colors: [
                         Colors.white,
-                        Colors.white.withOpacity(0.95),
+                        Colors.white.withValues(alpha:0.95),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha:0.1),
                         blurRadius: 30,
                         offset: const Offset(0, 10),
                         spreadRadius: 0,
                       ),
                     ],
                     border: Border.all(
-                      color: primaryColor.withOpacity(0.1),
+                      color: primaryColor.withValues(alpha:0.1),
                       width: 1,
                     ),
                   ),
@@ -406,7 +406,7 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: primaryColor.withOpacity(0.1),
+                              color: primaryColor.withValues(alpha:0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
@@ -434,7 +434,7 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
                         widget.step.description,
                         style: TextStyle(
                           fontSize: 15,
-                          color: Colors.black.withOpacity(0.7),
+                          color: Colors.black.withValues(alpha:0.7),
                           height: 1.5,
                           letterSpacing: 0.2,
                         ),
@@ -454,7 +454,7 @@ class _ShowcaseLayerState extends State<_ShowcaseLayer>
                                 decoration: BoxDecoration(
                                   color: index == widget.controller.currentIndex
                                       ? primaryColor
-                                      : primaryColor.withOpacity(0.2),
+                                      : primaryColor.withValues(alpha:0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                               ),
@@ -599,7 +599,7 @@ class _RingPainter extends CustomPainter {
     final path = shape.getOuterPath(rect);
 
     final paint = Paint()
-      ..color = color.withOpacity((1 - progress) * 0.3)
+      ..color = color.withValues(alpha:(1 - progress) * 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 
@@ -629,7 +629,7 @@ class _HighlightPainter extends CustomPainter {
 
     // Semi-transparent background
     final backgroundPaint = Paint()
-      ..color = Colors.black.withOpacity(0.85);
+      ..color = Colors.black.withValues(alpha:0.85);
     canvas.drawRect(Offset.zero & size, backgroundPaint);
 
     // Cut out target area
@@ -644,7 +644,7 @@ class _HighlightPainter extends CustomPainter {
 
     // Glowing border
     final glowPaint = Paint()
-      ..color = primaryColor.withOpacity(0.6)
+      ..color = primaryColor.withValues(alpha:0.6)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
