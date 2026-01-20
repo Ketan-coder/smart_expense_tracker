@@ -19,6 +19,8 @@ import '../../data/model/recurring.dart' show Recurring;
 import '../../data/model/wallet.dart';
 import '../../services/langs/localzation_extension.dart';
 import '../../services/platform_utils.dart';
+import '../progress_calendar_page.dart';
+import '../wallpaper_settings_page.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/dialog.dart';
 import '../widgets/snack_bar.dart';
@@ -791,6 +793,33 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
                 const SizedBox(height: 6),
+
+                ListTile(
+                  leading: const Icon(Icons.calendar_today),
+                  title: Text(context.t('progress_calender')),
+                  subtitle: Text(context.t('see_your_year_progress')),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ProgressCalendarPage(),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.wallpaper),
+                  title: Text(context.t('wallpaper_settings')),
+                  subtitle: Text(context.t('update_wallpaper')),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const WallpaperSettingsPage(),
+                      ),
+                    );
+                  },
+                ),
 
                 // Auto Theme
                 ListTile(

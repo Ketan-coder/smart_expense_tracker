@@ -1,5 +1,6 @@
 // services/goal_service.dart
 import 'dart:async';
+import 'package:expense_tracker/services/progress_calendar_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -79,6 +80,7 @@ class GoalService {
 
         // Check progress with throttling
         await _checkGoalProgressThrottled(goal);
+        await ProgressCalendarService().refreshTodayProgress();
 
         return true;
       } else {

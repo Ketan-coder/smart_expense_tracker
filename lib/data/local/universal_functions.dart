@@ -326,6 +326,7 @@ import 'package:hive_ce/hive.dart';
 import '../../core/app_constants.dart';
 import '../../services/goal_service.dart';
 import '../../services/notification_helper.dart';
+import '../../services/progress_calendar_service.dart';
 import '../model/category.dart';
 import '../model/expense.dart';
 import '../model/goal.dart';
@@ -784,6 +785,8 @@ class UniversalHiveFunctions {
       // Check total balance for savings milestone
       final totalBalance = await getTotalBalance();
       await NotificationHelper.notifySavingsMilestone(totalBalance);
+
+      await ProgressCalendarService().refreshTodayProgress();
 
       return true;
 
@@ -1405,6 +1408,7 @@ class UniversalHiveFunctions {
 
       // Notify about habit streak
       await NotificationHelper.notifyHabitStreak(habit.name, habit.streakCount);
+      await ProgressCalendarService().refreshTodayProgress();
 
       return true;
     } catch (e, st) {

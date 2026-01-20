@@ -6,13 +6,17 @@ import 'package:expense_tracker/screens/reports/reports_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_nav_bar.dart';
 import 'package:expense_tracker/services/langs/app_localalizations.dart';
 import 'package:expense_tracker/services/notification_service.dart';
+import 'package:expense_tracker/services/progress_calendar_service.dart';
+import 'package:expense_tracker/services/wallpaper_scheduler_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io' show Platform;
 import 'core/helpers.dart';
 import 'data/model/category.dart';
+import 'data/model/daily_progress.dart';
 import 'data/model/expense.dart';
 import 'data/model/goal.dart';
 import 'data/model/habit.dart';
@@ -61,6 +65,7 @@ void main() async {
   Hive.registerAdapter(LoanPurposeAdapter());
   Hive.registerAdapter(DocumentTypeAdapter());
   Hive.registerAdapter(LoanDocumentAdapter());
+  Hive.registerAdapter(DailyProgressAdapter());
 
   // Open boxes
   await Hive.openBox<Expense>(AppConstants.expenses);
@@ -71,6 +76,12 @@ void main() async {
   await Hive.openBox<Wallet>(AppConstants.wallets);
   await Hive.openBox<Goal>(AppConstants.goals);
   await Hive.openBox<Loan>(AppConstants.loans);
+
+
+  await ProgressCalendarService().initialize();
+  await WallpaperSchedulerService().initialize(); // Schedule daily wallpaper updates (if enabled)
+  final prefs = await SharedPreferences.getInstance();
+  if (prefs.getBool('wallpaper_enabled') ?? false) { await WallpaperSchedulerService().scheduleDailyUpdate(); }
 
   // Only register recurring task on mobile platforms
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {

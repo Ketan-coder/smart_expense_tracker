@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.READ_SMS" />
     <!-- Remove READ_PHONE_STATE if not needed -->
      <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.SET_WALLPAPER"/>
+    <uses-permission android:name="android.permission.SET_WALLPAPER_HINTS"/>
 
     <!-- Remove RECEIVE_BOOT_COMPLETED if not needed for critical startup -->
     <!-- <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/> -->

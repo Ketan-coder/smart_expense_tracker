@@ -4,6 +4,7 @@
 
 import 'package:hive_ce/hive.dart';
 import 'package:expense_tracker/data/model/category.dart';
+import 'package:expense_tracker/data/model/daily_progress.dart';
 import 'package:expense_tracker/data/model/expense.dart';
 import 'package:expense_tracker/data/model/goal.dart';
 import 'package:expense_tracker/data/model/habit.dart';
@@ -16,6 +17,7 @@ import 'package:expense_tracker/data/model/wallet.dart';
 extension HiveRegistrar on HiveInterface {
   void registerAdapters() {
     registerAdapter(CategoryAdapter());
+    registerAdapter(DailyProgressAdapter());
     registerAdapter(DocumentTypeAdapter());
     registerAdapter(ExpenseAdapter());
     registerAdapter(GoalAdapter());
@@ -39,6 +41,7 @@ extension HiveRegistrar on HiveInterface {
 extension IsolatedHiveRegistrar on IsolatedHiveInterface {
   void registerAdapters() {
     registerAdapter(CategoryAdapter());
+    registerAdapter(DailyProgressAdapter());
     registerAdapter(DocumentTypeAdapter());
     registerAdapter(ExpenseAdapter());
     registerAdapter(GoalAdapter());
