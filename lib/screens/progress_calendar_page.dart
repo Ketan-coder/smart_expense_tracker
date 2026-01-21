@@ -1,4 +1,6 @@
+import 'package:expense_tracker/screens/widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
+import '../core/helpers.dart';
 import '../data/model/daily_progress.dart';
 import '../services/progress_calendar_service.dart';
 
@@ -59,52 +61,62 @@ class _ProgressCalendarPageState extends State<ProgressCalendarPage> {
     final percentage = (completedDays / totalDays * 100).toInt();
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Year Insight', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.black,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _loadYearProgress,
-          ),
-        ],
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. Progress Overview Card
-            _buildProgressCard(theme, completedDays, totalDays, percentage),
-            const SizedBox(height: 24),
+          : SimpleCustomAppBar(
+        title: "Year Insights",
+        hasContent: true,
+        expandedHeight: MediaQuery.of(context).size.height * 0.35,
+        centerTitle: true,
+        actionItems: [
+          CustomAppBarActionItem(
+            icon: Icons.refresh,
+            label: "Refresh Progress",
+            tooltip: "Refresh Your Progress",
+            onPressed: () => _loadYearProgress(),
+          ),
+        ],
+        child: Container(
+          margin: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(25),
+            color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
+          ),
+          child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. Progress Overview Card
+                _buildProgressCard(theme, completedDays, totalDays, percentage),
+                const SizedBox(height: 24),
 
-            // 2. High-Contrast Grid (Immersive Layout)
-            const Text(
-              'ACTIVITY GRID',
-              style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 2),
-            ),
-            const SizedBox(height: 12),
-            _buildGrid(theme),
-            const SizedBox(height: 24),
+                // 2. High-Contrast Grid (Immersive Layout)
+                const Text(
+                  'ACTIVITY GRID',
+                  style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 2),
+                ),
+                const SizedBox(height: 12),
+                _buildGrid(theme),
+                const SizedBox(height: 24),
 
-            // 3. Legend (Restored & Improved)
-            _buildLegend(theme),
-            const Divider(color: Colors.white10, height: 40),
+                // 3. Legend (Restored & Improved)
+                _buildLegend(theme),
+                const Divider(color: Colors.white10, height: 40),
 
-            // 4. Breakdown Stats
-            const Text(
-              'BREAKDOWN',
-              style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 2),
-            ),
-            const SizedBox(height: 16),
-            _buildBreakdownStats(theme),
-          ],
+                // 4. Breakdown Stats
+                const Text(
+                  'BREAKDOWN',
+                  style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 2),
+                ),
+                const SizedBox(height: 16),
+                _buildBreakdownStats(theme),
+              ],
+                      ),
+                    ),
         ),
-      ),
+          ),
     );
   }
 

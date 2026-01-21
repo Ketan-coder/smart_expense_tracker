@@ -10,6 +10,7 @@ class WallpaperManagerService {
   WallpaperManagerService._internal();
 
   Future<File?> generateWallpaper({
+    required WallpaperStyle style,
     bool darkMode = true,
     bool useStatusColors = false,
     Color? themeColor,
@@ -30,6 +31,7 @@ class WallpaperManagerService {
       final file = await wallpaperService.generateProgressWallpaper(
         yearProgress: yearProgress,
         size: wallpaperSize,
+        style: style,
         darkMode: darkMode,
         useStatusColors: useStatusColors,
         themeColor: themeColor,

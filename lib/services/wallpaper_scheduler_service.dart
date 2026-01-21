@@ -1,7 +1,9 @@
+import 'dart:ui';
 import 'package:expense_tracker/services/progress_calendar_service.dart';
 import 'package:expense_tracker/services/wallpaper_generator_service.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart'; // Needed for Color
 import 'package:hive_ce_flutter/adapters.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../data/model/daily_progress.dart';
@@ -12,30 +14,59 @@ void callbackDispatcher() {
     try {
       debugPrint('🌙 Midnight wallpaper update started');
 
-      // Initialize Hive
+      // 1. Initialize DB
       await Hive.initFlutter();
+      if (!Hive.isAdapterRegistered(DailyProgressAdapter().typeId)) {
+        Hive.registerAdapter(DailyProgressAdapter());
+      }
       await Hive.openBox<DailyProgress>('daily_progress');
 
-      // Generate new wallpaper
+      // 2. Load User Preferences
+      final prefs = await SharedPreferences.getInstance();
+
+      final bool darkMode = prefs.getBool('wp_dark') ?? true;
+      final bool useStatusColors = prefs.getBool('wp_colors') ?? false;
+
+      // Load Style
+      final int styleIndex = prefs.getInt('wp_style') ?? 0;
+      // final WallpaperStyle style = WallpaperStyle.values[styleIndex];
+
+      final double dotScale = prefs.getDouble('wp_scale') ?? 1.0;
+      final double verticalOffset = prefs.getDouble('wp_offset') ?? 0.45;
+      final double gridWidth = prefs.getDouble('wp_width') ?? 0.8;
+      final double spacing = prefs.getDouble('wp_spacing') ?? 1.0;
+
+      Color? themeColor;
+      final int? savedColor = prefs.getInt('wp_theme_color');
+      if (savedColor != null) {
+        themeColor = Color(savedColor);
+      }
+
+      // 3. Generate
       final service = ProgressCalendarService();
       final yearProgress = await service.getYearProgress(DateTime.now().year);
 
       final wallpaperService = WallpaperGeneratorService();
       final wallpaperFile = await wallpaperService.generateProgressWallpaper(
         yearProgress: yearProgress,
-        size: const Size(1080, 2400), // Adjust to device screen
-        darkMode: true,
+        size: const Size(1080, 2400), // Standard resolution
+        // style: style, // Use loaded style
+        darkMode: darkMode,
+        useStatusColors: useStatusColors,
+        themeColor: themeColor,
+        dotScale: dotScale,
+        verticalOffset: verticalOffset,
+        gridWidthFactor: gridWidth,
+        spacingFactor: spacing,
       );
 
-      // Set as lock screen wallpaper
-      await wallpaperService.setAsLockScreen(
-        wallpaperFile,
-      );
+      // 4. Set
+      await wallpaperService.setAsLockScreen(wallpaperFile);
 
-      // Refresh today's progress
+      // 5. Refresh Data
       await service.refreshTodayProgress();
 
-      debugPrint('✅ Wallpaper updated successfully');
+      // debugPrint('✅ Wallpaper updated successfully with style: ${style.name}');
       return Future.value(true);
     } catch (e) {
       debugPrint('❌ Wallpaper update failed: $e');
@@ -45,20 +76,14 @@ void callbackDispatcher() {
 }
 
 class WallpaperSchedulerService {
-  static final WallpaperSchedulerService _instance =
-  WallpaperSchedulerService._internal();
+  static final WallpaperSchedulerService _instance = WallpaperSchedulerService._internal();
   factory WallpaperSchedulerService() => _instance;
   WallpaperSchedulerService._internal();
 
-  /// Initialize wallpaper scheduler
   Future<void> initialize() async {
-    await Workmanager().initialize(
-      callbackDispatcher,
-      isInDebugMode: false,
-    );
+    await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
   }
 
-  /// Schedule daily wallpaper update at midnight
   Future<void> scheduleDailyUpdate() async {
     await Workmanager().registerPeriodicTask(
       'wallpaper_update',
@@ -69,43 +94,18 @@ class WallpaperSchedulerService {
         networkType: NetworkType.notRequired,
         requiresBatteryNotLow: true,
       ),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
     );
-
     debugPrint('✅ Daily wallpaper update scheduled');
   }
 
-  /// Cancel scheduled updates
   Future<void> cancelScheduledUpdates() async {
     await Workmanager().cancelByUniqueName('wallpaper_update');
   }
 
-  /// Get duration until next midnight
   Duration _getDurationUntilMidnight() {
     final now = DateTime.now();
     final midnight = DateTime(now.year, now.month, now.day + 1);
     return midnight.difference(now);
-  }
-
-  /// Manual wallpaper update (for testing)
-  Future<void> updateWallpaperNow() async {
-    try {
-      final service = ProgressCalendarService();
-      final yearProgress = await service.getYearProgress(DateTime.now().year);
-
-      final wallpaperService = WallpaperGeneratorService();
-      final wallpaperFile = await wallpaperService.generateProgressWallpaper(
-        yearProgress: yearProgress,
-        size: const Size(1080, 2400),
-        darkMode: true,
-      );
-
-      await wallpaperService.setAsLockScreen(
-        wallpaperFile,
-      );
-
-      debugPrint('✅ Manual wallpaper update complete');
-    } catch (e) {
-      debugPrint('❌ Manual update failed: $e');
-    }
   }
 }
