@@ -6,6 +6,7 @@ import 'package:hive_ce_flutter/adapters.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
+import '../core/app_constants.dart';
 import '../data/model/daily_progress.dart';
 
 @pragma('vm:entry-point')
@@ -19,7 +20,11 @@ void callbackDispatcher() {
       if (!Hive.isAdapterRegistered(DailyProgressAdapter().typeId)) {
         Hive.registerAdapter(DailyProgressAdapter());
       }
-      await Hive.openBox<DailyProgress>('daily_progress');
+
+      // ✅ Force recalculate all progress (temporary during testing)
+      await Hive.box<DailyProgress>(AppConstants.dailyProgress).clear();
+
+      await Hive.openBox<DailyProgress>(AppConstants.dailyProgress);
 
       // 2. Load User Preferences
       final prefs = await SharedPreferences.getInstance();

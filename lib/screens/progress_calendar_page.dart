@@ -1,4 +1,5 @@
 import 'package:expense_tracker/screens/widgets/custom_app_bar.dart';
+import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:flutter/material.dart';
 import '../core/helpers.dart';
 import '../data/model/daily_progress.dart';
@@ -69,11 +70,27 @@ class _ProgressCalendarPageState extends State<ProgressCalendarPage> {
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         actionItems: [
+          // CustomAppBarActionItem(
+          //   icon: Icons.refresh,
+          //   label: "Refresh Progress",
+          //   tooltip: "Refresh Your Progress",
+          //   onPressed: () => _loadYearProgress(),
+          // ),
           CustomAppBarActionItem(
             icon: Icons.refresh,
-            label: "Refresh Progress",
-            tooltip: "Refresh Your Progress",
-            onPressed: () => _loadYearProgress(),
+            label: "Clear Cache",
+            tooltip: "Clear and Recalculate Progress",
+            onPressed: () async {
+              await ProgressCalendarService().clearAllProgressData();
+              await _loadYearProgress(); // or _generate() for wallpaper page
+              if (mounted) {
+                SnackBars.show(
+                  context,
+                  message: "Progress data recalculated!",
+                  type: SnackBarType.success,
+                );
+              }
+            },
           ),
         ],
         child: Container(
@@ -186,7 +203,11 @@ class _ProgressCalendarPageState extends State<ProgressCalendarPage> {
     final isToday = day.date.day == DateTime.now().day && day.date.month == DateTime.now().month;
     final themeColor = theme.colorScheme.primary;
 
-    Color dotColor = const Color(0xFF1A1A1A);
+    Color dotColor = !Helpers().isLightMode(context)
+        ? (themeColor.withValues(alpha: 0.2)) // Match the dark grey from progress page
+        : const Color(0xFFE0E0E0);
+
+
 
     if (!isFuture && day.isAnyProgressMade) {
       switch (day.status) {
@@ -212,7 +233,9 @@ class _ProgressCalendarPageState extends State<ProgressCalendarPage> {
           dotColor = themeColor.withOpacity(0.25);
       }
     } else if (isFuture) {
-      dotColor = themeColor.withOpacity(0.2);
+      dotColor = !Helpers().isLightMode(context)
+          ? const Color(0xFF1A1A1A)
+          : (themeColor?.withValues(alpha: 0.25) ?? const Color(0xFFE0E0E0));
     }
 
     return Container(

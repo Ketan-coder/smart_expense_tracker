@@ -7,6 +7,7 @@ class AppConstants {
   static final String wallets = 'wallets';
   static final String goals = 'goals';
   static const String loans = 'loans';
+  static const String dailyProgress = 'daily_progress';
 
   static const loanDocuments = 'loan_documents'; // typeId: 13
   static const loanCreditorTypes = 'loan_creditor_types'; // typeId: 14

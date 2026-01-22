@@ -5,7 +5,9 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/wallpaper_manager_service.dart';
 import '../../services/wallpaper_generator_service.dart';
-import '../core/helpers.dart'; // For Enum
+import '../core/helpers.dart';
+import '../data/model/daily_progress.dart';
+import '../services/progress_calendar_service.dart'; // For Enum
 
 class WallpaperSettingsPage extends StatefulWidget {
   const WallpaperSettingsPage({super.key});
@@ -15,6 +17,8 @@ class WallpaperSettingsPage extends StatefulWidget {
 
 class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
   final WallpaperManagerService _service = WallpaperManagerService();
+  final ProgressCalendarService _progressCalendarService = ProgressCalendarService();
+  List<DailyProgress> _yearProgress = [];
 
   WallpaperStyle _style = WallpaperStyle.grid;
   bool _darkMode = true;
@@ -53,6 +57,13 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
       _dotSpacing = (prefs.getDouble('wp_spacing') ?? 1.0).clamp(0.8, 1.5);
     });
     _generate();
+  }
+
+  Future<void> _loadYearProgress() async {
+    final progress = await _progressCalendarService.getYearProgress(DateTime.now().year);
+    setState(() {
+      _yearProgress = progress;
+    });
   }
 
   Future<void> _generate() async {
@@ -110,6 +121,30 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
+        actionItems: [
+            // CustomAppBarActionItem(
+            // icon: Icons.refresh,
+            // label: "Refresh Progress",
+            // tooltip: "Refresh Your Progress",
+            // onPressed: () => _loadYearProgress(),
+            // ),
+          CustomAppBarActionItem(
+            icon: Icons.refresh,
+            label: "Clear Cache",
+            tooltip: "Clear and Recalculate Progress",
+            onPressed: () async {
+              await ProgressCalendarService().clearAllProgressData();
+              await _loadYearProgress(); // or _generate() for wallpaper page
+              if (mounted) {
+                SnackBars.show(
+                  context,
+                  message: "Progress data recalculated!",
+                  type: SnackBarType.success,
+                );
+              }
+            },
+          ),
+        ],
         child: Container(
           margin: const EdgeInsets.all(10),
           padding: const EdgeInsets.all(10),

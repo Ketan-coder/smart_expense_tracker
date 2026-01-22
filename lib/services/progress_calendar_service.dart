@@ -16,13 +16,19 @@ class ProgressCalendarService {
 
   /// Initialize daily progress tracking
   Future<void> initialize() async {
-    await Hive.openBox<DailyProgress>('daily_progress');
+    await Hive.openBox<DailyProgress>(AppConstants.dailyProgress);
     debugPrint("✅ DailyProgress box initialized");
+  }
+
+  Future<void> clearAllProgressData() async {
+    final box = Hive.box<DailyProgress>(AppConstants.dailyProgress);
+    await box.clear();
+    debugPrint("🗑️ Cleared all progress data - will recalculate on next load");
   }
 
   /// Get or create today's progress
   Future<DailyProgress> getTodayProgress() async {
-    final box = Hive.box<DailyProgress>('daily_progress');
+    final box = Hive.box<DailyProgress>(AppConstants.dailyProgress);
     final today = _normalizeDate(DateTime.now());
     final key = today.toIso8601String();
 
@@ -67,19 +73,29 @@ class ProgressCalendarService {
       }
     }
 
-    // Check productive transactions (income from freelancing, etc.)
+    // ✅ FIX: Check for ANY financial activity (expenses OR income)
+    final expenseBox = Hive.box<Expense>(AppConstants.expenses);
     final incomeBox = Hive.box<Income>(AppConstants.incomes);
+
     bool hasProductiveTransaction = false;
     double totalSavings = 0.0;
 
+    // Check for expenses on this date
+    final dayExpenses = expenseBox.values.where(
+            (expense) => _isSameDay(_normalizeDate(expense.date), normalizedDate));
+
+    // Check for income on this date
     final dayIncomes = incomeBox.values.where(
             (income) => _isSameDay(_normalizeDate(income.date), normalizedDate));
 
-    for (final income in dayIncomes) {
-      if (_isProductiveIncome(income.description)) {
-        hasProductiveTransaction = true;
-        totalSavings += income.amount;
-      }
+    // ✅ Mark as productive if there's ANY financial activity
+    if (dayExpenses.isNotEmpty || dayIncomes.isNotEmpty) {
+      hasProductiveTransaction = true;
+
+      // Calculate total savings (income - expenses)
+      final totalIncome = dayIncomes.fold(0.0, (sum, income) => sum + income.amount);
+      final totalExpense = dayExpenses.fold(0.0, (sum, expense) => sum + expense.amount);
+      totalSavings = totalIncome - totalExpense;
     }
 
     return DailyProgress(
@@ -95,7 +111,7 @@ class ProgressCalendarService {
 
   /// Get year progress (365/366 days)
   Future<List<DailyProgress>> getYearProgress(int year) async {
-    final box = Hive.box<DailyProgress>('daily_progress');
+    final box = Hive.box<DailyProgress>(AppConstants.dailyProgress);
     final startDate = DateTime(year, 1, 1);
     final endDate = DateTime(year, 12, 31);
     final dayCount = endDate.difference(startDate).inDays + 1;
@@ -126,7 +142,7 @@ class ProgressCalendarService {
 
   /// Recalculate today's progress (call after new transaction/habit/goal)
   Future<void> refreshTodayProgress() async {
-    final box = Hive.box<DailyProgress>('daily_progress');
+    final box = Hive.box<DailyProgress>(AppConstants.dailyProgress);
     final today = _normalizeDate(DateTime.now());
     final key = today.toIso8601String();
 
@@ -143,20 +159,5 @@ class ProgressCalendarService {
 
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  bool _isProductiveIncome(String description) {
-    final productiveKeywords = [
-      'freelance',
-      'freelancing',
-      'project',
-      'work',
-      'client',
-      'gig',
-      'consulting',
-      'revenue'
-    ];
-    final lower = description.toLowerCase();
-    return productiveKeywords.any((keyword) => lower.contains(keyword));
   }
 }
