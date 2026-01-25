@@ -8,6 +8,7 @@ import '../../core/helpers.dart';
 import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
+import '../../services/number_formatter_service.dart';
 import '../widgets/bottom_sheet.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/privacy_overlay_widget.dart';
@@ -528,7 +529,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                           const SizedBox(width: 8),
                           FilterChip(
                             label: Text(_minAmount != null || _maxAmount != null
-                                ? '$_currentCurrency ${_minAmount?.toStringAsFixed(0) ?? '0'} - $_currentCurrency ${_maxAmount?.toStringAsFixed(0) ?? '∞'}'
+                                ? '$_currentCurrency ${NumberFormatterService().formatForDisplay(_minAmount ?? 0.0)} - $_currentCurrency ${NumberFormatterService().formatForDisplay(_maxAmount ?? 0.0)}'
                                 : 'Amount'),
                             selected: _minAmount != null || _maxAmount != null,
                             onSelected: (_) => _showAmountFilter(),
@@ -585,7 +586,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                             //   ),
                             // ),
                             PrivacyCurrency(
-                              amount: '$_currentCurrency ${total.toStringAsFixed(2)}',
+                              amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(total)}',
                               isPrivacyActive: isPrivate,
                               style: theme.textTheme.headlineMedium?.copyWith(
                                 color: colorScheme.onPrimaryContainer,
@@ -723,7 +724,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
-                                      'Total: $_currentCurrency ${dailyTotal.toStringAsFixed(2)}',
+                                      'Total: $_currentCurrency ${NumberFormatterService().formatForDisplay(dailyTotal)}',
                                       style: theme.textTheme.labelSmall?.copyWith(
                                         fontWeight: FontWeight.w600,
                                         color: colorScheme.primary,
@@ -858,7 +859,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
           //   ),
           // ),
           trailing: PrivacyCurrency(
-            amount: '$_currentCurrency ${expense.amount.toStringAsFixed(0)}',
+            amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(expense.amount)}',
             isPrivacyActive: isPrivate,
             style: theme.textTheme.titleSmall?.copyWith(
               color: colorScheme.primary,

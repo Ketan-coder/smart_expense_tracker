@@ -6,6 +6,7 @@ import 'package:expense_tracker/screens/reports/reports_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_nav_bar.dart';
 import 'package:expense_tracker/services/langs/app_localalizations.dart';
 import 'package:expense_tracker/services/notification_service.dart';
+import 'package:expense_tracker/services/number_formatter_service.dart';
 import 'package:expense_tracker/services/progress_calendar_service.dart';
 import 'package:expense_tracker/services/wallpaper_scheduler_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -80,6 +81,8 @@ void main() async {
 
   await ProgressCalendarService().initialize();
   await WallpaperSchedulerService().initialize(); // Schedule daily wallpaper updates (if enabled)
+  WallpaperSchedulerService().scheduleDailyUpdate();
+  await NumberFormatterService().initialize();
   final prefs = await SharedPreferences.getInstance();
   if (prefs.getBool('wallpaper_enabled') ?? false) { await WallpaperSchedulerService().scheduleDailyUpdate(); }
 

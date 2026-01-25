@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/helpers.dart';
 import '../../data/model/goal.dart';
 import '../../services/goal_service.dart';
+import '../../services/number_formatter_service.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/snack_bar.dart';
 import 'add_edit_goal_sheet.dart';
@@ -157,10 +158,10 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildInfoRow('Target Amount', '₹${goal.targetAmount.toStringAsFixed(0)}'),
-                _buildInfoRow('Current Amount', '₹${goal.currentAmount.toStringAsFixed(0)}'),
-                _buildInfoRow('Remaining', '₹${goal.remainingAmount.toStringAsFixed(0)}'),
-                _buildInfoRow('Installment', '₹${goal.installmentAmount.toStringAsFixed(0)} ${goal.installmentFrequency}'),
+                _buildInfoRow('Target Amount', '₹${NumberFormatterService().formatForDisplay(goal.targetAmount)}'),
+                _buildInfoRow('Current Amount', '₹${NumberFormatterService().formatForDisplay(goal.currentAmount)}'),
+                _buildInfoRow('Remaining', '₹${NumberFormatterService().formatForDisplay(goal.remainingAmount)}'),
+                _buildInfoRow('Installment', '₹${NumberFormatterService().formatForDisplay(goal.installmentAmount)} ${goal.installmentFrequency}'),
               ],
             ),
           ),
@@ -318,7 +319,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                   labelText: 'Amount',
                   prefixText: '₹ ',
                   border: const OutlineInputBorder(),
-                  hintText: 'Recommended: ₹${_goalService.calculateRecommendedInstallment(widget.goal).toStringAsFixed(0)}',
+                  hintText: 'Recommended: ₹${NumberFormatterService().formatForDisplay(_goalService.calculateRecommendedInstallment(widget.goal))}',
                 ),
                 keyboardType: TextInputType.number,
               ),

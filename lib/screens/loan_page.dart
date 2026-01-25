@@ -9,6 +9,7 @@ import '../../core/helpers.dart';
 import '../../data/model/loan.dart';
 import '../../services/loan_service.dart';
 import '../../services/loan_helpers.dart';
+import '../services/number_formatter_service.dart';
 
 class LoanPage extends StatefulWidget {
   const LoanPage({super.key});
@@ -303,7 +304,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '$_currentCurrency ${loan.totalAmount.toStringAsFixed(0)}',
+                          '$_currentCurrency ${NumberFormatterService().formatForDisplay(loan.totalAmount)}',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: isLent ? Colors.green : Colors.red,
@@ -311,7 +312,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                         ),
                         if (loan.totalInterest > 0)
                           Text(
-                            '+${loan.totalInterest.toStringAsFixed(0)} int.',
+                            '+${NumberFormatterService().formatForDisplay(loan.totalInterest)} int.',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.orange,
                               fontSize: 10,
@@ -319,7 +320,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                           ),
                         if (loan.remainingAmount > 0 && loan.remainingAmount != loan.totalAmount)
                           Text(
-                            '$_currentCurrency ${loan.remainingAmount.toStringAsFixed(0)} left',
+                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(loan.remainingAmount)} left',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.grey,
                             ),
@@ -372,7 +373,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                               const Icon(Icons.calendar_month, size: 12, color: Colors.blue),
                               const SizedBox(width: 4),
                               Text(
-                                '$_currentCurrency ${loan.emiAmount!.toStringAsFixed(0)}/mo',
+                                '$_currentCurrency ${NumberFormatterService().formatForDisplay(loan.emiAmount!)}/mo',
                                 style: const TextStyle(
                                   fontSize: 10,
                                   color: Colors.blue,
@@ -488,7 +489,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                         const Icon(Icons.warning, size: 16, color: Colors.red),
                         const SizedBox(width: 8),
                         Text(
-                          'Penalty: $_currentCurrency ${loan.penaltyAmount.toStringAsFixed(0)}',
+                          'Penalty: $_currentCurrency ${NumberFormatterService().formatForDisplay(loan.penaltyAmount)}',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Colors.red,
@@ -512,7 +513,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Loan?'),
-        content: Text('Delete loan of $_currentCurrency ${loan.totalAmount.toStringAsFixed(0)} ${loan.directionText}?'),
+        content: Text('Delete loan of $_currentCurrency ${NumberFormatterService().formatForDisplay(loan.totalAmount)} ${loan.directionText}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1242,7 +1243,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
           child: Column(
             children: [
               Text(
-                'Remaining: ${widget.currency} ${widget.loan.remainingAmount.toStringAsFixed(0)}',
+                'Remaining: ${widget.currency} ${NumberFormatterService().formatForDisplay(widget.loan.remainingAmount)}',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1251,7 +1252,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
               if (widget.loan.emiAmount != null) ...[
                 const SizedBox(height: 4),
                 Text(
-                  'Suggested EMI: ${widget.currency} ${widget.loan.emiAmount!.toStringAsFixed(0)}',
+                  'Suggested EMI: ${widget.currency} ${NumberFormatterService().formatForDisplay(widget.loan.emiAmount!)}',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey.shade700,
@@ -1505,10 +1506,10 @@ class _LoanDetailsContent extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildAmountInfo('Principal', '$currency ${loan.principalAmount.toStringAsFixed(0)}'),
+                      _buildAmountInfo('Principal', '$currency ${NumberFormatterService().formatForDisplay(loan.principalAmount)}'),
                       if (loan.totalInterest > 0)
-                        _buildAmountInfo('Interest', '$currency ${loan.totalInterest.toStringAsFixed(0)}', Colors.orange),
-                      _buildAmountInfo('Total', '$currency ${loan.totalAmount.toStringAsFixed(0)}', Colors.blue),
+                        _buildAmountInfo('Interest', '$currency ${NumberFormatterService().formatForDisplay(loan.totalInterest)}', Colors.orange),
+                      _buildAmountInfo('Total', '$currency ${NumberFormatterService().formatForDisplay(loan.totalAmount)}', Colors.blue),
                     ],
                   ),
                   const Divider(height: 32),
@@ -1517,8 +1518,8 @@ class _LoanDetailsContent extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildAmountInfo('Paid', '$currency ${loan.paidAmount.toStringAsFixed(0)}', Colors.green),
-                      _buildAmountInfo('Remaining', '$currency ${loan.remainingAmount.toStringAsFixed(0)}', Colors.red),
+                      _buildAmountInfo('Paid', '$currency ${NumberFormatterService().formatForDisplay(loan.paidAmount)}', Colors.green),
+                      _buildAmountInfo('Remaining', '$currency ${NumberFormatterService().formatForDisplay(loan.remainingAmount)}', Colors.red),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -1572,7 +1573,7 @@ class _LoanDetailsContent extends StatelessWidget {
                     if (loan.tenureMonths != null)
                       _buildInfoRow('Tenure', '${loan.tenureMonths} months'),
                     if (loan.emiAmount != null)
-                      _buildInfoRow('EMI', '$currency ${loan.emiAmount!.toStringAsFixed(0)}'),
+                      _buildInfoRow('EMI', '$currency ${NumberFormatterService().formatForDisplay(loan.emiAmount!)}'),
                     if (loan.paymentFrequency != PaymentFrequency.custom)
                       _buildInfoRow('Frequency', loan.paymentFrequency.name),
                   ],
@@ -1605,7 +1606,7 @@ class _LoanDetailsContent extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     _buildInfoRow('Date', LoanHelpers.formatDate(loan.nextPaymentDate!)),
-                    _buildInfoRow('Amount', '$currency ${loan.nextPaymentAmount.toStringAsFixed(0)}'),
+                    _buildInfoRow('Amount', '$currency ${NumberFormatterService().formatForDisplay(loan.nextPaymentAmount)}'),
                     if (loan.payments.isNotEmpty)
                       _buildInfoRow('Payment #', '${loan.payments.length + 1}'),
                   ],
@@ -1641,7 +1642,7 @@ class _LoanDetailsContent extends StatelessWidget {
                   if (loan.penaltyAmount > 0)
                     _buildInfoRow(
                       'Penalty',
-                      '$currency ${loan.penaltyAmount.toStringAsFixed(0)}',
+                      '$currency ${NumberFormatterService().formatForDisplay(loan.penaltyAmount)}',
                       color: Colors.red,
                     ),
                 ],
@@ -1722,7 +1723,7 @@ class _LoanDetailsContent extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '$currency ${payment.amount.toStringAsFixed(0)}',
+                                  '$currency ${NumberFormatterService().formatForDisplay(payment.amount)}',
                                   style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 if (payment.principalPaid > 0 && payment.interestPaid > 0)

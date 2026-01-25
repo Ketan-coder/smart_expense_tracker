@@ -516,6 +516,7 @@ class MainActivity : FlutterFragmentActivity() {
             Log.d(TAG, "Setting wallpaper...")
             Log.d(TAG, "File: $filePath")
             Log.d(TAG, "Location: $location")
+            Log.d(TAG, "Android Version: ${android.os.Build.VERSION.SDK_INT}")
 
             val wallpaperManager = WallpaperManager.getInstance(applicationContext)
             val file = File(filePath)
@@ -525,7 +526,7 @@ class MainActivity : FlutterFragmentActivity() {
                 return false
             }
 
-            Log.d(TAG, "File exists, size: ${file.length()} bytes")
+            Log.d(TAG, "📁 File exists, size: ${file.length()} bytes (${file.length() / 1024} KB)")
 
             val bitmap = BitmapFactory.decodeFile(filePath)
             if (bitmap == null) {
@@ -533,11 +534,12 @@ class MainActivity : FlutterFragmentActivity() {
                 return false
             }
 
-            Log.d(TAG, "Bitmap decoded: ${bitmap.width}x${bitmap.height}")
+            Log.d(TAG, "🖼️ Bitmap decoded: ${bitmap.width}x${bitmap.height}")
 
+            // Set wallpaper based on location
             when (location.lowercase()) {
                 "lock" -> {
-                    Log.d(TAG, "Setting lock screen wallpaper...")
+                    Log.d(TAG, "🔒 Setting LOCK screen wallpaper...")
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
                         wallpaperManager.setBitmap(
                             bitmap,
@@ -545,14 +547,15 @@ class MainActivity : FlutterFragmentActivity() {
                             true,
                             WallpaperManager.FLAG_LOCK
                         )
-                        Log.d(TAG, "✅ Lock screen wallpaper set (API 24+)")
+                        Log.d(TAG, "✅ Lock screen wallpaper set successfully (API ${android.os.Build.VERSION.SDK_INT})")
                     } else {
+                        // For older versions, set as system wallpaper
                         wallpaperManager.setBitmap(bitmap)
-                        Log.d(TAG, "✅ Wallpaper set (pre-API 24 fallback)")
+                        Log.d(TAG, "✅ System wallpaper set (API ${android.os.Build.VERSION.SDK_INT} - no separate lock screen)")
                     }
                 }
                 "home" -> {
-                    Log.d(TAG, "Setting home screen wallpaper...")
+                    Log.d(TAG, "🏠 Setting HOME screen wallpaper...")
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
                         wallpaperManager.setBitmap(
                             bitmap,
@@ -560,16 +563,32 @@ class MainActivity : FlutterFragmentActivity() {
                             true,
                             WallpaperManager.FLAG_SYSTEM
                         )
-                        Log.d(TAG, "✅ Home screen wallpaper set (API 24+)")
+                        Log.d(TAG, "✅ Home screen wallpaper set successfully")
                     } else {
                         wallpaperManager.setBitmap(bitmap)
-                        Log.d(TAG, "✅ Wallpaper set (pre-API 24 fallback)")
+                        Log.d(TAG, "✅ System wallpaper set")
                     }
                 }
                 "both" -> {
-                    Log.d(TAG, "Setting both screens wallpaper...")
+                    Log.d(TAG, "🏠🔒 Setting BOTH screens wallpaper...")
                     wallpaperManager.setBitmap(bitmap)
-                    Log.d(TAG, "✅ Both screens wallpaper set")
+
+                    // Force refresh by also setting to lock screen explicitly on API 24+
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                        try {
+                            wallpaperManager.setBitmap(
+                                bitmap,
+                                null,
+                                true,
+                                WallpaperManager.FLAG_LOCK
+                            )
+                            Log.d(TAG, "✅ Also set lock screen explicitly")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "⚠️ Could not set lock screen: ${e.message}")
+                        }
+                    }
+
+                    Log.d(TAG, "✅ Both screens wallpaper set successfully")
                 }
                 else -> {
                     Log.e(TAG, "❌ Unknown location: $location")
@@ -578,13 +597,28 @@ class MainActivity : FlutterFragmentActivity() {
                 }
             }
 
+            // Force wallpaper manager to refresh
+            try {
+                wallpaperManager.forgetLoadedWallpaper()
+                Log.d(TAG, "🔄 Forced wallpaper refresh")
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ Could not force refresh: ${e.message}")
+            }
+
             bitmap.recycle()
-            Log.d(TAG, "✅ Wallpaper set successfully to: $location")
+            Log.d(TAG, "✅ Wallpaper operation completed successfully")
+            Log.d(TAG, "💡 TIP: Lock your device to see the change immediately")
             Log.d(TAG, "========================================")
             true
+        } catch (e: SecurityException) {
+            Log.e(TAG, "❌ SECURITY EXCEPTION: Missing SET_WALLPAPER permission!", e)
+            Log.e(TAG, "Check AndroidManifest.xml for: <uses-permission android:name=\"android.permission.SET_WALLPAPER\" />")
+            Log.d(TAG, "========================================")
+            false
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error setting wallpaper", e)
-            Log.e(TAG, "Exception: ${e.message}")
+            Log.e(TAG, "Exception type: ${e.javaClass.simpleName}")
+            Log.e(TAG, "Exception message: ${e.message}")
             e.printStackTrace()
             Log.d(TAG, "========================================")
             false

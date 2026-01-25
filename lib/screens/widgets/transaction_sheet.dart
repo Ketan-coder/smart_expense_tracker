@@ -2,6 +2,7 @@
 import 'package:expense_tracker/core/app_constants.dart';
 import 'package:flutter/material.dart';
 import '../../services/langs/localzation_extension.dart';
+import '../../services/number_formatter_service.dart';
 import 'dynamic_lottie_colors.dart';
 import 'celebration_overlay.dart';
 
@@ -137,7 +138,7 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
 
             // Amount
             Text(
-              '${widget.currency} ${widget.amount.toStringAsFixed(2)}',
+              '${widget.currency} ${NumberFormatterService().formatForDisplay(widget.amount)}',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: widget.isIncome

@@ -14,6 +14,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
+import '../../services/number_formatter_service.dart';
 import '../expenses/expense_listing_page.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/snack_bar.dart';
@@ -428,7 +429,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               Expanded(
                 child: _buildStatCard(
                   'Total Income',
-                  '$_currentCurrency ${totalIncome.toStringAsFixed(0)}',
+                  '$_currentCurrency ${NumberFormatterService().formatForDisplay(totalIncome)}',
                   Icons.trending_up_rounded,
                   colorScheme.primaryContainer,
                   colorScheme.onPrimaryContainer,
@@ -439,7 +440,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               Expanded(
                 child: _buildStatCard(
                   'Total Expense',
-                  '$_currentCurrency ${totalExpense.toStringAsFixed(0)}',
+                  '$_currentCurrency ${NumberFormatterService().formatForDisplay(totalExpense)}',
                   Icons.trending_down_rounded,
                   colorScheme.errorContainer,
                   colorScheme.onErrorContainer,
@@ -455,7 +456,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               Expanded(
                 child: _buildStatCard(
                   'Net Savings',
-                  '$_currentCurrency ${netSavings.toStringAsFixed(0)}',
+                  '$_currentCurrency ${NumberFormatterService().formatForDisplay(netSavings)}',
                   netSavings >= 0 ? Icons.savings_outlined : Icons.warning_amber_rounded,
                   netSavings >= 0 ? colorScheme.tertiaryContainer : colorScheme.errorContainer,
                   netSavings >= 0 ? colorScheme.onTertiaryContainer : colorScheme.onErrorContainer,
@@ -466,7 +467,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               Expanded(
                 child: _buildStatCard(
                   'Daily Avg',
-                  '$_currentCurrency ${avgDailyExpense.toStringAsFixed(0)}',
+                  '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyExpense)}',
                   Icons.calendar_today_outlined,
                   colorScheme.secondaryContainer,
                   colorScheme.onSecondaryContainer,
@@ -720,8 +721,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           // Spending Pattern
           _buildInsightCard(
             'Daily Spending',
-            '$_currentCurrency ${avgDailyExpense.toStringAsFixed(0)}',
-            'You spend an average of $_currentCurrency ${avgDailyExpense.toStringAsFixed(0)} per day in this period.',
+            '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyExpense)}',
+            'You spend an average of $_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyExpense)} per day in this period.',
             Icons.calendar_today,
             colorScheme.tertiaryContainer,
             colorScheme.onTertiaryContainer,
@@ -732,8 +733,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           // Income Pattern
           _buildInsightCard(
             'Daily Income',
-            '$_currentCurrency ${avgDailyIncome.toStringAsFixed(0)}',
-            'You earn an average of $_currentCurrency ${avgDailyIncome.toStringAsFixed(0)} per day in this period.',
+            '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyIncome)}',
+            'You earn an average of $_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyIncome)} per day in this period.',
             Icons.attach_money,
             colorScheme.primaryContainer,
             colorScheme.onPrimaryContainer,
@@ -746,7 +747,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             _buildInsightCard(
               'Top Spending',
               topCategory.key,
-              '${topCategoryPercent.toStringAsFixed(0)}% of your expenses ($_currentCurrency ${topCategory.value.toStringAsFixed(0)}) went to ${topCategory.key}.',
+              '${topCategoryPercent.toStringAsFixed(0)}% of your expenses ($_currentCurrency ${NumberFormatterService().formatForDisplay(topCategory.value)}) went to ${topCategory.key}.',
               Icons.category,
               colorScheme.errorContainer,
               colorScheme.onErrorContainer,
@@ -847,7 +848,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
+                        '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
                         style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       Text(
@@ -899,7 +900,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             title: Text(entry.key, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
             subtitle: Text('$expensesInCategory transaction${expensesInCategory != 1 ? 's' : ''}'),
             trailing: Text(
-              '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
+              '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: colorScheme.error,
@@ -936,7 +937,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             ),
             const SizedBox(height: 12),
             Text(
-              '$_currentCurrency ${total.toStringAsFixed(2)}',
+              '$_currentCurrency ${NumberFormatterService().formatForDisplay(total)}',
               style: theme.textTheme.headlineSmall?.copyWith(
                 color: colorScheme.error,
                 fontWeight: FontWeight.bold,
@@ -1013,7 +1014,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                     style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                   Text(
-                    '$_currentCurrency ${amount.toStringAsFixed(0)}',
+                    '$_currentCurrency ${NumberFormatterService().formatForDisplay(amount)}',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: colorScheme.error,
@@ -1344,19 +1345,19 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 pw.TableRow(
                   children: [
                     pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Total Income')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${totalIncome.toStringAsFixed(2)}', textAlign: pw.TextAlign.right)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${NumberFormatterService().formatForDisplay(totalIncome)}', textAlign: pw.TextAlign.right)),
                   ],
                 ),
                 pw.TableRow(
                   children: [
                     pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Total Expenses')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${totalExpense.toStringAsFixed(2)}', textAlign: pw.TextAlign.right)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${NumberFormatterService().formatForDisplay(totalExpense)}', textAlign: pw.TextAlign.right)),
                   ],
                 ),
                 pw.TableRow(
                   children: [
                     pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Net Savings')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${netSavings.toStringAsFixed(2)}', textAlign: pw.TextAlign.right)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${NumberFormatterService().formatForDisplay(netSavings)}', textAlign: pw.TextAlign.right)),
                   ],
                 ),
               ],
@@ -1429,7 +1430,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                         pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(DateFormat('d MMM yyyy').format(e.date))),
                         pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(e.description)),
                         pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(categoryName)),
-                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${e.amount.toStringAsFixed(2)}', textAlign: pw.TextAlign.right)),
+                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${NumberFormatterService().formatForDisplay(e.amount)}', textAlign: pw.TextAlign.right)),
                       ],
                     );
                   }),

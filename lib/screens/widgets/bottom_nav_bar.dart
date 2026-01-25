@@ -934,6 +934,7 @@ import '../../services/biometric_auth.dart';
 import '../../services/habit_detection_service.dart';
 import '../../services/langs/localzation_extension.dart';
 import '../../services/notification_helper.dart';
+import '../../services/number_formatter_service.dart';
 import '../../services/privacy/adaptive_brightness_service.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../../services/privacy/secure_window_manager.dart';
@@ -2218,7 +2219,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '$_currentCurrency ${recurring.amount.toStringAsFixed(2)} • ${recurring.interval}',
+                                  '$_currentCurrency ${NumberFormatterService().formatForDisplay(recurring.amount)} • ${recurring.interval}',
                                 ),
                                 if (nextDeduction != null)
                                   Text(

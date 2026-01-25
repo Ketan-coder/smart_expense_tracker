@@ -12,6 +12,7 @@ import '../../data/model/wallet.dart';
 import '../../data/model/recurring.dart';
 import '../../data/model/loan.dart'; //
 import '../../services/langs/localzation_extension.dart';
+import '../../services/number_formatter_service.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../expenses/expense_listing_page.dart';
 import '../loan_page.dart';
@@ -121,10 +122,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
 
     if (type == LoanType.lent) {
-      return context.t('dynamic_waiting_for_repayment').replaceAll('--', _currentCurrency).replaceAll('__', total.toString());
+      return context.t('dynamic_waiting_for_repayment').replaceAll('--', _currentCurrency).replaceAll('__', NumberFormatterService().formatForDisplay(total));
       // return "You lent ₹$total. Waiting for repayment 👍";
     } else {
-      return context.t('dynamic_borrowed_money').replaceAll('--', _currentCurrency).replaceAll('__', total.toString());
+      return context.t('dynamic_borrowed_money').replaceAll('--', _currentCurrency).replaceAll('__', NumberFormatterService().formatForDisplay(total));
       // return "You borrowed ₹$total. Stay mindful 💡";
     }
   }
@@ -444,7 +445,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       const SizedBox(height: 4),
                       PrivacyCurrency(
                         amount:
-                            '$_currentCurrency ${totalLent.toStringAsFixed(0)}',
+                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(totalLent)}',
                         isPrivacyActive: isPrivate,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
@@ -485,7 +486,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       const SizedBox(height: 4),
                       PrivacyCurrency(
                         amount:
-                            '$_currentCurrency ${totalBorrowed.toStringAsFixed(0)}',
+                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(totalBorrowed)}',
                         isPrivacyActive: isPrivate,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
@@ -545,7 +546,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 12),
           PrivacyCurrency(
-            amount: '$_currentCurrency ${_totalBalance.toStringAsFixed(2)}',
+            amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(_totalBalance)}',
             isPrivacyActive: isPrivate,
             style: theme.textTheme.displaySmall?.copyWith(
               color: colorScheme.onPrimaryContainer,
@@ -608,7 +609,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     style: theme.textTheme.labelSmall?.copyWith(color: color),
                   ),
                   PrivacyCurrency(
-                    amount: amount.toStringAsFixed(0),
+                    amount: NumberFormatterService().formatForDisplay(amount), //amount.toFormattedString()
                     isPrivacyActive: isPrivate,
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: color,
@@ -668,7 +669,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               Expanded(
                 child: _buildStatCard(
                   context.loc.savings,
-                  '$_currentCurrency ${net.toStringAsFixed(0)}',
+                  '$_currentCurrency ${NumberFormatterService().formatForDisplay(net)}',
                   '${savingsRate.toStringAsFixed(1)}%',
                   net >= 0 ? colorScheme.primary : colorScheme.error,
                   Icons.savings_outlined,
@@ -681,7 +682,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               Expanded(
                 child: _buildStatCard(
                   context.loc.recurring,
-                  '$_currentCurrency ${monthlyRecurring.toStringAsFixed(0)}',
+                  '$_currentCurrency ${NumberFormatterService().formatForDisplay(monthlyRecurring)}',
                   '${recurringBox.values.length} active${recurringBox.values.length != 1 ? 's' : ''}',
                   colorScheme.error,
                   Icons.repeat_rounded,
@@ -805,7 +806,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 ),
                 child: PrivacyCurrency(
                   amount:
-                      'Total: $_currentCurrency${recentTotal.abs().toStringAsFixed(0)}',
+                      'Total: $_currentCurrency${NumberFormatterService().formatForDisplay(recentTotal.abs())}',
                   isPrivacyActive: isPrivate,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
@@ -891,7 +892,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   ),
                   trailing: PrivacyCurrency(
                     amount:
-                        '${isIncome ? '+' : '-'}$_currentCurrency${t.amount.toStringAsFixed(0)}',
+                        '${isIncome ? '+' : '-'}$_currentCurrency${NumberFormatterService().formatForDisplay(t.amount)}', //amount.toFormattedString()
                     isPrivacyActive: isPrivate,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,

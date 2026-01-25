@@ -237,6 +237,7 @@ class AppLocalizations {
       'app_restart_required': 'The app needs to restart to apply changes.',
       // Dialogs
       'change_currency_title': 'Change Currency?',
+      'number_format':'Number Format',
       'change_currency_msg': 'Changing currency to',
       'change_language_title': 'Change Language?',
       'change_language_msg': 'Changing language to',

@@ -1,4 +1,5 @@
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_ce/hive.dart';
@@ -18,7 +19,9 @@ import '../../data/model/loan.dart';
 import '../../data/model/recurring.dart' show Recurring;
 import '../../data/model/wallet.dart';
 import '../../services/langs/localzation_extension.dart';
+import '../../services/number_formatter_service.dart';
 import '../../services/platform_utils.dart';
+import '../../services/wallpaper_scheduler_service.dart';
 import '../progress_calendar_page.dart';
 import '../wallpaper_settings_page.dart';
 import '../widgets/custom_app_bar.dart';
@@ -27,15 +30,15 @@ import '../widgets/snack_bar.dart';
 
 // Conditional imports
 import 'package:permission_handler/permission_handler.dart'
-if (dart.library.html) '../../services/privacy/permission_handler_stub.dart';
+    if (dart.library.html) '../../services/privacy/permission_handler_stub.dart';
 import '../../services/notification_service.dart'
-if (dart.library.html) '../../services/privacy/notification_service_stub.dart';
+    if (dart.library.html) '../../services/privacy/notification_service_stub.dart';
 import '../../services/biometric_auth.dart'
-if (dart.library.html) '../../services/privacy/biometric_auth_stub.dart';
+    if (dart.library.html) '../../services/privacy/biometric_auth_stub.dart';
 import '../../services/privacy/privacy_manager.dart'
-if (dart.library.html) '../../services/privacy/privacy_manager_stub.dart';
+    if (dart.library.html) '../../services/privacy/privacy_manager_stub.dart';
 import '../../services/privacy/secure_window_manager.dart'
-if (dart.library.html) '../../services/privacy/secure_window_manager_stub.dart';
+    if (dart.library.html) '../../services/privacy/secure_window_manager_stub.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -55,6 +58,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _smsParsingState = true;
   String _biometricType = "Biometric";
   bool _isLoadingBiometric = false;
+  NumberFormatType _selectedNumberFormat = NumberFormatType.indian;
 
   // Privacy Focused
   bool _privacyModeEnabled = true;
@@ -109,15 +113,19 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _loadAllPreferences() async {
-    final notificationState = await Helpers().getCurrentNotificationState() ?? false;
+    final notificationState =
+        await Helpers().getCurrentNotificationState() ?? false;
     final darkThemeState = await Helpers().getCurrentDarkThemeState() ?? false;
     final autoThemeState = await Helpers().getCurrentAutoThemeState() ?? true;
     final biometricState = await Helpers().getCurrentBiometricState() ?? false;
     final smsParsingState = await Helpers().getCurrentSmsParsingState() ?? true;
     final currency = await Helpers().getCurrentCurrency() ?? '₹';
     final language = await Helpers().getCurrentLanguage() ?? 'English';
-    final dynamicColorState = await Helpers().getCurrentDynamicColorState() ?? true;
-    final showQuickActions = await Helpers().getCurrentShowQuickActions() ?? true;
+    final dynamicColorState =
+        await Helpers().getCurrentDynamicColorState() ?? true;
+    final showQuickActions =
+        await Helpers().getCurrentShowQuickActions() ?? true;
+    await NumberFormatterService().initialize();
 
     if (mounted) {
       setState(() {
@@ -130,6 +138,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _selectedLanguage = language;
         _dynamicColorState = dynamicColorState;
         _showQuickActions = showQuickActions;
+        _selectedNumberFormat = NumberFormatterService().currentFormat;
       });
     }
   }
@@ -153,10 +162,14 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       setState(() {
         _privacyModeEnabled = prefs.getBool('privacy_mode_enabled') ?? true;
-        _screenshotProtectionEnabled = prefs.getBool('screenshot_protection_enabled') ?? true;
-        _shakeToPrivacyEnabled = prefs.getBool('shake_to_privacy_enabled') ?? true;
-        _faceDetectionEnabled = prefs.getBool('face_detection_enabled') ?? false;
-        _adaptiveBrightnessEnabled = prefs.getBool('adaptive_brightness_enabled') ?? true;
+        _screenshotProtectionEnabled =
+            prefs.getBool('screenshot_protection_enabled') ?? true;
+        _shakeToPrivacyEnabled =
+            prefs.getBool('shake_to_privacy_enabled') ?? true;
+        _faceDetectionEnabled =
+            prefs.getBool('face_detection_enabled') ?? false;
+        _adaptiveBrightnessEnabled =
+            prefs.getBool('adaptive_brightness_enabled') ?? true;
       });
     }
   }
@@ -173,7 +186,9 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? context.t('privacy_enabled') : context.t('privacy_disabled'),
+        message: value
+            ? context.t('privacy_enabled')
+            : context.t('privacy_disabled'),
         type: SnackBarType.success,
         behavior: SnackBarBehavior.floating,
       );
@@ -193,7 +208,9 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? context.t('screenshot_protection_enabled') : context.t('screenshot_protection_disabled'),
+        message: value
+            ? context.t('screenshot_protection_enabled')
+            : context.t('screenshot_protection_disabled'),
         type: SnackBarType.success,
         behavior: SnackBarBehavior.floating,
       );
@@ -212,7 +229,9 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? context.t('shake_enabled') : context.t('shake_disabled'),
+        message: value
+            ? context.t('shake_enabled')
+            : context.t('shake_disabled'),
         type: SnackBarType.info,
         behavior: SnackBarBehavior.floating,
       );
@@ -231,7 +250,9 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? context.t('adaptive_brightness_enabled') : context.t('adaptive_brightness_disabled'),
+        message: value
+            ? context.t('adaptive_brightness_enabled')
+            : context.t('adaptive_brightness_disabled'),
         type: SnackBarType.info,
         behavior: SnackBarBehavior.floating,
       );
@@ -241,7 +262,9 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _updateQuickActions(bool value) async {
     final confirmed = await Dialogs.showConfirmation(
       context: context,
-      title: value ? context.t('enable_quick_actions_title') : context.t('disable_quick_actions_title'),
+      title: value
+          ? context.t('enable_quick_actions_title')
+          : context.t('disable_quick_actions_title'),
       message: context.t('app_restart_required'),
       yesText: value ? context.t('enable') : context.t('disable'),
       noText: context.loc.cancel,
@@ -258,7 +281,9 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "${context.t('quick_actions_enabled')} ${context.t('restarting')}" : "${context.t('quick_actions_disabled')} ${context.t('restarting')}",
+        message: value
+            ? "${context.t('quick_actions_enabled')} ${context.t('restarting')}"
+            : "${context.t('quick_actions_disabled')} ${context.t('restarting')}",
         type: SnackBarType.success,
       );
     }
@@ -280,7 +305,11 @@ class _SettingsPageState extends State<SettingsPage> {
         await NotificationService.initialize();
 
         if (mounted) {
-          SnackBars.show(context, message: context.t('notifications_enabled'), type: SnackBarType.success);
+          SnackBars.show(
+            context,
+            message: context.t('notifications_enabled'),
+            type: SnackBarType.success,
+          );
         }
       } else {
         setState(() => _notificationState = false);
@@ -310,7 +339,12 @@ class _SettingsPageState extends State<SettingsPage> {
       await Helpers().setCurrentNotificationState(false);
       await NotificationService.cancelAllNotifications();
       if (mounted) {
-        SnackBars.show(context, message: "${context.t('notifications_disabled')} ${context.t('restarting')}", type: SnackBarType.warning);
+        SnackBars.show(
+          context,
+          message:
+              "${context.t('notifications_disabled')} ${context.t('restarting')}",
+          type: SnackBarType.warning,
+        );
       }
       _restartApp();
     }
@@ -319,7 +353,9 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _updateDarkThemeState(bool value) async {
     final confirmed = await Dialogs.showConfirmation(
       context: context,
-      title: value ? context.t('enable_dark_theme_title') : context.t('disable_dark_theme_title'),
+      title: value
+          ? context.t('enable_dark_theme_title')
+          : context.t('disable_dark_theme_title'),
       message: context.t('app_restart_required'),
       yesText: value ? context.t('enable') : context.t('disable'),
       noText: context.loc.cancel,
@@ -337,7 +373,9 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "${context.t('dark_theme_enabled')} ${context.t('restarting')}" : "${context.t('light_theme_enabled')} ${context.t('restarting')}",
+        message: value
+            ? "${context.t('dark_theme_enabled')} ${context.t('restarting')}"
+            : "${context.t('light_theme_enabled')} ${context.t('restarting')}",
         type: SnackBarType.success,
       );
     }
@@ -352,7 +390,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
     final confirmed = await Dialogs.showConfirmation(
       context: context,
-      title: value ? context.t('enable_dynamic_theme_title') : context.t('disable_dynamic_theme_title'),
+      title: value
+          ? context.t('enable_dynamic_theme_title')
+          : context.t('disable_dynamic_theme_title'),
       message: context.t('app_restart_required'),
       yesText: value ? context.t('enable') : context.t('disable'),
       noText: context.loc.cancel,
@@ -369,7 +409,9 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "${context.t('dynamic_theme_enabled')} ${context.t('restarting')}" : "${context.t('dynamic_theme_disabled')} ${context.t('restarting')}",
+        message: value
+            ? "${context.t('dynamic_theme_enabled')} ${context.t('restarting')}"
+            : "${context.t('dynamic_theme_disabled')} ${context.t('restarting')}",
         type: SnackBarType.success,
       );
     }
@@ -379,7 +421,9 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _updateAutoThemeState(bool value) async {
     final confirmed = await Dialogs.showConfirmation(
       context: context,
-      title: value ? context.t('enable_auto_theme_title') : context.t('disable_auto_theme_title'),
+      title: value
+          ? context.t('enable_auto_theme_title')
+          : context.t('disable_auto_theme_title'),
       message: context.t('app_restart_required'),
       yesText: value ? context.t('enable') : context.t('disable'),
       noText: context.loc.cancel,
@@ -396,7 +440,9 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "${context.t('auto_theme_enabled')} ${context.t('restarting')}" : "${context.t('auto_theme_disabled')} ${context.t('restarting')}",
+        message: value
+            ? "${context.t('auto_theme_enabled')} ${context.t('restarting')}"
+            : "${context.t('auto_theme_disabled')} ${context.t('restarting')}",
         type: SnackBarType.success,
       );
     }
@@ -494,7 +540,8 @@ class _SettingsPageState extends State<SettingsPage> {
           if (mounted) {
             SnackBars.show(
               context,
-              message: authResponse.message ?? context.t('authentication_failed'),
+              message:
+                  authResponse.message ?? context.t('authentication_failed'),
               type: SnackBarType.error,
               behavior: SnackBarBehavior.floating,
             );
@@ -523,7 +570,8 @@ class _SettingsPageState extends State<SettingsPage> {
         if (mounted) {
           SnackBars.show(
             context,
-            message: "$_biometricType ${context.t('disabled')}. ${context.t('restarting')}",
+            message:
+                "$_biometricType ${context.t('disabled')}. ${context.t('restarting')}",
             type: SnackBarType.success,
             behavior: SnackBarBehavior.floating,
           );
@@ -557,7 +605,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
     final confirmed = await Dialogs.showConfirmation(
       context: context,
-      title: value ? context.t('enable_sms_parsing_title') : context.t('disable_sms_parsing_title'),
+      title: value
+          ? context.t('enable_sms_parsing_title')
+          : context.t('disable_sms_parsing_title'),
       message: context.t('app_restart_required'),
       yesText: value ? context.t('enable') : context.t('disable'),
       noText: context.loc.cancel,
@@ -577,7 +627,9 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value ? "${context.t('sms_parsing_enabled')} ${context.t('restarting')}" : "${context.t('sms_parsing_disabled')} ${context.t('restarting')}",
+        message: value
+            ? "${context.t('sms_parsing_enabled')} ${context.t('restarting')}"
+            : "${context.t('sms_parsing_disabled')} ${context.t('restarting')}",
         type: SnackBarType.success,
       );
     }
@@ -612,7 +664,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final currentCurrency = _currencies.firstWhere(
-          (curr) => curr["code"] == _selectedCurrency,
+      (curr) => curr["code"] == _selectedCurrency,
       orElse: () => _currencies.first,
     );
 
@@ -654,7 +706,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     decoration: BoxDecoration(
                       color: Colors.blue.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: Colors.blue.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -675,7 +729,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 2,
+                      ),
                       child: Text(
                         context.t('integrated_services'),
                         style: TextStyle(
@@ -694,8 +751,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   ListTile(
                     leading: const Icon(Icons.notifications),
                     title: Text(context.loc.notifications),
-                    subtitle: Text(context.loc.translate('enable_notifications')),
-                    trailing: Switch(value: _notificationState, onChanged: _updateNotificationState),
+                    subtitle: Text(
+                      context.loc.translate('enable_notifications'),
+                    ),
+                    trailing: Switch(
+                      value: _notificationState,
+                      onChanged: _updateNotificationState,
+                    ),
                   )
                 else
                   _buildUnsupportedTile(
@@ -744,15 +806,15 @@ class _SettingsPageState extends State<SettingsPage> {
                   ListTile(
                     leading: _isLoadingBiometric
                         ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : Icon(
-                      _biometricType == "Face ID"
-                          ? Icons.face
-                          : Icons.fingerprint,
-                    ),
+                            _biometricType == "Face ID"
+                                ? Icons.face
+                                : Icons.fingerprint,
+                          ),
                     title: Text("$_biometricType Authentication"),
                     subtitle: Text(
                       _biometricState
@@ -761,7 +823,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     trailing: Switch(
                       value: _biometricState,
-                      onChanged: _isLoadingBiometric ? null : _updateBiometricState,
+                      onChanged: _isLoadingBiometric
+                          ? null
+                          : _updateBiometricState,
                     ),
                   )
                 else
@@ -780,7 +844,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 2,
+                      ),
                       child: Text(
                         context.t('appearance'),
                         style: TextStyle(
@@ -850,7 +917,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 ListTile(
                   leading: Icon(
                     Icons.palette,
-                    color: FeatureAvailability.dynamicColorsSupported ? null : Colors.grey,
+                    color: FeatureAvailability.dynamicColorsSupported
+                        ? null
+                        : Colors.grey,
                   ),
                   title: Text(context.t('dynamic_colors')),
                   subtitle: Text(
@@ -889,7 +958,10 @@ class _SettingsPageState extends State<SettingsPage> {
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 2,
+                        ),
                         child: Text(
                           context.t('privacy_security'),
                           style: TextStyle(
@@ -906,13 +978,20 @@ class _SettingsPageState extends State<SettingsPage> {
                   // Privacy Info Card
                   if (_privacyModeEnabled)
                     Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Row(
@@ -928,7 +1007,9 @@ class _SettingsPageState extends State<SettingsPage> {
                               "Toggle privacy anytime from the home screen icon or by shaking your device.",
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.7),
                               ),
                             ),
                           ),
@@ -939,7 +1020,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   // Privacy Mode Master Switch
                   ListTile(
                     leading: Icon(
-                      _privacyModeEnabled ? Icons.shield : Icons.shield_outlined,
+                      _privacyModeEnabled
+                          ? Icons.shield
+                          : Icons.shield_outlined,
                       color: _privacyModeEnabled ? Colors.green : null,
                     ),
                     title: Text(context.t('privacy_mode')),
@@ -968,7 +1051,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     trailing: Switch(
                       value: _screenshotProtectionEnabled,
-                      onChanged: _privacyModeEnabled ? _updateScreenshotProtection : null,
+                      onChanged: _privacyModeEnabled
+                          ? _updateScreenshotProtection
+                          : null,
                     ),
                     enabled: _privacyModeEnabled,
                   ),
@@ -986,7 +1071,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     trailing: Switch(
                       value: _shakeToPrivacyEnabled,
-                      onChanged: _privacyModeEnabled ? _updateShakeToPrivacy : null,
+                      onChanged: _privacyModeEnabled
+                          ? _updateShakeToPrivacy
+                          : null,
                     ),
                     enabled: _privacyModeEnabled,
                   ),
@@ -994,7 +1081,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   ListTile(
                     leading: Icon(
                       Icons.brightness_6,
-                      color: _adaptiveBrightnessEnabled ? Colors.yellow.shade700 : null,
+                      color: _adaptiveBrightnessEnabled
+                          ? Colors.yellow.shade700
+                          : null,
                     ),
                     title: Text(context.t('adaptive_brightness')),
                     subtitle: Text(
@@ -1004,7 +1093,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     trailing: Switch(
                       value: _adaptiveBrightnessEnabled,
-                      onChanged: _privacyModeEnabled ? _updateAdaptiveBrightness : null,
+                      onChanged: _privacyModeEnabled
+                          ? _updateAdaptiveBrightness
+                          : null,
                     ),
                     enabled: _privacyModeEnabled,
                   ),
@@ -1019,7 +1110,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     decoration: BoxDecoration(
                       color: Colors.orange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: Colors.orange.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -1041,12 +1134,29 @@ class _SettingsPageState extends State<SettingsPage> {
                 ListTile(
                   leading: const Icon(Icons.currency_exchange),
                   title: Text(context.t('currency')),
-                  subtitle: Text("${currentCurrency["code"]} - ${currentCurrency["name"]}"),
+                  subtitle: Text(
+                    "${currentCurrency["code"]} - ${currentCurrency["name"]}",
+                  ),
                   trailing: Text(
                     currentCurrency["symbol"]!,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   onTap: () => _showCurrencySearchSheet(),
+                ),
+
+                ListTile(
+                  leading: const Icon(Icons.format_list_numbered),
+                  title: Text(context.t('number_format')),
+                  subtitle: Text(
+                    NumberFormatterService().getFormatName(
+                      _selectedNumberFormat,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () => _showNumberFormatSheet(),
                 ),
 
                 ListTile(
@@ -1057,12 +1167,32 @@ class _SettingsPageState extends State<SettingsPage> {
                   onTap: () => _showLanguageSearchSheet(),
                 ),
 
+                if (!kIsWeb && kDebugMode) // Only show on mobile
+                  ListTile(
+                    leading: const Icon(Icons.bug_report, color: Colors.orange),
+                    title: const Text('Test Wallpaper Update'),
+                    subtitle: const Text('Trigger wallpaper update in 5 seconds'),
+                    onTap: () async {
+                      await WallpaperSchedulerService().runImmediately();
+                      if (mounted) {
+                        SnackBars.show(
+                          context,
+                          message: "Wallpaper update will run in 5 seconds. Check debug logs.",
+                          type: SnackBarType.info,
+                        );
+                      }
+                    },
+                  ),
+
                 const Divider(),
 
                 // Clear All Data
                 ListTile(
                   leading: const Icon(Icons.delete_forever, color: Colors.red),
-                  title: Text(context.t('clear_data'), style: const TextStyle(color: Colors.red)),
+                  title: Text(
+                    context.t('clear_data'),
+                    style: const TextStyle(color: Colors.red),
+                  ),
                   subtitle: Text(context.t('clear_data_desc')),
                   onTap: _showClearDataDialog,
                 ),
@@ -1102,7 +1232,8 @@ class _SettingsPageState extends State<SettingsPage> {
           final confirmed = await Dialogs.showConfirmation(
             context: context,
             title: context.t('change_currency_title'),
-            message: "${context.t('change_currency_msg')} $currencyCode. ${context.t('app_restart_required')}",
+            message:
+                "${context.t('change_currency_msg')} $currencyCode. ${context.t('app_restart_required')}",
             yesText: context.t('change'),
             noText: context.loc.cancel,
           );
@@ -1114,11 +1245,36 @@ class _SettingsPageState extends State<SettingsPage> {
               Navigator.pop(context);
               SnackBars.show(
                 context,
-                message: "${context.t('currency_changed')} $currencyCode. ${context.t('restarting')}",
+                message:
+                    "${context.t('currency_changed')} $currencyCode. ${context.t('restarting')}",
                 type: SnackBarType.success,
               );
             }
             _restartApp();
+          }
+        },
+      ),
+    );
+  }
+
+  void _showNumberFormatSheet() {
+    BottomSheetUtil.show(
+      context: context,
+      title: 'Select Number Format',
+      height: MediaQuery.sizeOf(context).height * 0.5,
+      child: NumberFormatSheet(
+        selectedFormat: _selectedNumberFormat,
+        onFormatSelected: (format) async {
+          setState(() => _selectedNumberFormat = format);
+          await NumberFormatterService().setFormat(format);
+
+          if (mounted) {
+            Navigator.pop(context);
+            SnackBars.show(
+              context,
+              message: "Number format changed to ${NumberFormatterService().getFormatName(format)}",
+              type: SnackBarType.success,
+            );
           }
         },
       ),
@@ -1138,7 +1294,8 @@ class _SettingsPageState extends State<SettingsPage> {
           final confirmed = await Dialogs.showConfirmation(
             context: context,
             title: context.t('change_language_title'),
-            message: "${context.t('change_language_msg')} $languageName. ${context.t('app_restart_required')}",
+            message:
+                "${context.t('change_language_msg')} $languageName. ${context.t('app_restart_required')}",
             yesText: context.t('change'),
             noText: context.loc.cancel,
           );
@@ -1149,7 +1306,8 @@ class _SettingsPageState extends State<SettingsPage> {
             if (mounted) {
               SnackBars.show(
                 context,
-                message: "${context.t('language_changed')} $languageName. ${context.t('restarting')}",
+                message:
+                    "${context.t('language_changed')} $languageName. ${context.t('restarting')}",
                 type: SnackBarType.success,
               );
             }
@@ -1179,9 +1337,7 @@ class _SettingsPageState extends State<SettingsPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
       final prefs = await SharedPreferences.getInstance();
@@ -1234,7 +1390,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   String get _currentLanguageNativeName {
     final language = _languages.firstWhere(
-          (lang) => lang["name"] == _selectedLanguage,
+      (lang) => lang["name"] == _selectedLanguage,
       orElse: () => _languages.first,
     );
     return language["nativeName"]!;
@@ -1277,10 +1433,10 @@ class _CurrencySearchSheetState extends State<CurrencySearchSheet> {
       _filteredCurrencies = query.isEmpty
           ? widget.currencies
           : widget.currencies.where((currency) {
-        return currency["code"]!.toLowerCase().contains(query) ||
-            currency["name"]!.toLowerCase().contains(query) ||
-            currency["symbol"]!.toLowerCase().contains(query);
-      }).toList();
+              return currency["code"]!.toLowerCase().contains(query) ||
+                  currency["name"]!.toLowerCase().contains(query) ||
+                  currency["symbol"]!.toLowerCase().contains(query);
+            }).toList();
     });
   }
 
@@ -1293,7 +1449,7 @@ class _CurrencySearchSheetState extends State<CurrencySearchSheet> {
   @override
   Widget build(BuildContext context) {
     final selectedData = widget.currencies.firstWhere(
-          (curr) => curr["code"] == _currentSelectedCurrency,
+      (curr) => curr["code"] == _currentSelectedCurrency,
       orElse: () => widget.currencies.first,
     );
 
@@ -1305,19 +1461,30 @@ class _CurrencySearchSheetState extends State<CurrencySearchSheet> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Theme.of(context).colorScheme.primary),
             ),
             child: Row(
               children: [
-                Text(selectedData["symbol"]!, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(
+                  selectedData["symbol"]!,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(selectedData["name"]!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        selectedData["name"]!,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       Text(selectedData["code"]!),
                     ],
                   ),
@@ -1341,24 +1508,39 @@ class _CurrencySearchSheetState extends State<CurrencySearchSheet> {
             child: _filteredCurrencies.isEmpty
                 ? Center(child: Text(context.t('no_currencies_found')))
                 : ListView.builder(
-              shrinkWrap: true,
-              itemCount: _filteredCurrencies.length,
-              itemBuilder: (context, index) {
-                final currency = _filteredCurrencies[index];
-                final isSelected = currency["code"] == _currentSelectedCurrency;
-                return ListTile(
-                  leading: Text(currency["symbol"]!, style: const TextStyle(fontSize: 20)),
-                  title: Text(currency["name"]!),
-                  subtitle: Text(currency["code"]!),
-                  trailing: isSelected ? const Icon(Icons.check, color: Colors.green) : null,
-                  onTap: () {
-                    setState(() => _currentSelectedCurrency = currency["code"]!);
-                    widget.onCurrencySelected(currency["code"]!, currency['symbol']!);
-                  },
-                  tileColor: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.05) : null,
-                );
-              },
-            ),
+                    shrinkWrap: true,
+                    itemCount: _filteredCurrencies.length,
+                    itemBuilder: (context, index) {
+                      final currency = _filteredCurrencies[index];
+                      final isSelected =
+                          currency["code"] == _currentSelectedCurrency;
+                      return ListTile(
+                        leading: Text(
+                          currency["symbol"]!,
+                          style: const TextStyle(fontSize: 20),
+                        ),
+                        title: Text(currency["name"]!),
+                        subtitle: Text(currency["code"]!),
+                        trailing: isSelected
+                            ? const Icon(Icons.check, color: Colors.green)
+                            : null,
+                        onTap: () {
+                          setState(
+                            () => _currentSelectedCurrency = currency["code"]!,
+                          );
+                          widget.onCurrencySelected(
+                            currency["code"]!,
+                            currency['symbol']!,
+                          );
+                        },
+                        tileColor: isSelected
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.05)
+                            : null,
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -1402,9 +1584,9 @@ class _LanguageSearchSheetState extends State<LanguageSearchSheet> {
       _filteredLanguages = query.isEmpty
           ? widget.languages
           : widget.languages.where((language) {
-        return language["name"]!.toLowerCase().contains(query) ||
-            language["nativeName"]!.toLowerCase().contains(query);
-      }).toList();
+              return language["name"]!.toLowerCase().contains(query) ||
+                  language["nativeName"]!.toLowerCase().contains(query);
+            }).toList();
     });
   }
 
@@ -1417,7 +1599,7 @@ class _LanguageSearchSheetState extends State<LanguageSearchSheet> {
   @override
   Widget build(BuildContext context) {
     final selectedData = widget.languages.firstWhere(
-          (lang) => lang["name"] == _currentSelectedLanguage,
+      (lang) => lang["name"] == _currentSelectedLanguage,
       orElse: () => widget.languages.first,
     );
 
@@ -1429,7 +1611,9 @@ class _LanguageSearchSheetState extends State<LanguageSearchSheet> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Theme.of(context).colorScheme.primary),
             ),
@@ -1441,7 +1625,10 @@ class _LanguageSearchSheetState extends State<LanguageSearchSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(selectedData["name"]!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        selectedData["name"]!,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       Text(selectedData["nativeName"]!),
                     ],
                   ),
@@ -1465,21 +1652,183 @@ class _LanguageSearchSheetState extends State<LanguageSearchSheet> {
             child: _filteredLanguages.isEmpty
                 ? Center(child: Text(context.t('no_languages_found')))
                 : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _filteredLanguages.length,
+                    itemBuilder: (context, index) {
+                      final language = _filteredLanguages[index];
+                      final isSelected =
+                          language["name"] == _currentSelectedLanguage;
+                      return ListTile(
+                        leading: const Icon(Icons.language),
+                        title: Text(language["name"]!),
+                        subtitle: Text(language["nativeName"]!),
+                        trailing: isSelected
+                            ? const Icon(Icons.check, color: Colors.green)
+                            : null,
+                        onTap: () {
+                          setState(
+                            () => _currentSelectedLanguage = language["name"]!,
+                          );
+                          widget.onLanguageSelected(language["name"]!);
+                        },
+                        tileColor: isSelected
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.05)
+                            : null,
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class NumberFormatSheet extends StatefulWidget {
+  final NumberFormatType selectedFormat;
+  final Function(NumberFormatType) onFormatSelected;
+
+  const NumberFormatSheet({
+    super.key,
+    required this.selectedFormat,
+    required this.onFormatSelected,
+  });
+
+  @override
+  State<NumberFormatSheet> createState() => _NumberFormatSheetState();
+}
+
+class _NumberFormatSheetState extends State<NumberFormatSheet> {
+  late NumberFormatType _currentSelectedFormat;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentSelectedFormat = widget.selectedFormat;
+  }
+
+  String _getExample(NumberFormatType format) {
+    switch (format) {
+      case NumberFormatType.indian:
+        return '12,34,567.89';
+      case NumberFormatType.western:
+        return '1,234,567.89';
+      case NumberFormatType.european:
+        return '1.234.567,89';
+      case NumberFormatType.none:
+        return '1234567.89';
+    }
+  }
+
+  String _getFormatName(NumberFormatType format) {
+    switch (format) {
+      case NumberFormatType.indian:
+        return 'Indian (1,00,000.00)';
+      case NumberFormatType.western:
+        return 'Western (100,000.00)';
+      case NumberFormatType.european:
+        return 'European (100.000,00)';
+      case NumberFormatType.none:
+        return 'None (100000.00)';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isLightMode = Helpers().isLightMode(context);
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Current selection card
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Theme.of(context).colorScheme.primary),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.format_list_numbered, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _getFormatName(_currentSelectedFormat),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Example: ${_getExample(_currentSelectedFormat)}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.check, color: Colors.green),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Format options list
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.35, // Fixed height
+            child: ListView.builder(
               shrinkWrap: true,
-              itemCount: _filteredLanguages.length,
+              itemCount: NumberFormatType.values.length,
               itemBuilder: (context, index) {
-                final language = _filteredLanguages[index];
-                final isSelected = language["name"] == _currentSelectedLanguage;
-                return ListTile(
-                  leading: const Icon(Icons.language),
-                  title: Text(language["name"]!),
-                  subtitle: Text(language["nativeName"]!),
-                  trailing: isSelected ? const Icon(Icons.check, color: Colors.green) : null,
-                  onTap: () {
-                    setState(() => _currentSelectedLanguage = language["name"]!);
-                    widget.onLanguageSelected(language["name"]!);
-                  },
-                  tileColor: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.05) : null,
+                final format = NumberFormatType.values[index];
+                final isSelected = format == _currentSelectedFormat;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+                        : (isLightMode ? Colors.grey.shade100 : Colors.grey.shade900),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.format_list_numbered,
+                      color: isSelected ? Theme.of(context).colorScheme.primary : null,
+                    ),
+                    title: Text(
+                      _getFormatName(format),
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? Theme.of(context).colorScheme.primary : null,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Example: ${_getExample(format)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isLightMode ? Colors.grey.shade600 : Colors.grey.shade400,
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
+                        : null,
+                    onTap: () {
+                      setState(() => _currentSelectedFormat = format);
+                      widget.onFormatSelected(format);
+                    },
+                  ),
                 );
               },
             ),
@@ -1487,4 +1836,5 @@ class _LanguageSearchSheetState extends State<LanguageSearchSheet> {
         ],
       ),
     );
-  }}
+  }
+}

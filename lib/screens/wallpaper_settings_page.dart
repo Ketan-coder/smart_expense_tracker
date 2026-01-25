@@ -358,43 +358,98 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-                leading: const Icon(Icons.lock_outline, color: Colors.white),
-                title: const Text('Lock Screen', style: TextStyle(color: Colors.white)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _service.setAsLockScreen(_currentWallpaper!);
-                  SnackBars.show(
-                    context,
-                    message: "Lock Screen Wallpaper Updated",
-                    type: SnackBarType.success,
+              leading: const Icon(Icons.lock_outline, color: Colors.white),
+              title: const Text('Lock Screen', style: TextStyle(color: Colors.white)),
+              onTap: () async {
+                Navigator.pop(context);
+
+                // Show loading
+                if (mounted) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
                   );
                 }
+
+                final success = await _service.setAsLockScreen(_currentWallpaper!);
+
+                if (mounted) {
+                  Navigator.pop(context); // Close loading
+
+                  SnackBars.show(
+                    context,
+                    message: success
+                        ? "✅ Lock Screen Wallpaper Updated! Lock your device to see it."
+                        : "❌ Failed to set wallpaper. Check app permissions.",
+                    type: success ? SnackBarType.success : SnackBarType.error,
+                  );
+                }
+              },
             ),
             ListTile(
-                leading: const Icon(Icons.home_outlined, color: Colors.white),
-                title: const Text('Home Screen', style: TextStyle(color: Colors.white)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _service.setAsHomeScreen(_currentWallpaper!);
-                  SnackBars.show(
-                    context,
-                    message: "Home Screen Wallpaper Updated",
-                    type: SnackBarType.success,
+              leading: const Icon(Icons.home_outlined, color: Colors.white),
+              title: const Text('Home Screen', style: TextStyle(color: Colors.white)),
+              onTap: () async {
+                Navigator.pop(context);
+
+                if (mounted) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
                   );
                 }
+
+                final success = await _service.setAsHomeScreen(_currentWallpaper!);
+
+                if (mounted) {
+                  Navigator.pop(context);
+
+                  SnackBars.show(
+                    context,
+                    message: success
+                        ? "✅ Home Screen Wallpaper Updated!"
+                        : "❌ Failed to set wallpaper. Check app permissions.",
+                    type: success ? SnackBarType.success : SnackBarType.error,
+                  );
+                }
+              },
             ),
             ListTile(
-                leading: const Icon(Icons.devices, color: Colors.white),
-                title: const Text('Both Screens', style: TextStyle(color: Colors.white)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _service.setAsBothScreens(_currentWallpaper!);
-                  SnackBars.show(
-                    context,
-                    message: "Home & Lock Screen Wallpaper Updated",
-                    type: SnackBarType.success,
+              leading: const Icon(Icons.devices, color: Colors.white),
+              title: const Text('Both Screens', style: TextStyle(color: Colors.white)),
+              onTap: () async {
+                Navigator.pop(context);
+
+                if (mounted) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
                   );
                 }
+
+                final success = await _service.setAsBothScreens(_currentWallpaper!);
+
+                if (mounted) {
+                  Navigator.pop(context);
+
+                  SnackBars.show(
+                    context,
+                    message: success
+                        ? "✅ Wallpaper Updated on Both Screens! Lock device to see changes."
+                        : "❌ Failed to set wallpaper. Check app permissions.",
+                    type: success ? SnackBarType.success : SnackBarType.error,
+                  );
+                }
+              },
             ),
           ],
         ),

@@ -777,6 +777,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 
 import '../../core/helpers.dart';
+import '../../services/number_formatter_service.dart';
 
 // ============================================================================
 // PLATFORM DETECTION & DEBUG TOGGLE
@@ -1233,7 +1234,7 @@ class _FloatingToolbarWithQuickActionsState
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          '$_currentCurrency${action.amount.toStringAsFixed(0)} -',
+                          '$_currentCurrency${NumberFormatterService().formatForDisplay(action.amount)} -',
                           style: theme.textTheme.labelSmall?.copyWith(
                             fontWeight: isIOS ? FontWeight.w800 : FontWeight.w900,
                             color: chipColor,

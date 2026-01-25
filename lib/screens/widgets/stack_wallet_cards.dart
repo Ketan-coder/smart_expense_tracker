@@ -1,6 +1,7 @@
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart'
     show BottomSheetUtil;
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
+import 'package:expense_tracker/services/number_formatter_service.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
 import 'dart:ui';
@@ -294,7 +295,7 @@ class _StackedWalletCardsState extends State<StackedWalletCards>
               const SizedBox(height: 4),
               PrivacyCurrency(
                 amount:
-                    '${widget.currency} ${wallet.balance.toStringAsFixed(2)}',
+                    '${widget.currency} ${NumberFormatterService().formatForDisplay(wallet.balance)}',
                 isPrivacyActive: widget.isPrivate,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   color: Colors.white,
@@ -638,7 +639,7 @@ class _ExpandedWalletsDialogState extends State<_ExpandedWalletsDialog>
               ),
               const SizedBox(height: 4),
               PrivacyCurrency(
-                amount: '$currency ${wallet.balance.toStringAsFixed(2)}',
+                amount: '$currency ${NumberFormatterService().formatForDisplay(wallet.balance)}',
                 isPrivacyActive: isPrivate,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   color: Colors.white,

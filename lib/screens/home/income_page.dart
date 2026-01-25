@@ -6,6 +6,7 @@ import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/category.dart';
 import '../../data/model/income.dart';
+import '../../services/number_formatter_service.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../widgets/bottom_sheet.dart';
 import '../widgets/custom_app_bar.dart';
@@ -369,7 +370,7 @@ class _IncomePageState extends State<IncomePage> {
                         Expanded(
                           child: _buildStatCard(
                             'Total Earned',
-                            '$_currentCurrency ${total.toStringAsFixed(0)}',
+                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(total)}',
                             Icons.account_balance_rounded,
                             colorScheme.primaryContainer,
                             colorScheme.onPrimaryContainer,
@@ -381,7 +382,7 @@ class _IncomePageState extends State<IncomePage> {
                         Expanded(
                           child: _buildStatCard(
                             'Daily Avg',
-                            '$_currentCurrency ${avgDaily.toStringAsFixed(0)}',
+                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDaily as double)}',
                             Icons.trending_up_rounded,
                             colorScheme.tertiaryContainer,
                             colorScheme.onTertiaryContainer,
@@ -484,7 +485,7 @@ class _IncomePageState extends State<IncomePage> {
                           //   ),
                           // ),
                           trailing: PrivacyCurrency(
-                              amount: '$_currentCurrency ${income.amount.toStringAsFixed(0)}',
+                              amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(income.amount)}',
                               isPrivacyActive: isPrivate,
                             style: theme.textTheme.titleSmall?.copyWith(
                               color: colorScheme.primary,
@@ -590,7 +591,7 @@ class _IncomePageState extends State<IncomePage> {
                       //   style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
                       // ),
                       PrivacyCurrency(
-                          amount: '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
+                          amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
                           isPrivacyActive: isPrivate,
                         style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
                       ),

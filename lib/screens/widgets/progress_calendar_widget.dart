@@ -1,3 +1,4 @@
+import 'package:expense_tracker/services/number_formatter_service.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/model/daily_progress.dart';
@@ -133,7 +134,7 @@ class ProgressCalendarWidget extends StatelessWidget {
       activities.add('Habit: ${day.completedHabitNames.join(", ")}');
     }
     if (day.hasProductiveTransaction) {
-      activities.add('Earned: ₹${day.totalSavings.toStringAsFixed(0)}');
+      activities.add('Earned: ₹${NumberFormatterService().formatForDisplay(day.totalSavings)}');
     }
 
     return '${_formatDate(day.date)}\n${activities.join("\n")}';

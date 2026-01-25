@@ -1,5 +1,6 @@
 import 'package:expense_tracker/screens/home/income_listing_page.dart';
 import 'package:expense_tracker/screens/widgets/privacy_overlay_widget.dart';
+import 'package:expense_tracker/services/number_formatter_service.dart';
 import 'package:hive_ce_flutter/adapters.dart';
 import 'package:intl/intl.dart';
 import 'dart:async'; // For app bar animation timer
@@ -190,13 +191,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: _appBarTitleIndex == 0
           ? _buildTitleChip(
         key: const ValueKey('savings'),
-        text: 'Month Savings: $_currentCurrency ${_monthlySavings.toStringAsFixed(0)}',
+        text: 'Month Savings: $_currentCurrency ${NumberFormatterService().formatForDisplay(_monthlySavings)}',
         icon: _monthlySavings >= 0 ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
         color: savingsColor,
       )
           : _buildTitleChip(
         key: const ValueKey('expenses'),
-        text: 'Week Expenses: $_currentCurrency ${_weeklyExpenses.toStringAsFixed(0)}',
+        text: 'Week Expenses: $_currentCurrency ${NumberFormatterService().formatForDisplay(_weeklyExpenses)}',
         icon: Icons.arrow_downward_rounded,
         color: expenseColor,
       ),
@@ -413,7 +414,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     //   ),
                     // ),
                     PrivacyCurrency(
-                        amount: '$_currentCurrency ${wallet.balance.toStringAsFixed(2)}',
+                        amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(wallet.balance)}',
                         isPrivacyActive: isPrivate,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         color: colorScheme.onSurface,

@@ -5,6 +5,7 @@ import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
+import '../../services/number_formatter_service.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../widgets/bottom_sheet.dart';
 import '../widgets/custom_app_bar.dart';
@@ -379,7 +380,7 @@ class _ExpensePageState extends State<ExpensePage> {
                         Expanded(
                           child: _buildStatCard(
                             'Total Spent',
-                            '$_currentCurrency ${total.toStringAsFixed(0)}',
+                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(total)}',
                             Icons.account_balance_wallet_rounded,
                             colorScheme.errorContainer,
                             colorScheme.onErrorContainer,
@@ -390,7 +391,7 @@ class _ExpensePageState extends State<ExpensePage> {
                         Expanded(
                           child: _buildStatCard(
                             'Daily Avg',
-                            '$_currentCurrency ${avgDaily.toStringAsFixed(0)}',
+                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDaily as double)}',
                             Icons.trending_up_rounded,
                             colorScheme.tertiaryContainer,
                             colorScheme.onTertiaryContainer,
@@ -500,7 +501,7 @@ class _ExpensePageState extends State<ExpensePage> {
                           //   ),
                           // ),
                           trailing: PrivacyCurrency(
-                            amount: '$_currentCurrency ${expense.amount.toStringAsFixed(0)}',
+                            amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(expense.amount)}',
                             isPrivacyActive: isPrivate,
                             style: theme.textTheme.titleSmall?.copyWith(
                                   color: colorScheme.error,
@@ -605,7 +606,7 @@ class _ExpensePageState extends State<ExpensePage> {
                       //   style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
                       // ),
                       PrivacyCurrency(
-                        amount: '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
+                        amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
                         isPrivacyActive: isPrivate,
                         style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
                       ),
@@ -663,7 +664,7 @@ class _ExpensePageState extends State<ExpensePage> {
                   //   style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 11),
                   // ),
                   PrivacyCurrency(
-                      amount: '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
+                      amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
                       isPrivacyActive: isPrivate,
                       style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 11),
                   ),

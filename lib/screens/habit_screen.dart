@@ -2,6 +2,7 @@ import 'package:expense_tracker/data/local/universal_functions.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/custom_app_bar.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
+import 'package:expense_tracker/services/number_formatter_service.dart';
 import 'package:expense_tracker/services/privacy/privacy_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
@@ -537,7 +538,7 @@ class _HabitPageState extends State<HabitPage>
                             if (habit.targetAmount != null)
                               _buildStatChip(
                                 Icons.monetization_on,
-                                '$_currentCurrency ${habit.targetAmount!.toStringAsFixed(0)}',
+                                '$_currentCurrency ${NumberFormatterService().formatForDisplay(habit.targetAmount!)}',
                                 flex: 1,
                               ),
                             if (habit.targetTime != null)

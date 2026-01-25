@@ -7,6 +7,7 @@ import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/goal.dart';
 import '../../services/goal_service.dart';
+import '../../services/number_formatter_service.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/snack_bar.dart';
@@ -373,7 +374,7 @@ class _GoalsPageState extends State<GoalsPage>
                     ),
                   ),
                   PrivacyCurrency(
-                      amount: '$_currentCurrency ${currentAmount.toStringAsFixed(0)} / ${targetAmount.toStringAsFixed(0)}',
+                      amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(currentAmount)} / ${NumberFormatterService().formatForDisplay(targetAmount)}',
                       isPrivacyActive: isPrivate,
                     style: TextStyle(
                       fontSize: 12,

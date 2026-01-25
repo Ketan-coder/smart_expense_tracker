@@ -16,6 +16,7 @@ import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
 import '../../data/model/income.dart';
 import '../../services/privacy/privacy_manager.dart';
+import '../services/number_formatter_service.dart';
 import 'expenses/expense_listing_page.dart';
 import 'home/income_listing_page.dart';
 
@@ -363,9 +364,9 @@ class _TransactionsPageState extends State<TransactionsPage>
 
     // Net balance message
     if (net > 0) {
-      messages.add('✓ You saved $_currentCurrency ${net.toStringAsFixed(0)} this period');
+      messages.add('✓ You saved $_currentCurrency ${NumberFormatterService().formatForDisplay(net)} this period');
     } else if (net < 0) {
-      messages.add('⚠ Spending exceeded income by $_currentCurrency ${net.abs().toStringAsFixed(0)}');
+      messages.add('⚠ Spending exceeded income by $_currentCurrency ${NumberFormatterService().formatForDisplay(net.abs())}');
     } else {
       messages.add('Perfect balance achieved this period');
     }
@@ -381,7 +382,7 @@ class _TransactionsPageState extends State<TransactionsPage>
 
     // Income message
     if (totalIncome > 0) {
-      messages.add('↑ Total income: $_currentCurrency ${totalIncome.toStringAsFixed(0)}');
+      messages.add('↑ Total income: $_currentCurrency ${NumberFormatterService().formatForDisplay(totalIncome)}');
     }
 
     // Transaction count
@@ -658,7 +659,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                   Expanded(
                     child: _buildStatCard(
                       isExpense ? 'Total Spent' : 'Total Earned',
-                      '$_currentCurrency ${total.toStringAsFixed(0)}',
+                      '$_currentCurrency ${NumberFormatterService().formatForDisplay(total)}',
                       isExpense ? Icons.account_balance_wallet_rounded : Icons.account_balance_rounded,
                       containerColor,
                       onContainerColor,
@@ -670,7 +671,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                   Expanded(
                     child: _buildStatCard(
                       'Daily Avg',
-                      '$_currentCurrency ${avgDaily.toStringAsFixed(0)}',
+                      '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDaily as double)}',
                       Icons.trending_up_rounded,
                       colorScheme.tertiaryContainer,
                       colorScheme.onTertiaryContainer,
@@ -790,7 +791,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                         style: theme.textTheme.bodySmall,
                       ),
                       trailing: PrivacyCurrency(
-                        amount: '$_currentCurrency ${transaction.amount.toStringAsFixed(0)}',
+                        amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(transaction.amount)}',
                         isPrivacyActive: isPrivate,
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: primaryColor,
@@ -886,7 +887,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       PrivacyCurrency(
-                        amount: '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
+                        amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
                         isPrivacyActive: isPrivate,
                         style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
                       ),
@@ -939,7 +940,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                   ),
                   const SizedBox(height: 2),
                   PrivacyCurrency(
-                    amount: '$_currentCurrency ${entry.value.toStringAsFixed(0)}',
+                    amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
                     isPrivacyActive: isPrivate,
                     style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 11),
                   ),

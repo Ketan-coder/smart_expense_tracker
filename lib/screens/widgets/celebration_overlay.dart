@@ -1,4 +1,5 @@
 // widgets/celebration_overlay.dart
+import 'package:expense_tracker/services/number_formatter_service.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
@@ -206,7 +207,7 @@ class _CelebrationOverlayWidgetState extends State<_CelebrationOverlayWidget>
             if (widget.amount != null) ...[
               const SizedBox(height: 4),
               Text(
-                'Big income of ₹${widget.amount!.toStringAsFixed(0)}!',
+                'Big income of ₹${NumberFormatterService().formatForDisplay(widget.amount!)}!',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: colorScheme.onPrimaryContainer.withValues(alpha:0.8),
                 ),
