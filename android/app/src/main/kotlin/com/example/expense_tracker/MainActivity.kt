@@ -472,6 +472,32 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                 }
 
+                "isAodSupported" -> {
+                    val supported = isAodSupported()
+                    Log.d(TAG, "Checking AOD support: $supported")
+                    result.success(supported)
+                }
+
+                "setAodWallpaper" -> {
+                    val filePath = call.argument<String>("filePath")
+
+                    Log.d(TAG, "Setting AOD wallpaper - File: $filePath")
+
+                    if (filePath != null) {
+                        try {
+                            val success = setAodWallpaper(filePath)
+                            result.success(success)
+                            Log.d(TAG, if (success) "✅ AOD wallpaper set successfully" else "⚠️ Failed to set AOD wallpaper")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "❌ Error setting AOD wallpaper: ${e.message}", e)
+                            result.error("AOD_ERROR", e.message, null)
+                        }
+                    } else {
+                        Log.e(TAG, "❌ Invalid arguments for setAodWallpaper")
+                        result.error("INVALID_ARGS", "File path is null", null)
+                    }
+                }
+
                 else -> {
                     Log.w(TAG, "Wallpaper Channel - Unknown method: ${call.method}")
                     result.notImplemented()
@@ -501,6 +527,98 @@ class MainActivity : FlutterFragmentActivity() {
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             Log.d(TAG, "🔓 FLAG_SECURE disabled - Screenshots and screen recording allowed")
+        }
+    }
+
+    /**
+     * Check if device supports Always On Display wallpaper
+     * @return true if AOD is supported
+     */
+    private fun isAodSupported(): Boolean {
+        return try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+                val manufacturer = android.os.Build.MANUFACTURER.lowercase()
+                val supported = manufacturer.contains("samsung") ||
+                        manufacturer.contains("xiaomi") ||
+                        manufacturer.contains("oppo") ||
+                        manufacturer.contains("vivo") ||
+                        manufacturer.contains("oneplus") ||
+                        manufacturer.contains("google")
+
+                Log.d(TAG, "🌙 AOD Check - Manufacturer: $manufacturer, Supported: $supported")
+                supported
+            } else {
+                Log.d(TAG, "🌙 AOD not supported: API level ${android.os.Build.VERSION.SDK_INT} too low (need 27+)")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error checking AOD support", e)
+            false
+        }
+    }
+
+    /**
+     * Sets wallpaper for Always On Display (AOD)
+     * @param filePath Absolute path to the wallpaper image file
+     * @return true if successful, false otherwise
+     */
+    private fun setAodWallpaper(filePath: String): Boolean {
+        return try {
+            if (!isAodSupported()) {
+                Log.w(TAG, "⚠️ AOD wallpaper not supported on this device")
+                return false
+            }
+
+            Log.d(TAG, "========================================")
+            Log.d(TAG, "🌙 Setting AOD wallpaper...")
+            Log.d(TAG, "File: $filePath")
+
+            val wallpaperManager = WallpaperManager.getInstance(applicationContext)
+            val file = File(filePath)
+
+            if (!file.exists()) {
+                Log.e(TAG, "❌ Wallpaper file does not exist: $filePath")
+                return false
+            }
+
+            Log.d(TAG, "📁 File exists, size: ${file.length()} bytes")
+
+            val bitmap = BitmapFactory.decodeFile(filePath)
+            if (bitmap == null) {
+                Log.e(TAG, "❌ Failed to decode bitmap")
+                return false
+            }
+
+            Log.d(TAG, "🖼️ Bitmap decoded: ${bitmap.width}x${bitmap.height}")
+
+            // For devices with AOD support (API 27+)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+                try {
+                    // Setting as lock screen wallpaper affects AOD on most devices
+                    wallpaperManager.setBitmap(
+                        bitmap,
+                        null,
+                        true,
+                        WallpaperManager.FLAG_LOCK
+                    )
+                    Log.d(TAG, "✅ AOD wallpaper set successfully (via lock screen)")
+                    bitmap.recycle()
+                    Log.d(TAG, "========================================")
+                    return true
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Failed to set AOD wallpaper: ${e.message}")
+                    e.printStackTrace()
+                }
+            }
+
+            bitmap.recycle()
+            Log.d(TAG, "========================================")
+            false
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error setting AOD wallpaper", e)
+            e.printStackTrace()
+            Log.d(TAG, "========================================")
+            false
         }
     }
 
@@ -536,7 +654,6 @@ class MainActivity : FlutterFragmentActivity() {
 
             Log.d(TAG, "🖼️ Bitmap decoded: ${bitmap.width}x${bitmap.height}")
 
-            // Set wallpaper based on location
             when (location.lowercase()) {
                 "lock" -> {
                     Log.d(TAG, "🔒 Setting LOCK screen wallpaper...")
@@ -547,9 +664,8 @@ class MainActivity : FlutterFragmentActivity() {
                             true,
                             WallpaperManager.FLAG_LOCK
                         )
-                        Log.d(TAG, "✅ Lock screen wallpaper set successfully (API ${android.os.Build.VERSION.SDK_INT})")
+                        Log.d(TAG, "✅ Lock screen wallpaper set (API ${android.os.Build.VERSION.SDK_INT})")
                     } else {
-                        // For older versions, set as system wallpaper
                         wallpaperManager.setBitmap(bitmap)
                         Log.d(TAG, "✅ System wallpaper set (API ${android.os.Build.VERSION.SDK_INT} - no separate lock screen)")
                     }
@@ -563,7 +679,7 @@ class MainActivity : FlutterFragmentActivity() {
                             true,
                             WallpaperManager.FLAG_SYSTEM
                         )
-                        Log.d(TAG, "✅ Home screen wallpaper set successfully")
+                        Log.d(TAG, "✅ Home screen wallpaper set")
                     } else {
                         wallpaperManager.setBitmap(bitmap)
                         Log.d(TAG, "✅ System wallpaper set")
@@ -588,7 +704,7 @@ class MainActivity : FlutterFragmentActivity() {
                         }
                     }
 
-                    Log.d(TAG, "✅ Both screens wallpaper set successfully")
+                    Log.d(TAG, "✅ Both screens wallpaper set")
                 }
                 else -> {
                     Log.e(TAG, "❌ Unknown location: $location")
@@ -671,6 +787,9 @@ class MainActivity : FlutterFragmentActivity() {
         Log.d(TAG, "========================================")
         Log.d(TAG, "MainActivity onCreate - FlutterFragmentActivity")
         Log.d(TAG, "Package: ${applicationContext.packageName}")
+        Log.d(TAG, "Manufacturer: ${android.os.Build.MANUFACTURER}")
+        Log.d(TAG, "Model: ${android.os.Build.MODEL}")
+        Log.d(TAG, "Android Version: ${android.os.Build.VERSION.SDK_INT}")
         Log.d(TAG, "========================================")
     }
 

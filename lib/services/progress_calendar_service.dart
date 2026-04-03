@@ -73,29 +73,61 @@ class ProgressCalendarService {
       }
     }
 
-    // ✅ FIX: Check for ANY financial activity (expenses OR income)
+    // ✅ IMPROVED: Intelligent productivity detection
     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
     final incomeBox = Hive.box<Income>(AppConstants.incomes);
 
     bool hasProductiveTransaction = false;
     double totalSavings = 0.0;
 
-    // Check for expenses on this date
-    final dayExpenses = expenseBox.values.where(
-            (expense) => _isSameDay(_normalizeDate(expense.date), normalizedDate));
-
-    // Check for income on this date
+    // Check for income on this date (income is always productive)
     final dayIncomes = incomeBox.values.where(
             (income) => _isSameDay(_normalizeDate(income.date), normalizedDate));
 
-    // ✅ Mark as productive if there's ANY financial activity
-    if (dayExpenses.isNotEmpty || dayIncomes.isNotEmpty) {
-      hasProductiveTransaction = true;
+    // Check for expenses linked to goals/habits (these are productive)
+    final dayExpenses = expenseBox.values.where(
+            (expense) => _isSameDay(_normalizeDate(expense.date), normalizedDate));
 
-      // Calculate total savings (income - expenses)
+    // ✅ Income is ALWAYS productive
+    if (dayIncomes.isNotEmpty) {
+      hasProductiveTransaction = true;
       final totalIncome = dayIncomes.fold(0.0, (sum, income) => sum + income.amount);
-      final totalExpense = dayExpenses.fold(0.0, (sum, expense) => sum + expense.amount);
-      totalSavings = totalIncome - totalExpense;
+      totalSavings += totalIncome;
+    }
+
+    // ✅ Expenses are ONLY productive if they're related to goals or habits
+    for (final expense in dayExpenses) {
+      bool isProductiveExpense = false;
+
+      // Check if expense matches any goal installment on this date
+      for (final goal in goalBox.values) {
+        if (goal.lastInstallmentDate != null &&
+            _isSameDay(goal.lastInstallmentDate!, normalizedDate) &&
+            expense.description.toLowerCase().contains(goal.name.toLowerCase())) {
+          isProductiveExpense = true;
+          break;
+        }
+      }
+
+      // Check if expense matches any completed habit on this date
+      if (!isProductiveExpense) {
+        for (final habit in habitBox.values) {
+          final wasCompletedOnDate = habit.completionHistory.any((completionDate) =>
+              _isSameDay(_normalizeDate(completionDate), normalizedDate));
+
+          if (wasCompletedOnDate &&
+              expense.description.toLowerCase().contains(habit.name.toLowerCase())) {
+            isProductiveExpense = true;
+            break;
+          }
+        }
+      }
+
+      // If this expense is productive, mark it
+      if (isProductiveExpense) {
+        hasProductiveTransaction = true;
+        totalSavings -= expense.amount; // Subtract from savings
+      }
     }
 
     return DailyProgress(

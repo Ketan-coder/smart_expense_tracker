@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../data/model/goal.dart';
 import '../../services/goal_service.dart';
+import '../../services/langs/localzation_extension.dart';
 import '../widgets/snack_bar.dart';
 
 class AddEditGoalSheet extends StatefulWidget {
@@ -80,23 +81,17 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Text(
-              //   isEditing ? 'Edit Goal' : 'Create New Goal',
-              //   style: Theme.of(context).textTheme.titleLarge,
-              // ),
-              // const SizedBox(height: 20),
-
               // Goal Name
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Goal Name',
-                  border: OutlineInputBorder(),
-                  hintText: 'e.g., New Car, Vacation, Emergency Fund',
+                decoration: InputDecoration(
+                  labelText: context.t('goal_name'),
+                  border: const OutlineInputBorder(),
+                  hintText: context.t('goal_name_hint'),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a goal name';
+                    return context.t('enter_goal_name_error');
                   }
                   return null;
                 },
@@ -106,10 +101,10 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
               // Description
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description (Optional)',
-                  border: OutlineInputBorder(),
-                  hintText: 'Describe your goal...',
+                decoration: InputDecoration(
+                  labelText: context.t('description_optional'),
+                  border: const OutlineInputBorder(),
+                  hintText: context.t('description_hint'),
                 ),
                 maxLines: 2,
               ),
@@ -118,19 +113,19 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
               // Target Amount
               TextFormField(
                 controller: _targetAmountController,
-                decoration: const InputDecoration(
-                  labelText: 'Target Amount',
+                decoration: InputDecoration(
+                  labelText: context.t('target_amount'),
                   prefixText: '₹ ',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter target amount';
+                    return context.t('enter_target_amount_error');
                   }
                   final amount = double.tryParse(value);
                   if (amount == null || amount <= 0) {
-                    return 'Please enter a valid amount';
+                    return context.t('valid_amount_error');
                   }
                   return null;
                 },
@@ -140,20 +135,20 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
               // Installment Amount
               TextFormField(
                 controller: _installmentAmountController,
-                decoration: const InputDecoration(
-                  labelText: 'Installment Amount',
+                decoration: InputDecoration(
+                  labelText: context.t('installment_amount'),
                   prefixText: '₹ ',
-                  border: OutlineInputBorder(),
-                  hintText: 'Regular savings amount',
+                  border: const OutlineInputBorder(),
+                  hintText: context.t('installment_amount_hint'),
                 ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter installment amount';
+                    return context.t('enter_installment_amount_error');
                   }
                   final amount = double.tryParse(value);
                   if (amount == null || amount <= 0) {
-                    return 'Please enter a valid amount';
+                    return context.t('valid_amount_error');
                   }
                   return null;
                 },
@@ -165,10 +160,10 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: _selectedCategory,
-                      decoration: const InputDecoration(
-                        labelText: 'Category',
-                        border: OutlineInputBorder(),
+                      value: _selectedCategory,
+                      decoration: InputDecoration(
+                        labelText: context.t('category'),
+                        border: const OutlineInputBorder(),
                       ),
                       items: _categories.map((category) {
                         return DropdownMenuItem(
@@ -186,10 +181,10 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: _selectedPriority,
-                      decoration: const InputDecoration(
-                        labelText: 'Priority',
-                        border: OutlineInputBorder(),
+                      value: _selectedPriority,
+                      decoration: InputDecoration(
+                        labelText: context.t('priority'),
+                        border: const OutlineInputBorder(),
                       ),
                       items: _priorities.map((priority) {
                         return DropdownMenuItem(
@@ -213,10 +208,10 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: _selectedWallet,
-                      decoration: const InputDecoration(
-                        labelText: 'Wallet',
-                        border: OutlineInputBorder(),
+                      value: _selectedWallet,
+                      decoration: InputDecoration(
+                        labelText: context.t('wallet'),
+                        border: const OutlineInputBorder(),
                       ),
                       items: _wallets.map((wallet) {
                         return DropdownMenuItem(
@@ -234,10 +229,10 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: _selectedFrequency,
-                      decoration: const InputDecoration(
-                        labelText: 'Frequency',
-                        border: OutlineInputBorder(),
+                      value: _selectedFrequency,
+                      decoration: InputDecoration(
+                        labelText: context.t('frequency'),
+                        border: const OutlineInputBorder(),
                       ),
                       items: _frequencies.map((frequency) {
                         return DropdownMenuItem(
@@ -260,7 +255,7 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.calendar_today_rounded),
-                title: const Text('Target Date'),
+                title: Text(context.t('target_date')),
                 subtitle: Text(
                   '${_targetDate.day}/${_targetDate.month}/${_targetDate.year}',
                 ),
@@ -275,7 +270,7 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: Text(isEditing ? 'Update Goal' : 'Create Goal'),
+                child: Text(isEditing ? context.t('update_goal') : context.t('create_goal')),
               ),
             ],
           ),
@@ -323,7 +318,7 @@ class _AddEditGoalSheetState extends State<AddEditGoalSheet> {
         Navigator.pop(context);
         SnackBars.show(
           context,
-          message: widget.goalKey != null ? 'Goal updated!' : 'Goal created!',
+          message: widget.goalKey != null ? context.t('goal_updated_message') : context.t('goal_created_message'),
           type: SnackBarType.success,
         );
       }

@@ -14,6 +14,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
+import '../../services/langs/localzation_extension.dart';
 import '../../services/number_formatter_service.dart';
 import '../expenses/expense_listing_page.dart';
 import '../widgets/custom_app_bar.dart';
@@ -105,23 +106,23 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     _showcaseController.start([
       ShowcaseStep(
         key: _dateRangeKey,
-        title: 'Select Date Range',
-        description: 'Choose custom date range for detailed financial analysis across different time periods',
+        title: context.t('select_date_range'),
+        description: context.t('select_date_range_desc'),
         targetShape: const CircleBorder(),
         scrollController: _scrollController,
       ),
       ShowcaseStep(
         key: _tabKey,
-        title: 'Multiple Views',
-        description: 'Switch between Overview, Categories, Trends, and Insights tabs for comprehensive financial reports',
+        title: context.t('multiple_views'),
+        description: context.t('multiple_views_desc'),
         scrollController: null, // No scrolling needed for tab bar
         targetShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       if (!kIsWeb)
         ShowcaseStep(
           key: _exportKey,
-          title: 'Export Reports',
-          description: 'Export your financial reports as PDF or CSV for record keeping and analysis',
+          title: context.t('export_as_pdf'),
+          description: context.t('pdf_desc'),
           targetShape: const CircleBorder(),
           scrollController: _scrollController,
         ),
@@ -174,10 +175,10 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       for (var expense in expenses) {
         if (expense.categoryKeys.isNotEmpty) {
           final category = categoryBox.get(expense.categoryKeys.first);
-          final name = category?.name ?? 'Uncategorized';
+          final name = category?.name ?? context.t('uncategorized');
           breakdown[name] = (breakdown[name] ?? 0.0) + expense.amount;
         } else {
-          breakdown['Uncategorized'] = (breakdown['Uncategorized'] ?? 0.0) + expense.amount;
+          breakdown[context.t('uncategorized')] = (breakdown[context.t('uncategorized')] ?? 0.0) + expense.amount;
         }
       }
 
@@ -249,7 +250,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
     return Scaffold(
       body: SimpleCustomAppBar(
-        title: "Financial Reports",
+        title: context.t('financial_reports'),
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
@@ -257,31 +258,18 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         actionItems: [
           CustomAppBarActionItem(
             icon: Icons.date_range_rounded,
-            label: "Select Date Range",
-            tooltip: "Select Date Range to filter out Transactions",
+            label: context.t('select_date_range'),
+            tooltip: context.t('select_date_range_desc'),
             onPressed: _selectDateRange,
           ),
           if (!kIsWeb)
             CustomAppBarActionItem(
             icon: Icons.file_download_outlined,
-            label: "Generate Report",
-            tooltip: "Export your financial reports as PDF or CSV for record keeping and analysis",
+            label: context.t('export_as_pdf'),
+            tooltip: context.t('pdf_desc'),
             onPressed: _showExportOptions,
           ),
         ],
-        // actions: [
-        //   IconButton(
-        //     key: _dateRangeKey,
-        //     icon: const Icon(Icons.calendar_month_rounded),
-        //     onPressed: _selectDateRange,
-        //   ),
-        //   if (!kIsWeb)
-        //     IconButton(
-        //       key: _exportKey,
-        //       icon: const Icon(Icons.file_download_outlined),
-        //       onPressed: _showExportOptions,
-        //     ),
-        // ],
         child: Container(
           margin: const EdgeInsets.all(8),
           padding: const EdgeInsets.all(8),
@@ -396,11 +384,11 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         unselectedLabelColor: colorScheme.onSurfaceVariant,
         labelStyle: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
         dividerColor: Colors.transparent,
-        tabs: const [
-          Tab(text: 'Insights'),
-          Tab(text: 'Overview'),
-          Tab(text: 'Categories'),
-          Tab(text: 'Trends'),
+        tabs: [
+          Tab(text: context.t('insights')),
+          Tab(text: context.t('overview')),
+          Tab(text: context.t('categories')),
+          Tab(text: context.t('trends')),
         ],
       ),
     );
@@ -428,7 +416,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             children: [
               Expanded(
                 child: _buildStatCard(
-                  'Total Income',
+                  context.t('total_income'),
                   '$_currentCurrency ${NumberFormatterService().formatForDisplay(totalIncome)}',
                   Icons.trending_up_rounded,
                   colorScheme.primaryContainer,
@@ -439,7 +427,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               const SizedBox(width: 12),
               Expanded(
                 child: _buildStatCard(
-                  'Total Expense',
+                  context.t('total_expense'),
                   '$_currentCurrency ${NumberFormatterService().formatForDisplay(totalExpense)}',
                   Icons.trending_down_rounded,
                   colorScheme.errorContainer,
@@ -455,7 +443,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             children: [
               Expanded(
                 child: _buildStatCard(
-                  'Net Savings',
+                  context.t('net_savings'),
                   '$_currentCurrency ${NumberFormatterService().formatForDisplay(netSavings)}',
                   netSavings >= 0 ? Icons.savings_outlined : Icons.warning_amber_rounded,
                   netSavings >= 0 ? colorScheme.tertiaryContainer : colorScheme.errorContainer,
@@ -466,7 +454,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               const SizedBox(width: 12),
               Expanded(
                 child: _buildStatCard(
-                  'Daily Avg',
+                  context.t('daily_avg'),
                   '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyExpense)}',
                   Icons.calendar_today_outlined,
                   colorScheme.secondaryContainer,
@@ -479,20 +467,20 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           const SizedBox(height: 20),
 
           // Expense Breakdown
-          Text('Expense Distribution', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(context.t('expense_distribution'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           if (expenses.isEmpty)
-            _buildEmptyCard('No expenses in this period', theme, colorScheme)
+            _buildEmptyCard(context.t('no_expenses_period'), theme, colorScheme)
           else
             _buildExpenseDistributionChart(expenses, theme, colorScheme),
 
           const SizedBox(height: 20),
 
           // Top Spending Categories
-          Text('Top Spending Categories', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(context.t('top_spending_categories'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           if (expenses.isEmpty)
-            _buildEmptyCard('No expenses to analyze', theme, colorScheme)
+            _buildEmptyCard(context.t('no_expenses_analyze'), theme, colorScheme)
           else
             Column(
               children: [
@@ -503,13 +491,13 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                     TextButton.icon(
                       onPressed: () => Helpers.navigateTo(context, const ExpenseListingPage()),
                       icon: const Icon(Icons.arrow_forward, size: 16),
-                      label: const Text('View All Expenses'),
+                      label: Text(context.t('view_all_expenses')),
                     ),
                     const Spacer(),
                     TextButton.icon(
                       onPressed: () => Helpers.navigateTo(context, const IncomeListingPage()),
                       icon: const Icon(Icons.arrow_forward, size: 16),
-                      label: const Text('View All Incomes'),
+                      label: Text(context.t('view_all_incomes')),
                     ),
                   ],
                 ),
@@ -520,7 +508,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
           // Recurring Payments
           if (recurringBox.values.isNotEmpty) ...[
-            Text('Recurring Commitments', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text(context.t('recurring_commitments'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             _buildRecurringCard(recurringBox, recurringTotal, theme, colorScheme),
             const SizedBox(height: 20),
@@ -543,19 +531,19 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Category Analysis', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(context.t('category_analysis'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
 
           if (categoryBreakdown.isEmpty)
-            _buildEmptyCard('No expenses to categorize', theme, colorScheme)
+            _buildEmptyCard(context.t('no_expenses_categorize'), theme, colorScheme)
           else
             ...categoryBreakdown.entries.map((entry) {
               final percentage = totalExpense > 0 ? (entry.value / totalExpense * 100) : 0.0;
               final expensesInCategory = expenses.where((e) {
-                if (e.categoryKeys.isEmpty) return entry.key == 'Uncategorized';
+                if (e.categoryKeys.isEmpty) return entry.key == context.t('uncategorized');
                 final categoryBox = Hive.box<Category>(AppConstants.categories);
                 final category = categoryBox.get(e.categoryKeys.first);
-                return (category?.name ?? 'Uncategorized') == entry.key;
+                return (category?.name ?? context.t('uncategorized')) == entry.key;
               }).toList();
 
               return _buildCategoryCard(
@@ -574,7 +562,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             child: TextButton.icon(
               onPressed: () => Helpers.navigateTo(context, const CategoryPage()),
               icon: const Icon(Icons.arrow_forward, size: 16),
-              label: const Text('View All Categories'),
+              label: Text(context.t('view_all_categories')),
             ),
           ),
 
@@ -597,11 +585,11 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Expense Trend
-          Text('Expense Trend', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(context.t('expense_trend'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
 
           if (expenses.isEmpty)
-            _buildEmptyCard('No expense data to show trends', theme, colorScheme)
+            _buildEmptyCard(context.t('no_expense_trends'), theme, colorScheme)
           else
             Card(
               elevation: 0,
@@ -617,10 +605,10 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   getDate: (entry) => entry.key,
                   getValue: (entry) => entry.value,
                   config: ChartConfig(
-                    chartTitle: "Daily Expenses ($daysDiff Days)",
+                    chartTitle: "${context.t('daily_expenses')} ($daysDiff ${context.t('days_sm')})",
                     primaryColor: colorScheme.error,
                     hoverColor: colorScheme.errorContainer,
-                    yAxisLabel: "Amount",
+                    yAxisLabel: context.t('amount'),
                     valueUnit: "$_currentCurrency ",
                     highlightHighest: true,
                     highlightMode: HighlightMode.highest,
@@ -633,11 +621,11 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           const SizedBox(height: 20),
 
           // Income Trend
-          Text('Income Trend', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(context.t('income_trend'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
 
           if (incomes.isEmpty)
-            _buildEmptyCard('No income data to show trends', theme, colorScheme)
+            _buildEmptyCard(context.t('no_income_trends'), theme, colorScheme)
           else
             Card(
               elevation: 0,
@@ -653,10 +641,10 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   getDate: (entry) => entry.key,
                   getValue: (entry) => entry.value,
                   config: ChartConfig(
-                    chartTitle: "Daily Income ($daysDiff Days)",
+                    chartTitle: "${context.t('daily_income')} ($daysDiff ${context.t('days_sm')})",
                     primaryColor: colorScheme.primary,
                     hoverColor: colorScheme.primaryContainer,
-                    yAxisLabel: "Amount",
+                    yAxisLabel: context.t('amount'),
                     valueUnit: "$_currentCurrency ",
                     highlightHighest: true,
                     highlightMode: HighlightMode.highest,
@@ -699,18 +687,18 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           _buildHealthScoreCard(savingsRate, theme, colorScheme),
 
           const SizedBox(height: 16),
-          Text('Financial Insights', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(context.t('financial_insights'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
 
           // Savings Rate
           _buildInsightCard(
-            'Savings Rate',
+            context.t('savings_rate'),
             '${savingsRate.toStringAsFixed(1)}%',
             savingsRate >= 20
-                ? 'Excellent! You\'re saving ${savingsRate.toStringAsFixed(0)}% of your income.'
+                ? context.t('savings_rate_excellent').replaceAll('--', savingsRate.toStringAsFixed(0))
                 : savingsRate >= 10
-                ? 'Good! Try to increase your savings rate to 20% or more.'
-                : 'Consider reducing expenses to improve your savings rate.',
+                ? context.t('savings_rate_good')
+                : context.t('savings_rate_low'),
             savingsRate >= 20 ? Icons.emoji_events : Icons.info_outline,
             savingsRate >= 20 ? colorScheme.primaryContainer : colorScheme.secondaryContainer,
             savingsRate >= 20 ? colorScheme.onPrimaryContainer : colorScheme.onSecondaryContainer,
@@ -720,9 +708,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
           // Spending Pattern
           _buildInsightCard(
-            'Daily Spending',
+            context.t('daily_spending'),
             '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyExpense)}',
-            'You spend an average of $_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyExpense)} per day in this period.',
+            context.t('daily_spending_desc').replaceAll('--', '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyExpense)}'),
             Icons.calendar_today,
             colorScheme.tertiaryContainer,
             colorScheme.onTertiaryContainer,
@@ -732,9 +720,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
           // Income Pattern
           _buildInsightCard(
-            'Daily Income',
+            context.t('daily_income'),
             '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyIncome)}',
-            'You earn an average of $_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyIncome)} per day in this period.',
+            context.t('daily_income_desc').replaceAll('--', '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyIncome)}'),
             Icons.attach_money,
             colorScheme.primaryContainer,
             colorScheme.onPrimaryContainer,
@@ -745,9 +733,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           // Top Spending Category
           if (topCategory != null)
             _buildInsightCard(
-              'Top Spending',
+              context.t('top_spending'),
               topCategory.key,
-              '${topCategoryPercent.toStringAsFixed(0)}% of your expenses ($_currentCurrency ${NumberFormatterService().formatForDisplay(topCategory.value)}) went to ${topCategory.key}.',
+              context.t('top_spending_desc')
+                  .replaceAll('--', topCategoryPercent.toStringAsFixed(0))
+                  .replaceAll('(__)', '$_currentCurrency ${NumberFormatterService().formatForDisplay(topCategory.value)}')
+                  .replaceAll('{}', topCategory.key),
               Icons.category,
               colorScheme.errorContainer,
               colorScheme.onErrorContainer,
@@ -872,10 +863,10 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     return Column(
       children: categoryBreakdown.entries.take(3).map((entry) {
         final expensesInCategory = expenses.where((e) {
-          if (e.categoryKeys.isEmpty) return entry.key == 'Uncategorized';
+          if (e.categoryKeys.isEmpty) return entry.key == context.t('uncategorized');
           final categoryBox = Hive.box<Category>(AppConstants.categories);
           final category = categoryBox.get(e.categoryKeys.first);
-          return (category?.name ?? 'Uncategorized') == entry.key;
+          return (category?.name ?? context.t('uncategorized')) == entry.key;
         }).length;
 
         return Card(
@@ -930,7 +921,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 Icon(Icons.repeat_rounded, color: colorScheme.error),
                 const SizedBox(width: 8),
                 Text(
-                  'Monthly Recurring',
+                  context.t('monthly_recurring'),
                   style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
@@ -945,7 +936,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             ),
             const SizedBox(height: 8),
             Text(
-              '${recurringBox.values.length} active subscription${recurringBox.values.length != 1 ? 's' : ''}',
+              '${recurringBox.values.length} ${context.t('active')} subscription${recurringBox.values.length != 1 ? 's' : ''}',
               style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           ],
@@ -1103,23 +1094,23 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     IconData healthIcon;
 
     if (savingsRate >= 20) {
-      healthStatus = 'Excellent';
-      healthDescription = 'Your financial health is excellent! Keep up the great saving habits.';
+      healthStatus = context.t('health_excellent');
+      healthDescription = context.t('health_excellent_desc');
       healthColor = Colors.green;
       healthIcon = Icons.check_circle;
     } else if (savingsRate >= 10) {
-      healthStatus = 'Good';
-      healthDescription = 'Your financial health is good. Try to save a bit more to reach excellence.';
+      healthStatus = context.t('health_good');
+      healthDescription = context.t('health_good_desc');
       healthColor = Colors.blue;
       healthIcon = Icons.thumb_up;
     } else if (savingsRate >= 0) {
-      healthStatus = 'Fair';
-      healthDescription = 'You\'re breaking even. Focus on increasing income or reducing expenses.';
+      healthStatus = context.t('health_fair');
+      healthDescription = context.t('health_fair_desc');
       healthColor = Colors.orange;
       healthIcon = Icons.warning_amber;
     } else {
-      healthStatus = 'Needs Attention';
-      healthDescription = 'You\'re spending more than earning. Review your expenses and consider budget adjustments.';
+      healthStatus = context.t('health_attention');
+      healthDescription = context.t('health_attention_desc');
       healthColor = Colors.red;
       healthIcon = Icons.error_outline;
     }
@@ -1157,7 +1148,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Financial Health',
+                        context.t('financial_health'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                           fontSize: 12,
@@ -1252,8 +1243,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         children: [
           ListTile(
             leading: const Icon(Icons.picture_as_pdf),
-            title: const Text('Export as PDF'),
-            subtitle: const Text('Comprehensive report in PDF format'),
+            title: Text(context.t('export_as_pdf')),
+            subtitle: Text(context.t('pdf_desc')),
             onTap: () {
               Navigator.pop(context);
               _exportAsPDF();
@@ -1261,8 +1252,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           ),
           ListTile(
             leading: const Icon(Icons.table_chart),
-            title: const Text('Export as CSV'),
-            subtitle: const Text('Raw data for spreadsheet analysis'),
+            title: Text(context.t('export_as_csv')),
+            subtitle: Text(context.t('csv_desc')),
             onTap: () {
               Navigator.pop(context);
               _exportAsCSV();
@@ -1276,7 +1267,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
   Future<void> _exportAsPDF() async {
     try {
-      SnackBars.show(context, message: 'Generating PDF report...', type: SnackBarType.info);
+      SnackBars.show(context, message: context.t('generating_pdf'), type: SnackBarType.info);
 
       final expenses = _getFilteredExpenses(_startDate, _endDate);
       final incomes = _getFilteredIncomes(_startDate, _endDate);
@@ -1447,19 +1438,19 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       await Share.shareXFiles([XFile(file.path)], text: 'Financial Report');
 
       if (mounted) {
-        SnackBars.show(context, message: 'PDF report generated successfully!', type: SnackBarType.success);
+        SnackBars.show(context, message: context.t('pdf_generated_success'), type: SnackBarType.success);
       }
     } catch (e) {
       debugPrint('Error generating PDF: $e');
       if (mounted) {
-        SnackBars.show(context, message: 'Error generating PDF: $e', type: SnackBarType.error);
+        SnackBars.show(context, message: context.t('pdf_generation_error').replaceAll('--', e.toString()), type: SnackBarType.error);
       }
     }
   }
 
   Future<void> _exportAsCSV() async {
     try {
-      SnackBars.show(context, message: 'Generating CSV file...', type: SnackBarType.info);
+      SnackBars.show(context, message: context.t('generating_csv'), type: SnackBarType.info);
 
       final expenses = _getFilteredExpenses(_startDate, _endDate);
       final incomes = _getFilteredIncomes(_startDate, _endDate);
@@ -1469,19 +1460,19 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       csv.writeln('Date,Type,Description,Category,Amount,Method');
 
       for (var income in incomes) {
-        String categoryName = 'Uncategorized';
+        String categoryName = context.t('uncategorized');
         if (income.categoryKeys.isNotEmpty) {
           final category = categoryBox.get(income.categoryKeys.first);
-          categoryName = category?.name ?? 'General';
+          categoryName = category?.name ?? context.t('general');
         }
         csv.writeln('${DateFormat('yyyy-MM-dd').format(income.date)},Income,"${income.description}","$categoryName",${income.amount},${income.method ?? 'N/A'}');
       }
 
       for (var expense in expenses) {
-        String categoryName = 'Uncategorized';
+        String categoryName = context.t('uncategorized');
         if (expense.categoryKeys.isNotEmpty) {
           final category = categoryBox.get(expense.categoryKeys.first);
-          categoryName = category?.name ?? 'General';
+          categoryName = category?.name ?? context.t('general');
         }
         csv.writeln('${DateFormat('yyyy-MM-dd').format(expense.date)},Expense,"${expense.description}","$categoryName",${expense.amount},${expense.method ?? 'N/A'}');
       }
@@ -1493,12 +1484,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       await Share.shareXFiles([XFile(file.path)], text: 'Transaction Data');
 
       if (mounted) {
-        SnackBars.show(context, message: 'CSV file generated successfully!', type: SnackBarType.success);
+        SnackBars.show(context, message: context.t('csv_generated_success'), type: SnackBarType.success);
       }
     } catch (e) {
       debugPrint('Error generating CSV: $e');
       if (mounted) {
-        SnackBars.show(context, message: 'Error generating CSV: $e', type: SnackBarType.error);
+        SnackBars.show(context, message: context.t('csv_generation_error').replaceAll('--', e.toString()), type: SnackBarType.error);
       }
     }
   }

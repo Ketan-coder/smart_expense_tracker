@@ -7,6 +7,7 @@ import '../../services/wallpaper_manager_service.dart';
 import '../../services/wallpaper_generator_service.dart';
 import '../core/helpers.dart';
 import '../data/model/daily_progress.dart';
+import '../services/langs/localzation_extension.dart';
 import '../services/progress_calendar_service.dart'; // For Enum
 
 class WallpaperSettingsPage extends StatefulWidget {
@@ -17,13 +18,14 @@ class WallpaperSettingsPage extends StatefulWidget {
 
 class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
   final WallpaperManagerService _service = WallpaperManagerService();
-  final ProgressCalendarService _progressCalendarService = ProgressCalendarService();
+  final ProgressCalendarService _progressCalendarService =
+      ProgressCalendarService();
   List<DailyProgress> _yearProgress = [];
 
   WallpaperStyle _style = WallpaperStyle.grid;
   bool _darkMode = true;
   bool _useStatusColors = false;
-
+  bool _aodSupported = false;
   double _dotScale = 1.0;
   double _verticalOffset = 0.45;
   double _gridWidth = 0.8;
@@ -38,7 +40,15 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadAndGenerate();
+      _checkAodSupport();
     });
+  }
+
+  Future<void> _checkAodSupport() async {
+    final supported = await WallpaperGeneratorService().isAodSupported();
+    if (mounted) {
+      setState(() => _aodSupported = supported);
+    }
   }
 
   Future<void> _loadAndGenerate() async {
@@ -60,7 +70,9 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
   }
 
   Future<void> _loadYearProgress() async {
-    final progress = await _progressCalendarService.getYearProgress(DateTime.now().year);
+    final progress = await _progressCalendarService.getYearProgress(
+      DateTime.now().year,
+    );
     setState(() {
       _yearProgress = progress;
     });
@@ -117,28 +129,28 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
       //   elevation: 0,
       // ),
       body: SimpleCustomAppBar(
-        title: "Wallpaper Lab",
+        title: context.t('wallpaper_lab'),
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         actionItems: [
-            // CustomAppBarActionItem(
-            // icon: Icons.refresh,
-            // label: "Refresh Progress",
-            // tooltip: "Refresh Your Progress",
-            // onPressed: () => _loadYearProgress(),
-            // ),
+          // CustomAppBarActionItem(
+          // icon: Icons.refresh,
+          // label: "Refresh Progress",
+          // tooltip: "Refresh Your Progress",
+          // onPressed: () => _loadYearProgress(),
+          // ),
           CustomAppBarActionItem(
             icon: Icons.refresh,
-            label: "Clear Cache",
-            tooltip: "Clear and Recalculate Progress",
+            label: context.t('clear_cache'),
+            tooltip: context.t('progress_data_recalculated'),
             onPressed: () async {
               await ProgressCalendarService().clearAllProgressData();
               await _loadYearProgress(); // or _generate() for wallpaper page
               if (mounted) {
                 SnackBars.show(
                   context,
-                  message: "Progress data recalculated!",
+                  message: context.t('progress_data_recalculated'),
                   type: SnackBarType.success,
                 );
               }
@@ -157,7 +169,10 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
               children: [
                 // PREVIEW
                 Container(
-                  padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 45),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 30,
+                    horizontal: 45,
+                  ),
                   margin: const EdgeInsets.all(25),
                   decoration: const BoxDecoration(
                     color: Color(0xFF111111),
@@ -174,12 +189,21 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
                         alignment: Alignment.center,
                         children: [
                           if (_currentWallpaper != null)
-                            Image.file(_currentWallpaper!, key: _imgKey, width: 180, gaplessPlayback: true),
+                            Image.file(
+                              _currentWallpaper!,
+                              key: _imgKey,
+                              width: 180,
+                              gaplessPlayback: true,
+                            ),
                           if (_isGenerating)
                             Container(
                               width: 230,
                               color: Colors.transparent,
-                              child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                         ],
                       ),
@@ -198,26 +222,59 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
                     children: [
                       // Style Selector
                       SegmentedButton<WallpaperStyle>(
-                        segments: const [
-                          ButtonSegment(value: WallpaperStyle.grid, label: Text('Classic Grid'), icon: Icon(Icons.grid_4x4)),
-                          ButtonSegment(value: WallpaperStyle.dial, label: Text('Month Dial'), icon: Icon(Icons.view_carousel)),
+                        segments: [
+                          ButtonSegment(
+                            value: WallpaperStyle.grid,
+                            label: Text(context.t('classic_grid')),
+                            icon: Icon(Icons.grid_4x4),
+                          ),
+                          ButtonSegment(
+                            value: WallpaperStyle.dial,
+                            label: Text(context.t('month_dial')),
+                            icon: Icon(Icons.view_carousel),
+                          ),
                         ],
                         selected: {_style},
                         onSelectionChanged: (newSelection) {
-                          setState(() { _style = newSelection.first; _generate(); });
+                          setState(() {
+                            _style = newSelection.first;
+                            _generate();
+                          });
                         },
                         style: ButtonStyle(
-                          backgroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? Colors.white : Colors.black),
-                          foregroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? Colors.black : Colors.white),
+                          backgroundColor: WidgetStateProperty.resolveWith(
+                            (states) => states.contains(WidgetState.selected)
+                                ? Colors.white
+                                : Colors.black,
+                          ),
+                          foregroundColor: WidgetStateProperty.resolveWith(
+                            (states) => states.contains(WidgetState.selected)
+                                ? Colors.black
+                                : Colors.white,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
 
                       Row(
                         children: [
-                          _buildToggle("Dark Mode", _darkMode, (v) => setState(() { _darkMode = v; _generate(); })),
+                          _buildToggle(
+                            context.t('dark_mode'),
+                            _darkMode,
+                            (v) => setState(() {
+                              _darkMode = v;
+                              _generate();
+                            }),
+                          ),
                           const SizedBox(width: 16),
-                          _buildToggle("Dynamic Colors", _useStatusColors, (v) => setState(() { _useStatusColors = v; _generate(); })),
+                          _buildToggle(
+                            context.t('dynamic_colors'),
+                            _useStatusColors,
+                            (v) => setState(() {
+                              _useStatusColors = v;
+                              _generate();
+                            }),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -225,14 +282,19 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
                       // Show different sliders based on selected style
                       if (_style == WallpaperStyle.grid) ...[
                         // Classic Grid sliders (keep all from old version)
-                        _buildSlider("Vertical Pos", _verticalOffset, 0.1, 0.9),
-                        _buildSlider("Grid Width (Span)", _gridWidth, 0.5, 0.95),
-                        _buildSlider("Dot Size", _dotScale, 0.8, 1.8),
-                        _buildSlider("Gap Spacing", _dotSpacing, 0.8, 1.5),
+                        _buildSlider(context.t('vertical_pos'), _verticalOffset, 0.1, 0.9),
+                        _buildSlider(
+                          context.t('grid_width_span'),
+                          _gridWidth,
+                          0.5,
+                          0.95,
+                        ),
+                        _buildSlider(context.t('dot_size'), _dotScale, 0.8, 1.8),
+                        _buildSlider(context.t('gap_spacing'), _dotSpacing, 0.8, 1.5),
                       ] else ...[
                         // Month Dial sliders (only relevant ones)
-                        _buildSlider("Vertical Pos", _verticalOffset, 0.1, 0.9),
-                        _buildSlider("Dot Size", _dotScale, 1, 1.8),
+                        _buildSlider(context.t('vertical_pos'), _verticalOffset, 0.1, 0.9),
+                        _buildSlider(context.t('dot_size'), _dotScale, 1, 1.8),
                         // Note: Month Dial doesn't use gridWidth or dotSpacing, but we keep the values saved
                       ],
 
@@ -243,29 +305,35 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
                             child: OutlinedButton(
                               onPressed: _isGenerating ? null : _generate,
                               style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 16)
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                               ),
-                              child: const Text('Regenerate'),
+                              child: Text(context.t('regenerate')),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: FilledButton(
-                              onPressed: _currentWallpaper == null ? null : _showApplyOptions,
+                              onPressed: _currentWallpaper == null
+                                  ? null
+                                  : _showApplyOptions,
                               style: FilledButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: Colors.black,
-                                  padding: const EdgeInsets.symmetric(vertical: 16)
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                               ),
-                              child: const Text('Apply'),
+                              child: Text(context.t('apply')),
                             ),
                           ),
                         ],
-                      )
+                      ),
                     ],
                   ),
-                )
+                ),
               ],
             ),
           ),
@@ -279,16 +347,16 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-            color: Colors.white10,
-            borderRadius: BorderRadius.circular(12)
+          color: Colors.white10,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
               child: Text(
-                  label,
-                  style: const TextStyle(color: Colors.white70, fontSize: 11)
+                label,
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
               ),
             ),
             Transform.scale(
@@ -317,9 +385,9 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
           child: Text(
             label,
             style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 10,
-                letterSpacing: 1
+              color: Colors.white38,
+              fontSize: 10,
+              letterSpacing: 1,
             ),
           ),
         ),
@@ -332,13 +400,13 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
             activeColor: Colors.white,
             inactiveColor: Colors.white12,
             onChanged: (v) => setState(() {
-              if (label == "Vertical Pos") {
+              if (label == context.t('vertical_pos')) {
                 _verticalOffset = v;
-              } else if (label == "Grid Width (Span)") {
+              } else if (label == context.t('grid_width_span')) {
                 _gridWidth = v;
-              } else if (label == "Dot Size") {
+              } else if (label == context.t('dot_size')) {
                 _dotScale = v;
-              } else if (label == "Gap Spacing") {
+              } else if (label == context.t('gap_spacing')) {
                 _dotSpacing = v;
               }
             }),
@@ -359,7 +427,10 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.lock_outline, color: Colors.white),
-              title: const Text('Lock Screen', style: TextStyle(color: Colors.white)),
+              title: Text(
+                context.t('lock_screen'),
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () async {
                 Navigator.pop(context);
 
@@ -374,7 +445,9 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
                   );
                 }
 
-                final success = await _service.setAsLockScreen(_currentWallpaper!);
+                final success = await _service.setAsLockScreen(
+                  _currentWallpaper!,
+                );
 
                 if (mounted) {
                   Navigator.pop(context); // Close loading
@@ -382,8 +455,8 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
                   SnackBars.show(
                     context,
                     message: success
-                        ? "✅ Lock Screen Wallpaper Updated! Lock your device to see it."
-                        : "❌ Failed to set wallpaper. Check app permissions.",
+                        ? context.t('lock_screen_wallpaper_updated')
+                        : context.t('failed_to_set_wallpaper'),
                     type: success ? SnackBarType.success : SnackBarType.error,
                   );
                 }
@@ -391,7 +464,10 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
             ),
             ListTile(
               leading: const Icon(Icons.home_outlined, color: Colors.white),
-              title: const Text('Home Screen', style: TextStyle(color: Colors.white)),
+              title: Text(
+                context.t('home_screen'),
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () async {
                 Navigator.pop(context);
 
@@ -405,7 +481,9 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
                   );
                 }
 
-                final success = await _service.setAsHomeScreen(_currentWallpaper!);
+                final success = await _service.setAsHomeScreen(
+                  _currentWallpaper!,
+                );
 
                 if (mounted) {
                   Navigator.pop(context);
@@ -413,8 +491,8 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
                   SnackBars.show(
                     context,
                     message: success
-                        ? "✅ Home Screen Wallpaper Updated!"
-                        : "❌ Failed to set wallpaper. Check app permissions.",
+                        ? context.t('home_screen_wallpaper_updated')
+                        : context.t('failed_to_set_wallpaper'),
                     type: success ? SnackBarType.success : SnackBarType.error,
                   );
                 }
@@ -422,7 +500,10 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
             ),
             ListTile(
               leading: const Icon(Icons.devices, color: Colors.white),
-              title: const Text('Both Screens', style: TextStyle(color: Colors.white)),
+              title: Text(
+                context.t('both_screens'),
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () async {
                 Navigator.pop(context);
 
@@ -436,7 +517,9 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
                   );
                 }
 
-                final success = await _service.setAsBothScreens(_currentWallpaper!);
+                final success = await _service.setAsBothScreens(
+                  _currentWallpaper!,
+                );
 
                 if (mounted) {
                   Navigator.pop(context);
@@ -444,13 +527,50 @@ class _WallpaperSettingsPageState extends State<WallpaperSettingsPage> {
                   SnackBars.show(
                     context,
                     message: success
-                        ? "✅ Wallpaper Updated on Both Screens! Lock device to see changes."
-                        : "❌ Failed to set wallpaper. Check app permissions.",
+                        ? context.t('both_screens_wallpaper_updated')
+                        : context.t('failed_to_set_wallpaper'),
                     type: success ? SnackBarType.success : SnackBarType.error,
                   );
                 }
               },
             ),
+
+            if (_aodSupported)
+              ListTile(
+                leading: const Icon(
+                  Icons.watch_later_outlined,
+                  color: Colors.amber,
+                ),
+                title: Text(
+                  context.t('always_on_display_aod'),
+                  style: TextStyle(color: Colors.amber),
+                ),
+                subtitle: Text(
+                  context.t('samsung_supported_devices'),
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  bool success = false;
+                  String message = '';
+                  success = await WallpaperGeneratorService().setAsAod(
+                    _currentWallpaper!,
+                  );
+                  message = success
+                      ? context.t('aod_wallpaper_updated')
+                      : context.t('failed_to_set_aod_wallpaper');
+
+                  if (mounted) {
+                    Navigator.pop(context);
+                    // Close loading
+                    SnackBars.show(
+                      context,
+                      message: message,
+                      type: success ? SnackBarType.success : SnackBarType.error,
+                    );
+                  }
+                },
+              ),
           ],
         ),
       ),

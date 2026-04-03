@@ -35,22 +35,22 @@
 //   // Helper methods for theme-aware colors
 //   Color _getGoalColor(ThemeData theme) {
 //     return Color.alphaBlend(
-//       theme.colorScheme.primary.withOpacity(0.7),
-//       Colors.lightGreenAccent.withOpacity(0.8),
+//       theme.colorScheme.primary.withValues(alpha:0.7),
+//       Colors.lightGreenAccent.withValues(alpha:0.8),
 //     );
 //   }
 //
 //   Color _getHabitColor(ThemeData theme) {
 //     return Color.alphaBlend(
-//       theme.colorScheme.primary.withOpacity(0.7),
-//       Colors.cyanAccent.withOpacity(0.8),
+//       theme.colorScheme.primary.withValues(alpha:0.7),
+//       Colors.cyanAccent.withValues(alpha:0.8),
 //     );
 //   }
 //
 //   Color _getProductiveColor(ThemeData theme) {
 //     return Color.alphaBlend(
-//       theme.colorScheme.primary.withOpacity(0.7),
-//       Colors.orangeAccent.withOpacity(0.8),
+//       theme.colorScheme.primary.withValues(alpha:0.7),
+//       Colors.orangeAccent.withValues(alpha:0.8),
 //     );
 //   }
 //
@@ -160,7 +160,7 @@
 //               ),
 //               Text(
 //                 '$completed / $total days',
-//                 style: TextStyle(color: theme.colorScheme.primary.withOpacity(0.7)),
+//                 style: TextStyle(color: theme.colorScheme.primary.withValues(alpha:0.7)),
 //               ),
 //             ],
 //           ),
@@ -213,24 +213,24 @@
 //       switch (day.status) {
 //         case ProgressStatus.goalCompleted:
 //           dotColor = Color.alphaBlend(
-//             themeColor.withOpacity(0.7),
-//             Colors.lightGreenAccent.withOpacity(0.8),
+//             themeColor.withValues(alpha:0.7),
+//             Colors.lightGreenAccent.withValues(alpha:0.8),
 //           );
 //           break;
 //         case ProgressStatus.habitCompleted:
 //           dotColor = Color.alphaBlend(
-//             themeColor.withOpacity(0.7),
-//             Colors.cyanAccent.withOpacity(0.8),
+//             themeColor.withValues(alpha:0.7),
+//             Colors.cyanAccent.withValues(alpha:0.8),
 //           );
 //           break;
 //         case ProgressStatus.productive:
 //           dotColor = Color.alphaBlend(
-//             themeColor.withOpacity(0.7),
-//             Colors.orangeAccent.withOpacity(0.8),
+//             themeColor.withValues(alpha:0.7),
+//             Colors.orangeAccent.withValues(alpha:0.8),
 //           );
 //           break;
 //         default:
-//           dotColor = themeColor.withOpacity(0.25);
+//           dotColor = themeColor.withValues(alpha:0.25);
 //       }
 //     } else if (isFuture) {
 //       dotColor = !Helpers().isLightMode(context)
@@ -326,6 +326,7 @@ import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:flutter/material.dart';
 import '../core/helpers.dart';
 import '../data/model/daily_progress.dart';
+import '../services/langs/localzation_extension.dart';
 import '../services/progress_calendar_service.dart';
 
 class ProgressCalendarPage extends StatefulWidget {
@@ -358,22 +359,22 @@ class _ProgressCalendarPageState extends State<ProgressCalendarPage> {
   // Helper methods for theme-aware colors
   Color _getGoalColor(ThemeData theme) {
     return Color.alphaBlend(
-      theme.colorScheme.primary.withOpacity(0.7),
-      Colors.lightGreenAccent.withOpacity(0.8),
+      theme.colorScheme.primary.withValues(alpha:0.7),
+      Colors.lightGreenAccent.withValues(alpha:0.8),
     );
   }
 
   Color _getHabitColor(ThemeData theme) {
     return Color.alphaBlend(
-      theme.colorScheme.primary.withOpacity(0.7),
-      Colors.cyanAccent.withOpacity(0.8),
+      theme.colorScheme.primary.withValues(alpha:0.7),
+      Colors.cyanAccent.withValues(alpha:0.8),
     );
   }
 
   Color _getProductiveColor(ThemeData theme) {
     return Color.alphaBlend(
-      theme.colorScheme.primary.withOpacity(0.7),
-      Colors.orangeAccent.withOpacity(0.8),
+      theme.colorScheme.primary.withValues(alpha:0.7),
+      Colors.orangeAccent.withValues(alpha:0.8),
     );
   }
 
@@ -389,22 +390,22 @@ class _ProgressCalendarPageState extends State<ProgressCalendarPage> {
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
           : SimpleCustomAppBar(
-        title: "Year Insights",
+        title: context.t('year_insights'),
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
         actionItems: [
           CustomAppBarActionItem(
             icon: Icons.refresh,
-            label: "Clear Cache",
-            tooltip: "Clear and Recalculate Progress",
+            label: context.t('clear_cache'),
+            tooltip: context.t('clear_and_recalculate_progress'),
             onPressed: () async {
               await ProgressCalendarService().clearAllProgressData();
               await _loadYearProgress();
               if (mounted) {
                 SnackBars.show(
                   context,
-                  message: "Progress data recalculated!",
+                  message: context.t('progress_data_recalculated'),
                   type: SnackBarType.success,
                 );
               }
@@ -427,7 +428,7 @@ class _ProgressCalendarPageState extends State<ProgressCalendarPage> {
                 const SizedBox(height: 24),
 
                 Text(
-                  'ACTIVITY GRID',
+                  context.t('activity_grid'),
                   style: TextStyle(
                     color: isLightMode ? Colors.grey.shade600 : Colors.white38,
                     fontSize: 10,
@@ -442,7 +443,7 @@ class _ProgressCalendarPageState extends State<ProgressCalendarPage> {
                 Divider(color: isLightMode ? Colors.grey.shade300 : Colors.white10, height: 40),
 
                 Text(
-                  'BREAKDOWN',
+                  context.t('breakdown'),
                   style: TextStyle(
                     color: isLightMode ? Colors.grey.shade600 : Colors.white38,
                     fontSize: 10,
@@ -483,9 +484,9 @@ class _ProgressCalendarPageState extends State<ProgressCalendarPage> {
                 ),
               ),
               Text(
-                '$completed / $total days',
+                '$completed / $total ${context.t('days_sm')}',
                 style: TextStyle(
-                  color: theme.colorScheme.primary.withOpacity(0.7),
+                  color: theme.colorScheme.primary.withValues(alpha:0.7),
                 ),
               ),
             ],
@@ -538,24 +539,24 @@ class _ProgressCalendarPageState extends State<ProgressCalendarPage> {
       switch (day.status) {
         case ProgressStatus.goalCompleted:
           dotColor = Color.alphaBlend(
-            themeColor.withOpacity(0.7),
-            Colors.lightGreenAccent.withOpacity(0.8),
+            themeColor.withValues(alpha:0.7),
+            Colors.lightGreenAccent.withValues(alpha:0.8),
           );
           break;
         case ProgressStatus.habitCompleted:
           dotColor = Color.alphaBlend(
-            themeColor.withOpacity(0.7),
-            Colors.cyanAccent.withOpacity(0.8),
+            themeColor.withValues(alpha:0.7),
+            Colors.cyanAccent.withValues(alpha:0.8),
           );
           break;
         case ProgressStatus.productive:
           dotColor = Color.alphaBlend(
-            themeColor.withOpacity(0.7),
-            Colors.orangeAccent.withOpacity(0.8),
+            themeColor.withValues(alpha:0.7),
+            Colors.orangeAccent.withValues(alpha:0.8),
           );
           break;
         default:
-          dotColor = themeColor.withOpacity(0.25);
+          dotColor = themeColor.withValues(alpha:0.25);
       }
     } else if (isFuture) {
       dotColor = isLightMode
@@ -578,7 +579,7 @@ class _ProgressCalendarPageState extends State<ProgressCalendarPage> {
   }
 
   Widget _buildLegend(ThemeData theme, bool isLightMode) {
-    return Wrap( spacing: 16, runSpacing: 8, children: [ _legendItem(_getGoalColor(theme), 'Goal', isLightMode), _legendItem(_getHabitColor(theme), 'Habit', isLightMode), _legendItem(_getProductiveColor(theme), 'Finance', isLightMode), _legendItem( isLightMode ? const Color(0xFFE0E0E0) : const Color(0xFF1A1A1A), 'None', isLightMode, ), ], );
+    return Wrap( spacing: 16, runSpacing: 8, children: [ _legendItem(_getGoalColor(theme), context.t('goal'), isLightMode), _legendItem(_getHabitColor(theme), context.t('habit'), isLightMode), _legendItem(_getProductiveColor(theme), context.t('finance'), isLightMode), _legendItem( isLightMode ? const Color(0xFFE0E0E0) : const Color(0xFF1A1A1A), context.t('none_legend'), isLightMode, ), ], );
 
   }
 
@@ -586,7 +587,7 @@ class _ProgressCalendarPageState extends State<ProgressCalendarPage> {
 
   Widget _buildBreakdownStats(ThemeData theme, bool isLightMode) { final goalCount = _yearProgress.where((d) => d.status == ProgressStatus.goalCompleted).length; final habitCount = _yearProgress.where((d) => d.status == ProgressStatus.habitCompleted).length; final prodCount = _yearProgress.where((d) => d.status == ProgressStatus.productive).length;
 
-  return Column( children: [ _statTile('Goals Reached', goalCount, _getGoalColor(theme), isLightMode), _statTile('Habits Maintained', habitCount, _getHabitColor(theme), isLightMode), _statTile('Financial Win Days', prodCount, _getProductiveColor(theme), isLightMode), ], );
+  return Column( children: [ _statTile(context.t('goals_reached'), goalCount, _getGoalColor(theme), isLightMode), _statTile(context.t('habits_maintained'), habitCount, _getHabitColor(theme), isLightMode), _statTile(context.t('financial_win_days'), prodCount, _getProductiveColor(theme), isLightMode), ], );
 
   }
 

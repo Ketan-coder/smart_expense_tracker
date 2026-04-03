@@ -7,6 +7,7 @@ import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/goal.dart';
 import '../../services/goal_service.dart';
+import '../../services/langs/localzation_extension.dart';
 import '../../services/number_formatter_service.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../widgets/custom_app_bar.dart';
@@ -55,40 +56,44 @@ class _GoalsPageState extends State<GoalsPage>
     List<String> messages = [];
 
     final allGoals = goalBox.values.toList();
-    final activeGoals = allGoals.where((g) => !(g.isCompleted ?? false)).toList();
-    final completedGoals = allGoals.where((g) => g.isCompleted ?? false).toList();
+    final activeGoals = allGoals.where((g) => !(g.isCompleted)).toList();
+    final completedGoals = allGoals.where((g) => g.isCompleted).toList();
 
     if (activeGoals.isEmpty && completedGoals.isEmpty) {
-      return ['Set your first goal and start achieving'];
+      return [context.t('active_goal_title_message')];
     }
 
     // Completed goals message
     if (completedGoals.isNotEmpty) {
-      messages.add('✓ ${completedGoals.length} goal${completedGoals.length > 1 ? 's' : ''} achieved');
+      // messages.add('✓ ${completedGoals.length} goal${completedGoals.length > 1 ? 's' : ''} achieved');
+      messages.add(context.t('dynamic_completed_goals_message').replaceAll('__', completedGoals.length.toString()).replaceAll('--', completedGoals.length > 1 ? 's' : ''));
     }
 
     // Active goals progress
     if (activeGoals.isNotEmpty) {
       final totalProgress = activeGoals.fold(0.0, (sum, g) => sum + g.progressPercentage) / activeGoals.length;
-      messages.add('${activeGoals.length} active goal${activeGoals.length > 1 ? 's' : ''} • ${totalProgress.toStringAsFixed(0)}% average progress');
+      // messages.add('${activeGoals.length} active goal${activeGoals.length > 1 ? 's' : ''} • ${totalProgress.toStringAsFixed(0)}% average progress');
+      messages.add(context.t('dynamic_active_goal_progress').replaceAll('__', activeGoals.length.toString()).replaceAll('--', totalProgress.toStringAsFixed(0).replaceAll('{}', totalProgress.toStringAsFixed(0))));
 
       // Find goal closest to completion
       final nearCompletion = activeGoals.where((g) => g.progressPercentage >= 75).toList();
       if (nearCompletion.isNotEmpty) {
         nearCompletion.sort((a, b) => b.progressPercentage.compareTo(a.progressPercentage));
-        messages.add('★ ${nearCompletion.first.name} at ${nearCompletion.first.progressPercentage.toStringAsFixed(0)}% completion');
+        messages.add('★ ${nearCompletion.first.name} at ${nearCompletion.first.progressPercentage.toStringAsFixed(0)}% ${context.t('completion')}');
       }
 
       // Urgent goals (less than 7 days)
-      final urgentGoals = activeGoals.where((g) => (g.daysRemaining ?? 0) <= 7 && (g.daysRemaining ?? 0) > 0).toList();
+      final urgentGoals = activeGoals.where((g) => (g.daysRemaining) <= 7 && (g.daysRemaining) > 0).toList();
       if (urgentGoals.isNotEmpty) {
-        messages.add('⏱ ${urgentGoals.length} goal${urgentGoals.length > 1 ? 's' : ''} ${urgentGoals.length == 1 ? 'needs' : 'need'} immediate attention');
+        // messages.add('⏱ ${urgentGoals.length} goal${urgentGoals.length > 1 ? 's' : ''} ${urgentGoals.length == 1 ? 'needs' : 'need'} immediate attention');
+        messages.add(context.t('dynamic_urgent_goals_title_message').replaceAll('__', urgentGoals.length.toString()).replaceAll('--', urgentGoals.length > 1 ? 's' : '').replaceAll('{}', urgentGoals.length == 1 ? 'needs' : 'need'));
       }
 
       // On-track goals
-      final onTrackGoals = activeGoals.where((g) => g.isOnTrack ?? false).toList();
+      final onTrackGoals = activeGoals.where((g) => g.isOnTrack).toList();
       if (onTrackGoals.isNotEmpty) {
-        messages.add('${onTrackGoals.length} goal${onTrackGoals.length > 1 ? 's' : ''} on track for completion');
+        // messages.add('${onTrackGoals.length} goal${onTrackGoals.length > 1 ? 's' : ''} on track for completion');
+        messages.add(context.t('dynamic_track_completion_title_message').replaceAll('__', onTrackGoals.length.toString()).replaceAll('--', onTrackGoals.length > 1 ? 's' : ''));
       }
     }
 
@@ -113,8 +118,8 @@ class _GoalsPageState extends State<GoalsPage>
         actionItems: [
           CustomAppBarActionItem(
             icon: Icons.add_rounded,
-            label: "Add New Goal",
-            tooltip: "Add New Goal to Track",
+            label: context.t('add_goal'),
+            tooltip: context.t('add_goal_message'),
             onPressed: () => _showAddGoalSheet(),
           ),
         ],
@@ -160,10 +165,10 @@ class _GoalsPageState extends State<GoalsPage>
                     ),
                     labelColor: Theme.of(context).colorScheme.onPrimaryContainer,
                     unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
-                    tabs: const [
-                      Tab(text: "Active"),
-                      Tab(text: "Completed"),
-                      Tab(text: "All"),
+                    tabs: [
+                      Tab(text: context.t('active')),
+                      Tab(text: context.t('completed')),
+                      Tab(text: context.t('all')),
                     ],
                   ),
                 ),
@@ -196,10 +201,10 @@ class _GoalsPageState extends State<GoalsPage>
           bool matches = false;
           switch (filter) {
             case 'active':
-              matches = !(goal.isCompleted ?? false);
+              matches = !(goal.isCompleted);
               break;
             case 'completed':
-              matches = goal.isCompleted ?? false;
+              matches = goal.isCompleted;
               break;
             case 'all':
               matches = true;
@@ -217,8 +222,8 @@ class _GoalsPageState extends State<GoalsPage>
         // Safe sorting
         goals.sort((a, b) {
           try {
-            final aDate = a.updatedAt ?? DateTime.now();
-            final bDate = b.updatedAt ?? DateTime.now();
+            final aDate = a.updatedAt;
+            final bDate = b.updatedAt;
             return bDate.compareTo(aDate);
           } catch (e) {
             return 0;
@@ -250,11 +255,11 @@ class _GoalsPageState extends State<GoalsPage>
 
     // Safe progress calculation
     final progress = goal.progressPercentage;
-    final daysLeft = goal.daysRemaining ?? 0;
+    final daysLeft = goal.daysRemaining;
 
     // Safe current and target amount access
-    final currentAmount = goal.currentAmount ?? 0.0;
-    final targetAmount = goal.targetAmount ?? 1.0;
+    final currentAmount = goal.currentAmount;
+    final targetAmount = goal.targetAmount;
 
     Color getPriorityColor(String priority) {
       switch (priority.toLowerCase()) {
@@ -297,7 +302,7 @@ class _GoalsPageState extends State<GoalsPage>
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      _getGoalIcon(goal.category ?? 'general'),
+                      _getGoalIcon(goal.category),
                       color: colorScheme.onPrimaryContainer,
                       size: 24,
                     ),
@@ -309,7 +314,7 @@ class _GoalsPageState extends State<GoalsPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          goal.name ?? 'Unnamed Goal',
+                          goal.name,
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                             fontSize: 18,
@@ -334,16 +339,16 @@ class _GoalsPageState extends State<GoalsPage>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: getPriorityColor(goal.priority ?? 'medium').withValues( alpha:  0.1),
+                      color: getPriorityColor(goal.priority).withValues( alpha:  0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: getPriorityColor(goal.priority ?? 'medium').withValues(alpha: .3)),
+                      border: Border.all(color: getPriorityColor(goal.priority).withValues(alpha: .3)),
                     ),
                     child: Text(
-                      goal.priority ?? 'Medium',
+                      goal.priority,
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: getPriorityColor(goal.priority ?? 'medium'),
+                        color: getPriorityColor(goal.priority),
                       ),
                     ),
                   ),
@@ -403,14 +408,14 @@ class _GoalsPageState extends State<GoalsPage>
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '$daysLeft days left',
+                    '$daysLeft ${context.t('days_left')}',
                     style: TextStyle(
                       fontSize: 11,
                       color: daysLeft <= 7 ? Colors.red : colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const Spacer(),
-                  if (!(goal.isCompleted ?? false) && (goal.isOnTrack ?? false))
+                  if (!(goal.isCompleted) && (goal.isOnTrack))
                     Row(
                       children: [
                         Icon(
@@ -420,7 +425,7 @@ class _GoalsPageState extends State<GoalsPage>
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'On track',
+                          context.t('on_track'),
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.green,
@@ -440,10 +445,10 @@ class _GoalsPageState extends State<GoalsPage>
   Widget _buildEmptyState(BuildContext context, String filter) {
     final colorScheme = Theme.of(context).colorScheme;
     final message = filter == 'active'
-        ? "No active goals. Create your first goal to start tracking!"
+        ? context.t('no_active_goals_message')
         : filter == 'completed'
-        ? "No completed goals yet. Keep working towards your goals!"
-        : "No goals created yet.";
+        ? context.t('no_completed_goals_message')
+        : context.t('empty_goal_screen_message');
 
     final icon = filter == 'active'
         ? Icons.flag_outlined
@@ -464,7 +469,7 @@ class _GoalsPageState extends State<GoalsPage>
             ),
             const SizedBox(height: 16),
             Text(
-              "No Goals",
+              context.t('no_goals'),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -486,7 +491,7 @@ class _GoalsPageState extends State<GoalsPage>
             if (filter != 'completed')
               FilledButton(
                 onPressed: () => _showAddGoalSheet(),
-                child: const Text("Create Goal"),
+                child: Text(context.t('add_goal')),
               ),
           ],
         ),
@@ -497,7 +502,7 @@ class _GoalsPageState extends State<GoalsPage>
   void _showAddGoalSheet() {
     BottomSheetUtil.show(
         context: context,
-        title: 'Goal Details',
+        title: context.t('goal_details'),
         height: MediaQuery.of(context).size.height / 1.35,
         child: AddEditGoalSheet(),
     );
@@ -527,16 +532,16 @@ class _GoalsPageState extends State<GoalsPage>
         children: [
           ListTile(
             leading: const Icon(Icons.edit_rounded),
-            title: const Text('Edit Goal'),
+            title: Text(context.t('edit_goal')),
             onTap: () {
               Navigator.pop(context);
               _showEditGoalSheet(goal, key);
             },
           ),
-          if (!(goal.isCompleted ?? false))
+          if (!(goal.isCompleted))
             ListTile(
               leading: const Icon(Icons.add_chart_rounded),
-              title: const Text('Add Installment'),
+              title: Text(context.t('add_installments')),
               onTap: () {
                 Navigator.pop(context);
                 _showAddInstallmentSheet(goal, key);
@@ -544,9 +549,9 @@ class _GoalsPageState extends State<GoalsPage>
             ),
           ListTile(
             leading: Icon(
-              (goal.isCompleted ?? false) ? Icons.replay_rounded : Icons.check_circle_rounded,
+              (goal.isCompleted) ? Icons.replay_rounded : Icons.check_circle_rounded,
             ),
-            title: Text((goal.isCompleted ?? false) ? 'Mark as Active' : 'Mark as Completed'),
+            title: Text((goal.isCompleted) ? context.t('mark_as_active') : context.t('mark_as_complete')),
             onTap: () {
               Navigator.pop(context);
               _toggleGoalCompletion(goal, key);
@@ -555,7 +560,7 @@ class _GoalsPageState extends State<GoalsPage>
           const Divider(),
           ListTile(
             leading: const Icon(Icons.delete_rounded, color: Colors.red),
-            title: const Text('Delete Goal', style: TextStyle(color: Colors.red)),
+            title: Text(context.t('delete_goal'), style: TextStyle(color: Colors.red)),
             onTap: () {
               Navigator.pop(context);
               _showDeleteConfirmation(goal, key);
@@ -616,7 +621,7 @@ class _GoalsPageState extends State<GoalsPage>
   void _showEditGoalSheet(Goal goal, dynamic key) {
     BottomSheetUtil.show(
         context: context,
-        title: 'Add/Edit Goal',
+        title: context.t('add_or_edit_goal'),
         child: AddEditGoalSheet(goal: goal, goalKey: key)
     );
     // showModalBottomSheet(
@@ -637,25 +642,25 @@ class _GoalsPageState extends State<GoalsPage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Add Installment to ${goal.name ?? "Goal"}',
+              context.t('dynamic_add_installment_to').replaceAll('__', goal.name),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 20),
             TextField(
               controller: amountController,
-              decoration: const InputDecoration(
-                labelText: 'Amount',
+              decoration: InputDecoration(
+                labelText: context.loc.amount,
                 prefixText: '₹ ',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description (Optional)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.loc.description,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 24),
@@ -663,7 +668,7 @@ class _GoalsPageState extends State<GoalsPage>
               onPressed: () async {
                 final amount = double.tryParse(amountController.text) ?? 0;
                 if (amount <= 0) {
-                  SnackBars.show(context, message: 'Please enter a valid amount', type: SnackBarType.error);
+                  SnackBars.show(context, message: context.t('valid_amount_error'), type: SnackBarType.error);
                   return;
                 }
 
@@ -679,12 +684,12 @@ class _GoalsPageState extends State<GoalsPage>
                   Navigator.pop(context);
                   SnackBars.show(
                     context,
-                    message: 'Installment added successfully',
+                    message: context.t('installment_added_message'),
                     type: SnackBarType.success,
                   );
                 }
               },
-              child: const Text('Add Installment'),
+              child: Text(context.t('add_installments')),
             ),
           ],
         ));
@@ -778,7 +783,7 @@ class _GoalsPageState extends State<GoalsPage>
     if (success && context.mounted) {
       SnackBars.show(
         context,
-        message: updatedGoal.isCompleted ? 'Goal marked as completed!' : 'Goal marked as active',
+        message: updatedGoal.isCompleted ? context.t('goal_mark_complete') : context.t('goal_mark_active'),
         type: SnackBarType.success,
       );
     }
@@ -788,12 +793,12 @@ class _GoalsPageState extends State<GoalsPage>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Goal?'),
-        content: Text('Are you sure you want to delete "${goal.name ?? "this goal"}"? This action cannot be undone.'),
+        title: Text(context.t('delete_goal_question')),
+        content: Text(context.t('dynamic_delete_goal_confirmation_message').replaceAll('__', goal.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.loc.cancel),
           ),
           FilledButton(
             onPressed: () async {
@@ -802,13 +807,13 @@ class _GoalsPageState extends State<GoalsPage>
               if (success && context.mounted) {
                 SnackBars.show(
                   context,
-                  message: 'Goal deleted successfully',
+                  message: context.t('goal_deleted_message'),
                   type: SnackBarType.success,
                 );
               }
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text(context.loc.delete),
           ),
         ],
       ),

@@ -7,6 +7,7 @@ import 'package:hive_ce_flutter/hive_flutter.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/loan.dart';
+import '../../services/langs/localzation_extension.dart';
 import '../../services/loan_service.dart';
 import '../../services/loan_helpers.dart';
 import '../services/number_formatter_service.dart';
@@ -50,7 +51,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
 
     return Scaffold(
       body: SimpleCustomAppBar(
-        title: "Loans",
+        title: context.t('loans'),
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
@@ -81,10 +82,10 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                   ),
                   labelColor: Colors.white,
                   unselectedLabelColor: Theme.of(context).colorScheme.onSurface,
-                  tabs: const [
-                    Tab(text: 'All'),
-                    Tab(text: 'Lent'),
-                    Tab(text: 'Borrowed'),
+                  tabs: [
+                    Tab(text: context.t('all')),
+                    Tab(text: context.t('lent_tab')),
+                    Tab(text: context.t('borrowed_tab')),
                   ],
                 ),
               ),
@@ -108,7 +109,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddLoanSheet,
         icon: const Icon(Icons.add),
-        label: const Text('Add Loan'),
+        label: Text(context.t('add_loan')),
       ),
     );
   }
@@ -162,8 +163,8 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
             ),
             const SizedBox(height: 16),
             Text(
-              filter == null ? 'No loans yet' :
-              filter == LoanType.lent ? 'No money lent' : 'No money borrowed',
+              filter == null ? context.t('no_loans_yet') :
+              filter == LoanType.lent ? context.t('no_money_lent') : context.t('no_money_borrowed'),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: Colors.grey,
               ),
@@ -173,7 +174,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
               TextButton.icon(
                 onPressed: _showAddLoanSheet,
                 icon: const Icon(Icons.add),
-                label: const Text('Add a loan'),
+                label: Text(context.t('add_a_loan')),
               ),
             ],
           ],
@@ -290,7 +291,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                             ],
                           ),
                           Text(
-                            isLent ? 'You lent money' : 'You borrowed',
+                            isLent ? context.t('you_lent_money') : context.t('you_borrowed_money'),
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.grey,
                             ),
@@ -312,7 +313,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                         ),
                         if (loan.totalInterest > 0)
                           Text(
-                            '+${NumberFormatterService().formatForDisplay(loan.totalInterest)} int.',
+                            '+${NumberFormatterService().formatForDisplay(loan.totalInterest)} ${context.t('interest_short')}',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.orange,
                               fontSize: 10,
@@ -320,7 +321,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                           ),
                         if (loan.remainingAmount > 0 && loan.remainingAmount != loan.totalAmount)
                           Text(
-                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(loan.remainingAmount)} left',
+                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(loan.remainingAmount)} ${context.t('left')}',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.grey,
                             ),
@@ -373,7 +374,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                               const Icon(Icons.calendar_month, size: 12, color: Colors.blue),
                               const SizedBox(width: 4),
                               Text(
-                                '$_currentCurrency ${NumberFormatterService().formatForDisplay(loan.emiAmount!)}/mo',
+                                '$_currentCurrency ${NumberFormatterService().formatForDisplay(loan.emiAmount!)}${context.t('emi_per_month')}',
                                 style: const TextStyle(
                                   fontSize: 10,
                                   color: Colors.blue,
@@ -446,7 +447,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                             const Icon(Icons.event, size: 12, color: Colors.blue),
                             const SizedBox(width: 4),
                             Text(
-                              'Next: ${LoanHelpers.formatDate(loan.nextPaymentDate!)}',
+                              '${context.t('next_payment_label')}: ${LoanHelpers.formatDate(loan.nextPaymentDate!)}',
                               style: const TextStyle(
                                 fontSize: 10,
                                 color: Colors.blue,
@@ -489,7 +490,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
                         const Icon(Icons.warning, size: 16, color: Colors.red),
                         const SizedBox(width: 8),
                         Text(
-                          'Penalty: $_currentCurrency ${NumberFormatterService().formatForDisplay(loan.penaltyAmount)}',
+                          '${context.t('penalty')}: $_currentCurrency ${NumberFormatterService().formatForDisplay(loan.penaltyAmount)}',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Colors.red,
@@ -512,23 +513,23 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
     return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Loan?'),
-        content: Text('Delete loan of $_currentCurrency ${NumberFormatterService().formatForDisplay(loan.totalAmount)} ${loan.directionText}?'),
+        title: Text(context.t('delete_loan_question')),
+        content: Text(context.t('dynamic_delete_loan_message').replaceAll('__', '$_currentCurrency ${NumberFormatterService().formatForDisplay(loan.totalAmount)}').replaceAll('-- {}', loan.directionText)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.t('cancel')),
           ),
           TextButton(
             onPressed: () async {
               await _loanService.deleteLoan(loan.id);
               if (mounted) {
                 Navigator.pop(context, true);
-                SnackBars.show(context, message: 'Loan deleted', type: SnackBarType.success);
+                SnackBars.show(context, message: context.t('loan_deleted'), type: SnackBarType.success);
               }
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text(context.t('delete')),
           ),
         ],
       ),
@@ -538,7 +539,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
   void _showLoanDetails(Loan loan) {
     BottomSheetUtil.show(
       context: context,
-      title: 'Loan Details',
+      title: context.t('loan_details'),
       child: _LoanDetailsContent(
         loan: loan,
         currency: _currentCurrency,
@@ -551,7 +552,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
   void _showAddLoanSheet() {
     BottomSheetUtil.show(
       context: context,
-      title: 'New Loan',
+      title: context.t('new_loan'),
       child: _AddLoanContent(currency: _currentCurrency),
     );
   }
@@ -559,7 +560,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
   void _showEditLoanSheet(Loan loan) {
     BottomSheetUtil.show(
       context: context,
-      title: 'Edit Loan',
+      title: context.t('edit_loan'),
       child: _AddLoanContent(currency: _currentCurrency, existingLoan: loan),
     );
   }
@@ -567,7 +568,7 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
   void _showAddPaymentSheet(Loan loan) {
     BottomSheetUtil.show(
       context: context,
-      title: 'Add Payment',
+      title: context.t('add_payment'),
       child: _AddPaymentContent(loan: loan, currency: _currentCurrency),
     );
   }
@@ -667,8 +668,8 @@ class _AddLoanContentState extends State<_AddLoanContent> {
             children: [
               Expanded(
                 child: _buildTypeButton(
-                  'Lent',
-                  'You gave money',
+                  context.t('lent_type'),
+                  context.t('you_gave_money'),
                   LoanType.lent,
                   Colors.green,
                   Icons.arrow_upward,
@@ -677,8 +678,8 @@ class _AddLoanContentState extends State<_AddLoanContent> {
               const SizedBox(width: 12),
               Expanded(
                 child: _buildTypeButton(
-                  'Borrowed',
-                  'You received money',
+                  context.t('borrowed_type'),
+                  context.t('you_received_money'),
                   LoanType.borrowed,
                   Colors.red,
                   Icons.arrow_downward,
@@ -692,7 +693,7 @@ class _AddLoanContentState extends State<_AddLoanContent> {
           DropdownButtonFormField<LoanCreditorType>(
             value: _creditorType,
             decoration: InputDecoration(
-              labelText: 'Creditor Type',
+              labelText: context.t('creditor_type'),
               border: const OutlineInputBorder(),
               prefixIcon: Icon(LoanHelpers.getCreditorIcon(_creditorType)),
             ),
@@ -710,7 +711,7 @@ class _AddLoanContentState extends State<_AddLoanContent> {
           TextField(
             controller: _nameController,
             decoration: InputDecoration(
-              labelText: _creditorType == LoanCreditorType.person ? 'Person Name *' : 'Institution Name *',
+              labelText: _creditorType == LoanCreditorType.person ? context.t('person_name_required') : context.t('institution_name_required'),
               border: const OutlineInputBorder(),
               prefixIcon: const Icon(Icons.person),
             ),
@@ -722,11 +723,11 @@ class _AddLoanContentState extends State<_AddLoanContent> {
           TextField(
             controller: _amountController,
             decoration: InputDecoration(
-              labelText: 'Principal Amount *',
+              labelText: context.t('principal_amount_required'),
               border: const OutlineInputBorder(),
               prefixText: '${widget.currency} ',
               prefixIcon: const Icon(Icons.money),
-              helperText: 'Amount without interest',
+              helperText: context.t('amount_without_interest_required'),
             ),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
@@ -737,7 +738,7 @@ class _AddLoanContentState extends State<_AddLoanContent> {
           if (_creditorType != LoanCreditorType.person || _interestType != InterestType.none) ...[
             const Divider(),
             Text(
-              'Interest Details',
+              context.t('interest_details'),
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -747,25 +748,25 @@ class _AddLoanContentState extends State<_AddLoanContent> {
             // Interest Type
             DropdownButtonFormField<InterestType>(
               value: _interestType,
-              decoration: const InputDecoration(
-                labelText: 'Interest Type',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.calculate),
+              decoration: InputDecoration(
+                labelText: context.t('interest_type'),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.calculate),
               ),
               items: InterestType.values.map((type) {
                 String label;
                 switch (type) {
                   case InterestType.none:
-                    label = 'No Interest';
+                    label = context.t('no_interest');
                     break;
                   case InterestType.simple:
-                    label = 'Simple Interest';
+                    label = context.t('simple_interest');
                     break;
                   case InterestType.compound:
-                    label = 'Compound Interest';
+                    label = context.t('compound_interest');
                     break;
                   case InterestType.reducing:
-                    label = 'Reducing Balance (EMI)';
+                    label = context.t('reducing_balance_emi');
                     break;
                 }
                 return DropdownMenuItem(value: type, child: Text(label));
@@ -778,12 +779,12 @@ class _AddLoanContentState extends State<_AddLoanContent> {
               // Interest Rate
               TextField(
                 controller: _interestRateController,
-                decoration: const InputDecoration(
-                  labelText: 'Interest Rate (% per annum)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.percent),
+                decoration: InputDecoration(
+                  labelText: context.t('interest_rate_with_per_annum'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.percent),
                   suffixText: '%',
-                  helperText: 'Annual interest rate',
+                  helperText: context.t('annual_interest_rate'),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
@@ -793,11 +794,11 @@ class _AddLoanContentState extends State<_AddLoanContent> {
               // Tenure
               TextField(
                 controller: _tenureController,
-                decoration: const InputDecoration(
-                  labelText: 'Tenure (months)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.date_range),
-                  helperText: 'Loan duration in months',
+                decoration: InputDecoration(
+                  labelText: context.t('tenure_in_months'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.date_range),
+                  helperText: context.t('loan_duration_in_months'),
                 ),
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -807,10 +808,10 @@ class _AddLoanContentState extends State<_AddLoanContent> {
               // Payment Frequency
               DropdownButtonFormField<PaymentFrequency>(
                 value: _paymentFrequency,
-                decoration: const InputDecoration(
-                  labelText: 'Payment Frequency',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.repeat),
+                decoration: InputDecoration(
+                  labelText: context.t('payment_frequency'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.repeat),
                 ),
                 items: [
                   PaymentFrequency.monthly,
@@ -831,11 +832,11 @@ class _AddLoanContentState extends State<_AddLoanContent> {
                 TextField(
                   controller: _emiController,
                   decoration: InputDecoration(
-                    labelText: 'EMI Amount',
+                    labelText: context.t('emi_amt'),
                     border: const OutlineInputBorder(),
                     prefixText: '${widget.currency} ',
                     prefixIcon: const Icon(Icons.payment),
-                    helperText: 'Fixed installment amount',
+                    helperText: context.t('fixed_installment_amt'),
                   ),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
@@ -845,12 +846,12 @@ class _AddLoanContentState extends State<_AddLoanContent> {
               // Penalty Rate
               TextField(
                 controller: _penaltyRateController,
-                decoration: const InputDecoration(
-                  labelText: 'Penalty Rate (% per month)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.warning),
+                decoration: InputDecoration(
+                  labelText: context.t('penalty_rate_per_month'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.warning),
                   suffixText: '%',
-                  helperText: 'Late payment penalty (optional)',
+                  helperText: context.t('late_payment_penalty_opt'),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
@@ -864,11 +865,11 @@ class _AddLoanContentState extends State<_AddLoanContent> {
           // Description
           TextField(
             controller: _descriptionController,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.notes),
-              helperText: 'Purpose or notes',
+            decoration: InputDecoration(
+              labelText: context.t('description'),
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.notes),
+              helperText: context.t('purpose_or_notes_loan'),
             ),
             maxLines: 2,
           ),
@@ -878,10 +879,10 @@ class _AddLoanContentState extends State<_AddLoanContent> {
           if (_creditorType != LoanCreditorType.person) ...[
             DropdownButtonFormField<LoanPurpose>(
               value: _purpose,
-              decoration: const InputDecoration(
-                labelText: 'Loan Purpose',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.category),
+              decoration: InputDecoration(
+                labelText: context.t('loan_purpose'),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.category),
               ),
               items: LoanPurpose.values.map((purpose) {
                 return DropdownMenuItem(
@@ -896,11 +897,11 @@ class _AddLoanContentState extends State<_AddLoanContent> {
             // Account Number
             TextField(
               controller: _accountNumberController,
-              decoration: const InputDecoration(
-                labelText: 'Account/Reference Number',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.numbers),
-                helperText: 'Loan account number',
+              decoration: InputDecoration(
+                labelText: context.t('account_reference_number'),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.numbers),
+                helperText: context.t('loan_account_no'),
               ),
             ),
             const SizedBox(height: 16),
@@ -910,15 +911,15 @@ class _AddLoanContentState extends State<_AddLoanContent> {
           InkWell(
             onTap: _pickDueDate,
             child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Final Due Date',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.calendar_today),
+              decoration: InputDecoration(
+                labelText: context.t('final_due_date'),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.calendar_today),
               ),
               child: Text(
                 _selectedDueDate != null
                     ? LoanHelpers.formatDate(_selectedDueDate!)
-                    : 'Select due date',
+                    : context.t('select_due_date'),
                 style: TextStyle(
                   color: _selectedDueDate == null ? Colors.grey : null,
                 ),
@@ -932,15 +933,15 @@ class _AddLoanContentState extends State<_AddLoanContent> {
             InkWell(
               onTap: _pickFirstPaymentDate,
               child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'First Payment Date',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.event),
+                decoration: InputDecoration(
+                  labelText: context.t('first_payment_date'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.event),
                 ),
                 child: Text(
                   _firstPaymentDate != null
                       ? LoanHelpers.formatDate(_firstPaymentDate!)
-                      : 'Select first payment date',
+                      : context.t('select_first_payment_date'),
                   style: TextStyle(
                     color: _firstPaymentDate == null ? Colors.grey : null,
                   ),
@@ -952,10 +953,10 @@ class _AddLoanContentState extends State<_AddLoanContent> {
           // Payment Method
           DropdownButtonFormField<String>(
             value: _selectedMethod,
-            decoration: const InputDecoration(
-              labelText: 'Payment Method',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.payment),
+            decoration: InputDecoration(
+              labelText: context.t('method'),
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.payment),
             ),
             items: Helpers().getPaymentMethods()
                 .map((m) => DropdownMenuItem(value: m, child: Text(m)))
@@ -968,10 +969,10 @@ class _AddLoanContentState extends State<_AddLoanContent> {
           if (_creditorType == LoanCreditorType.person)
             TextField(
               controller: _phoneController,
-              decoration: const InputDecoration(
-                labelText: 'Phone Number (Optional)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.phone),
+              decoration: InputDecoration(
+                labelText: context.t('phone_no_opt'),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.phone),
               ),
               keyboardType: TextInputType.phone,
             ),
@@ -979,8 +980,8 @@ class _AddLoanContentState extends State<_AddLoanContent> {
 
           // Reminder toggle
           SwitchListTile(
-            title: const Text('Enable Reminders'),
-            subtitle: const Text('Get notified before due date'),
+            title: Text(context.t('enable_reminders')),
+            subtitle: Text(context.t('enable_reminders_desc')),
             value: _reminderEnabled,
             onChanged: (v) => setState(() => _reminderEnabled = v),
             contentPadding: EdgeInsets.zero,
@@ -989,8 +990,8 @@ class _AddLoanContentState extends State<_AddLoanContent> {
           // Auto-debit toggle (if bank)
           if (_creditorType != LoanCreditorType.person)
             SwitchListTile(
-              title: const Text('Auto-debit Enabled'),
-              subtitle: const Text('Automatic payment from account'),
+              title: Text(context.t('auto_debit_enabled')),
+              subtitle: Text(context.t('auto_debit_desc')),
               value: _autoDebitEnabled,
               onChanged: (v) => setState(() => _autoDebitEnabled = v),
               contentPadding: EdgeInsets.zero,
@@ -1001,10 +1002,10 @@ class _AddLoanContentState extends State<_AddLoanContent> {
             const SizedBox(height: 16),
             TextField(
               controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: 'Additional Notes (Optional)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.note_alt),
+              decoration: InputDecoration(
+                labelText: context.t('additional_notes'),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.note_alt),
               ),
               maxLines: 3,
             ),
@@ -1021,10 +1022,10 @@ class _AddLoanContentState extends State<_AddLoanContent> {
             ),
             child: Text(
               widget.existingLoan != null
-                  ? 'Update Loan'
+                  ? context.t('update_loan')
                   : _selectedType == LoanType.lent
-                  ? 'Add Lent Money'
-                  : 'Add Borrowed Money',
+                  ? context.t('add_lent_money')
+                  : context.t('add_borrowed_money'),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
@@ -1185,10 +1186,10 @@ class _AddLoanContentState extends State<_AddLoanContent> {
       SnackBars.show(
         context,
         message: widget.existingLoan != null
-            ? 'Loan updated!'
+            ? context.t('loan_updated_success')
             : _selectedType == LoanType.lent
-            ? '💰 Money lent recorded!'
-            : '💵 Borrowed money recorded!',
+            ? context.t('money_lent_recorded')
+            : context.t('money_borrowed_recorded'),
         type: SnackBarType.success,
       );
     }
@@ -1243,7 +1244,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
           child: Column(
             children: [
               Text(
-                'Remaining: ${widget.currency} ${NumberFormatterService().formatForDisplay(widget.loan.remainingAmount)}',
+                '${context.t('remaining')}: ${widget.currency} ${NumberFormatterService().formatForDisplay(widget.loan.remainingAmount)}',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1252,7 +1253,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
               if (widget.loan.emiAmount != null) ...[
                 const SizedBox(height: 4),
                 Text(
-                  'Suggested EMI: ${widget.currency} ${NumberFormatterService().formatForDisplay(widget.loan.emiAmount!)}',
+                  '${context.t('suggested_emi')}: ${widget.currency} ${NumberFormatterService().formatForDisplay(widget.loan.emiAmount!)}',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey.shade700,
@@ -1262,7 +1263,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
               if (widget.loan.nextPaymentDate != null) ...[
                 const SizedBox(height: 4),
                 Text(
-                  'Next Due: ${LoanHelpers.formatDate(widget.loan.nextPaymentDate!)}',
+                  '${context.t('next_due')}: ${LoanHelpers.formatDate(widget.loan.nextPaymentDate!)}',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey.shade700,
@@ -1282,9 +1283,9 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
             _buildQuickAmountButton('50%', widget.loan.remainingAmount * 0.5),
             const SizedBox(width: 8),
             if (widget.loan.emiAmount != null)
-              _buildQuickAmountButton('EMI', widget.loan.emiAmount!)
+              _buildQuickAmountButton(context.t('emi'), widget.loan.emiAmount!)
             else
-              _buildQuickAmountButton('Full', widget.loan.remainingAmount),
+              _buildQuickAmountButton(context.t('full'), widget.loan.remainingAmount),
           ],
         ),
         const SizedBox(height: 20),
@@ -1293,11 +1294,11 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
         TextField(
           controller: _amountController,
           decoration: InputDecoration(
-            labelText: 'Payment Amount',
+            labelText: context.t('payment_amount'),
             border: const OutlineInputBorder(),
             prefixText: '${widget.currency} ',
             helperText: widget.loan.interestRate > 0
-                ? 'Will be split between principal & interest'
+                ? context.t('payment_split_desc')
                 : null,
           ),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1323,7 +1324,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
                     children: [
                       Column(
                         children: [
-                          const Text('Principal', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          Text(context.t('principal'), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                           Text(
                             '${widget.currency} ${split['principal']!.toStringAsFixed(0)}',
                             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
@@ -1332,7 +1333,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
                       ),
                       Column(
                         children: [
-                          const Text('Interest', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          Text(context.t('interest'), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                           Text(
                             '${widget.currency} ${split['interest']!.toStringAsFixed(0)}',
                             style: const TextStyle(
@@ -1356,10 +1357,10 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
         // Method
         DropdownButtonFormField<String>(
           value: _selectedMethod,
-          decoration: const InputDecoration(
-            labelText: 'Payment Method',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.payment),
+          decoration: InputDecoration(
+            labelText: context.t('method'),
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.payment),
           ),
           items: Helpers().getPaymentMethods()
               .map((m) => DropdownMenuItem(value: m, child: Text(m)))
@@ -1372,7 +1373,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
         TextField(
           controller: _noteController,
           decoration: InputDecoration(
-            labelText: 'Note (Optional)',
+            labelText: context.t('note_optional'),
             border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.note),
             hintText: widget.loan.emiAmount != null ? 'EMI payment' : null,
@@ -1386,7 +1387,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
           style: FilledButton.styleFrom(
             minimumSize: const Size(double.infinity, 50),
           ),
-          child: const Text('Record Payment'),
+          child: Text(context.t('record_payment')),
         ),
       ],
     );
@@ -1427,7 +1428,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
       Navigator.pop(context);
       SnackBars.show(
         context,
-        message: 'Payment of ${widget.currency} $paymentAmount recorded!',
+        message: context.t('payment_recorded'),
         type: SnackBarType.success,
       );
     }
@@ -1490,7 +1491,7 @@ class _LoanDetailsContent extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              '${loan.creditorTypeText} • ${isLent ? "You lent" : "You borrowed"}',
+                              '${loan.creditorTypeText} • ${isLent ? context.t("you_lent_money") : context.t("you_borrowed_money")}',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Colors.grey,
                               ),
@@ -1506,10 +1507,10 @@ class _LoanDetailsContent extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildAmountInfo('Principal', '$currency ${NumberFormatterService().formatForDisplay(loan.principalAmount)}'),
+                      _buildAmountInfo(context.t('principal'), '$currency ${NumberFormatterService().formatForDisplay(loan.principalAmount)}'),
                       if (loan.totalInterest > 0)
-                        _buildAmountInfo('Interest', '$currency ${NumberFormatterService().formatForDisplay(loan.totalInterest)}', Colors.orange),
-                      _buildAmountInfo('Total', '$currency ${NumberFormatterService().formatForDisplay(loan.totalAmount)}', Colors.blue),
+                        _buildAmountInfo(context.t('interest'), '$currency ${NumberFormatterService().formatForDisplay(loan.totalInterest)}', Colors.orange),
+                      _buildAmountInfo(context.t('total'), '$currency ${NumberFormatterService().formatForDisplay(loan.totalAmount)}', Colors.blue),
                     ],
                   ),
                   const Divider(height: 32),
@@ -1518,8 +1519,8 @@ class _LoanDetailsContent extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildAmountInfo('Paid', '$currency ${NumberFormatterService().formatForDisplay(loan.paidAmount)}', Colors.green),
-                      _buildAmountInfo('Remaining', '$currency ${NumberFormatterService().formatForDisplay(loan.remainingAmount)}', Colors.red),
+                      _buildAmountInfo(context.t('paid'), '$currency ${NumberFormatterService().formatForDisplay(loan.paidAmount)}', Colors.green),
+                      _buildAmountInfo(context.t('remaining'), '$currency ${NumberFormatterService().formatForDisplay(loan.remainingAmount)}', Colors.red),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -1537,7 +1538,7 @@ class _LoanDetailsContent extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${(loan.progress * 100).toStringAsFixed(1)}% paid',
+                      '${(loan.progress * 100).toStringAsFixed(1)}% ${context.t('percent_paid')}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -1560,7 +1561,7 @@ class _LoanDetailsContent extends StatelessWidget {
                         const Icon(Icons.calculate, size: 20, color: Colors.orange),
                         const SizedBox(width: 8),
                         Text(
-                          'Interest Details',
+                          context.t('interest_details'),
                           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -1568,14 +1569,14 @@ class _LoanDetailsContent extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    _buildInfoRow('Rate', '${loan.interestRate}% per annum'),
-                    _buildInfoRow('Type', loan.interestTypeText),
+                    _buildInfoRow(context.t('interest_rate_with_per_annum'), '${loan.interestRate}%'),
+                    _buildInfoRow(context.t('interest_type'), loan.interestTypeText),
                     if (loan.tenureMonths != null)
-                      _buildInfoRow('Tenure', '${loan.tenureMonths} months'),
+                      _buildInfoRow(context.t('tenure_in_months'), '${loan.tenureMonths}'),
                     if (loan.emiAmount != null)
-                      _buildInfoRow('EMI', '$currency ${NumberFormatterService().formatForDisplay(loan.emiAmount!)}'),
+                      _buildInfoRow(context.t('emi_amt'), '$currency ${NumberFormatterService().formatForDisplay(loan.emiAmount!)}'),
                     if (loan.paymentFrequency != PaymentFrequency.custom)
-                      _buildInfoRow('Frequency', loan.paymentFrequency.name),
+                      _buildInfoRow(context.t('payment_frequency'), loan.paymentFrequency.name),
                   ],
                 ),
               ),
@@ -1597,7 +1598,7 @@ class _LoanDetailsContent extends StatelessWidget {
                         const Icon(Icons.event, size: 20, color: Colors.blue),
                         const SizedBox(width: 8),
                         Text(
-                          'Next Payment',
+                          context.t('next_payment_label'),
                           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -1605,10 +1606,10 @@ class _LoanDetailsContent extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    _buildInfoRow('Date', LoanHelpers.formatDate(loan.nextPaymentDate!)),
-                    _buildInfoRow('Amount', '$currency ${NumberFormatterService().formatForDisplay(loan.nextPaymentAmount)}'),
+                    _buildInfoRow(context.t('date'), LoanHelpers.formatDate(loan.nextPaymentDate!)),
+                    _buildInfoRow(context.t('amount'), '$currency ${NumberFormatterService().formatForDisplay(loan.nextPaymentAmount)}'),
                     if (loan.payments.isNotEmpty)
-                      _buildInfoRow('Payment #', '${loan.payments.length + 1}'),
+                      _buildInfoRow(context.t('payment_number'), '${loan.payments.length + 1}'),
                   ],
                 ),
               ),
@@ -1624,24 +1625,24 @@ class _LoanDetailsContent extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Details',
+                    context.t('details'),
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildInfoRow('Status', '${loan.statusEmoji} ${loan.statusText}'),
-                  _buildInfoRow('Method', loan.method ?? 'Not specified'),
-                  _buildInfoRow('Created', LoanHelpers.formatDate(loan.date)),
+                  _buildInfoRow(context.t('status'), '${loan.statusEmoji} ${loan.statusText}'),
+                  _buildInfoRow(context.t('method'), loan.method ?? context.t('not_specified')),
+                  _buildInfoRow(context.t('created'), LoanHelpers.formatDate(loan.date)),
                   if (loan.dueDate != null)
-                    _buildInfoRow('Due Date', LoanHelpers.formatDueDate(loan.dueDate)),
+                    _buildInfoRow(context.t('final_due_date'), LoanHelpers.formatDueDate(loan.dueDate)),
                   if (loan.accountNumber != null)
-                    _buildInfoRow('Account', loan.accountNumber!),
+                    _buildInfoRow(context.t('account_reference_number'), loan.accountNumber!),
                   if (loan.purpose != null)
-                    _buildInfoRow('Purpose', loan.purpose!.name),
+                    _buildInfoRow(context.t('loan_purpose'), loan.purpose!.name),
                   if (loan.penaltyAmount > 0)
                     _buildInfoRow(
-                      'Penalty',
+                      context.t('penalty'),
                       '$currency ${NumberFormatterService().formatForDisplay(loan.penaltyAmount)}',
                       color: Colors.red,
                     ),
@@ -1660,7 +1661,7 @@ class _LoanDetailsContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Description',
+                      context.t('description'),
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -1683,7 +1684,7 @@ class _LoanDetailsContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Notes',
+                      context.t('additional_notes'),
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -1706,7 +1707,7 @@ class _LoanDetailsContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Payment History (${loan.payments.length})',
+                      '${context.t('payment_history')} (${loan.payments.length})',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -1759,7 +1760,7 @@ class _LoanDetailsContent extends StatelessWidget {
                     onEdit?.call();
                   },
                   icon: const Icon(Icons.edit),
-                  label: const Text('Edit'),
+                  label: Text(context.t('edit')),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1772,7 +1773,7 @@ class _LoanDetailsContent extends StatelessWidget {
                     onAddPayment?.call();
                   },
                   icon: const Icon(Icons.payment),
-                  label: const Text('Add Payment'),
+                  label: Text(context.t('add_payment')),
                 ),
               ),
             ],

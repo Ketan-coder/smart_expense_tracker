@@ -15,6 +15,7 @@ import '../../core/helpers.dart';
 import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
 import '../../data/model/income.dart';
+import '../../services/langs/localzation_extension.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../services/number_formatter_service.dart';
 import 'expenses/expense_listing_page.dart';
@@ -141,20 +142,20 @@ class _TransactionsPageState extends State<TransactionsPage>
   Future<void> _showDateRangeMenu() async {
     await BottomSheetUtil.show(
       context: context,
-      title: 'Select Date Range',
+      title: context.t('select_date_range'),
       height: MediaQuery.of(context).size.height * 0.45,
       child: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildDateRangeOption('Today', DateRangePreset.today),
-            _buildDateRangeOption('This Week', DateRangePreset.thisWeek),
-            _buildDateRangeOption('Last 7 Days', DateRangePreset.last7Days),
-            _buildDateRangeOption('This Month', DateRangePreset.thisMonth),
-            _buildDateRangeOption('Last Month', DateRangePreset.lastMonth),
-            _buildDateRangeOption('Last 3 Months', DateRangePreset.last3Months),
-            _buildDateRangeOption('Last 6 Months', DateRangePreset.last6Months),
-            _buildDateRangeOption('This Year', DateRangePreset.thisYear),
+            _buildDateRangeOption(context.t('today'), DateRangePreset.today),
+            _buildDateRangeOption(context.t('this_week'), DateRangePreset.thisWeek),
+            _buildDateRangeOption(context.t('last_7_days'), DateRangePreset.last7Days),
+            _buildDateRangeOption(context.t('this_month'), DateRangePreset.thisMonth),
+            _buildDateRangeOption(context.t('last_month'), DateRangePreset.lastMonth),
+            _buildDateRangeOption(context.t('last_3_months'), DateRangePreset.last3Months),
+            _buildDateRangeOption(context.t('last_6_months'), DateRangePreset.last6Months),
+            _buildDateRangeOption(context.t('this_year'), DateRangePreset.thisYear),
             ListTile(
               leading: Radio<DateRangePreset>(
                 value: DateRangePreset.custom,
@@ -164,7 +165,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                   await _showCustomDatePicker();
                 },
               ),
-              title: const Text('Custom Range'),
+              title: Text(context.t('custom_range')),
               onTap: () async {
                 Navigator.pop(context);
                 await _showCustomDatePicker();
@@ -276,10 +277,10 @@ class _TransactionsPageState extends State<TransactionsPage>
         // Use the int key directly, don't convert to String
         final categoryKey = categoryKeys.first;
         final category = categoryBox.get(categoryKey);
-        final name = category?.name ?? 'Uncategorized';
+        final name = category?.name ?? context.t('uncategorized');
         breakdown[name] = (breakdown[name] ?? 0) + transaction.amount;
       } else {
-        breakdown['Uncategorized'] = (breakdown['Uncategorized'] ?? 0) + transaction.amount;
+        breakdown[context.t('uncategorized')] = (breakdown[context.t('uncategorized')] ?? 0) + transaction.amount;
       }
     }
     return breakdown;
@@ -329,21 +330,21 @@ class _TransactionsPageState extends State<TransactionsPage>
     final range = _getDateRange();
     switch (_selectedPreset) {
       case DateRangePreset.today:
-        return 'Today';
+        return context.t('today');
       case DateRangePreset.thisWeek:
-        return 'This Week';
+        return context.t('this_week');
       case DateRangePreset.last7Days:
-        return 'Last 7 Days';
+        return context.t('last_7_days');
       case DateRangePreset.thisMonth:
-        return 'This Month';
+        return context.t('this_month');
       case DateRangePreset.lastMonth:
-        return 'Last Month';
+        return context.t('last_month');
       case DateRangePreset.last3Months:
-        return 'Last 3 Months';
+        return context.t('last_3_months');
       case DateRangePreset.last6Months:
-        return 'Last 6 Months';
+        return context.t('last_6_months');
       case DateRangePreset.thisYear:
-        return 'This Year';
+        return context.t('this_year');
       case DateRangePreset.custom:
         return '${DateFormat('d MMM').format(range.start)} - ${DateFormat('d MMM').format(range.end)}';
     }
@@ -364,11 +365,11 @@ class _TransactionsPageState extends State<TransactionsPage>
 
     // Net balance message
     if (net > 0) {
-      messages.add('✓ You saved $_currentCurrency ${NumberFormatterService().formatForDisplay(net)} this period');
+      messages.add(context.t('period_saved').replaceAll('-- __', '$_currentCurrency ${NumberFormatterService().formatForDisplay(net)}'));
     } else if (net < 0) {
-      messages.add('⚠ Spending exceeded income by $_currentCurrency ${NumberFormatterService().formatForDisplay(net.abs())}');
+      messages.add(context.t('period_spending_exceeded').replaceAll('-- __', '$_currentCurrency ${NumberFormatterService().formatForDisplay(net.abs())}'));
     } else {
-      messages.add('Perfect balance achieved this period');
+      messages.add(context.t('perfect_balance'));
     }
 
     // Expense insights
@@ -376,22 +377,22 @@ class _TransactionsPageState extends State<TransactionsPage>
       final categoryBreakdown = getCategoryBreakdown(filteredExpenses, TransactionType.expense);
       if (categoryBreakdown.isNotEmpty) {
         final topCategory = categoryBreakdown.entries.reduce((a, b) => a.value > b.value ? a : b);
-        messages.add('→ ${topCategory.key} leads your expenses');
+        messages.add(context.t('leads_expenses').replaceAll('__', topCategory.key));
       }
     }
 
     // Income message
     if (totalIncome > 0) {
-      messages.add('↑ Total income: $_currentCurrency ${NumberFormatterService().formatForDisplay(totalIncome)}');
+      messages.add(context.t('total_income_msg').replaceAll('-- __', '$_currentCurrency ${NumberFormatterService().formatForDisplay(totalIncome)}'));
     }
 
     // Transaction count
     final totalTransactions = filteredExpenses.length + filteredIncomes.length;
     if (totalTransactions > 0) {
-      messages.add('$totalTransactions transactions in ${_getDateRangeLabel()}');
+      messages.add(context.t('transactions_in_period').replaceAll('__', totalTransactions.toString()).replaceAll('--', _getDateRangeLabel()));
     }
 
-    return messages.isEmpty ? ['Track your financial transactions here'] : messages;
+    return messages.isEmpty ? [context.t('track_financial_transactions')] : messages;
   }
 
   @override
@@ -402,7 +403,7 @@ class _TransactionsPageState extends State<TransactionsPage>
 
     return Scaffold(
       body: SimpleCustomAppBar(
-        title: "Transactions",
+        title: context.t('transactions'),
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
@@ -413,28 +414,22 @@ class _TransactionsPageState extends State<TransactionsPage>
         actionItems: [
           CustomAppBarActionItem(
             icon: Icons.date_range_rounded,
-            label: "Select Date Range",
-            tooltip: "Select Date Range to filter out Transactions",
+            label: context.t('select_date_range'),
+            tooltip: context.t('select_date_range_desc'),
             onPressed: _showDateRangeMenu,
           ),
           CustomAppBarActionItem(
             icon: Icons.credit_card_rounded,
-            label: "Go to Loan Page",
-            tooltip: "Track Lent/Borrowed Transactions",
+            label: context.t('go_to_loan_page'),
+            tooltip: context.t('track_loans_desc'),
             onPressed: () => Helpers.navigateTo(context, const LoanPage()),
           ),
-          // IconButton(
-          //   icon: const Icon(Icons.date_range_rounded),
-          //   onPressed: _showDateRangeMenu,
-          //   tooltip: 'Select Date Range',
-          // ),
-          // IconButton(onPressed: () => Helpers.navigateTo(context, const LoanPage()), icon: const Icon(Icons.credit_card_rounded),)
         ],
         actions: (!isFirstTime) ? [
           IconButton(
             icon: const Icon(Icons.category_outlined),
             onPressed: () => Helpers.navigateTo(context, const CategoryPage(openDefaultCategories: true,)),
-            tooltip: 'Update Default Categories',
+            tooltip: context.t('update_default_categories'),
           ),
         ] : [],
         child: ListenableBuilder(
@@ -466,9 +461,9 @@ class _TransactionsPageState extends State<TransactionsPage>
                     ),
                     labelColor: Theme.of(context).colorScheme.onPrimaryContainer,
                     unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
-                    tabs: const [
-                      Tab(text: "Expenses"),
-                      Tab(text: "Income"),
+                    tabs: [
+                      Tab(text: context.t('expenses')),
+                      Tab(text: context.t('income_tab')),
                     ],
                   ),
                 ),
@@ -528,69 +523,6 @@ class _TransactionsPageState extends State<TransactionsPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Date Range Chip
-              // Row(
-              //   children: [
-              //     Expanded(
-              //       child: GestureDetector(
-              //         onTap: () => Helpers.navigateTo(context, CategoryPage(openDefaultCategories: true)),
-              //         child: Container(
-              //           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              //           decoration: BoxDecoration(
-              //             color: Colors.transparent,
-              //             border: Border.all(color: onContainerColor, width: .2),
-              //             borderRadius: BorderRadius.circular(8),
-              //           ),
-              //           child: Row(
-              //             mainAxisAlignment: MainAxisAlignment.center,
-              //             children: [
-              //               // Icon(Icons.calendar_today_rounded, size: 14, color: onContainerColor),
-              //               // const SizedBox(width: 6),
-              //               Text(
-              //                 "Update Default Categories",
-              //                 style: theme.textTheme.bodySmall?.copyWith(
-              //                   color: onContainerColor,
-              //                   fontWeight: FontWeight.w600,
-              //                 ),
-              //               ),
-              //             ],
-              //           ),
-              //         ),
-              //       ),
-              //     ),
-              //
-              //     const SizedBox(width: 8),
-              //
-              //     Expanded(
-              //       child: GestureDetector(
-              //         onTap: _showDateRangeMenu,
-              //         child: Container(
-              //           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              //           decoration: BoxDecoration(
-              //             color: Colors.transparent,
-              //             border: Border.all(color: onContainerColor, width: .2),
-              //             borderRadius: BorderRadius.circular(8),
-              //           ),
-              //           child: Row(
-              //             mainAxisAlignment: MainAxisAlignment.center,
-              //             children: [
-              //               Icon(Icons.calendar_today_rounded, size: 14, color: onContainerColor),
-              //               const SizedBox(width: 6),
-              //               Text(
-              //                 _getDateRangeLabel(),
-              //                 style: theme.textTheme.bodySmall?.copyWith(
-              //                   color: onContainerColor,
-              //                   fontWeight: FontWeight.w600,
-              //                 ),
-              //               ),
-              //             ],
-              //           ),
-              //         ),
-              //       ),
-              //     ),
-              //   ],
-              // ),
-
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -610,7 +542,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                             Icon(Icons.category_rounded, size: 14, color: onContainerColor),
                             const SizedBox(width: 6),
                             Text(
-                              "Update Default Categories",
+                              context.t('update_default_categories'),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: onContainerColor,
                                 fontWeight: FontWeight.w600,
@@ -658,7 +590,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                 children: [
                   Expanded(
                     child: _buildStatCard(
-                      isExpense ? 'Total Spent' : 'Total Earned',
+                      isExpense ? context.t('total_spent') : context.t('total_earned'),
                       '$_currentCurrency ${NumberFormatterService().formatForDisplay(total)}',
                       isExpense ? Icons.account_balance_wallet_rounded : Icons.account_balance_rounded,
                       containerColor,
@@ -670,7 +602,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                   const SizedBox(width: 10),
                   Expanded(
                     child: _buildStatCard(
-                      'Daily Avg',
+                      context.t('daily_avg'),
                       '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDaily as double)}',
                       Icons.trending_up_rounded,
                       colorScheme.tertiaryContainer,
@@ -696,10 +628,10 @@ class _TransactionsPageState extends State<TransactionsPage>
                         getDate: (entry) => entry.key,
                         getValue: (entry) => entry.value,
                         config: ChartConfig(
-                          chartTitle: "${isExpense ? 'Expense' : 'Income'} Trend ($daysDiff Days)",
+                          chartTitle: "${isExpense ? context.t('expense') : context.t('income')} Trend ($daysDiff ${context.t('days_sm')})",
                           primaryColor: primaryColor,
                           hoverColor: containerColor,
-                          yAxisLabel: "Amount",
+                          yAxisLabel: context.t('amount'),
                           valueUnit: "$_currentCurrency ",
                           highlightHighest: isExpense ? false : true,
                           highlightMode: isExpense ? HighlightMode.lowest : HighlightMode.highest,
@@ -714,7 +646,7 @@ class _TransactionsPageState extends State<TransactionsPage>
 
               // Category Breakdown
               if (categoryBreakdown.isNotEmpty) ...[
-                Text('By Category', style: theme.textTheme.titleSmall),
+                Text(context.t('by_category'), style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),
                 _buildCategoryBreakdown(categoryBreakdown, total, colorScheme, theme, isPrivate),
                 const SizedBox(height: 12),
@@ -722,7 +654,7 @@ class _TransactionsPageState extends State<TransactionsPage>
 
               // Method Breakdown (only for expenses)
               if (isExpense && methodBreakdown.isNotEmpty) ...[
-                Text('By Payment Method', style: theme.textTheme.titleSmall),
+                Text(context.t('by_payment_method'), style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),
                 _buildMethodBreakdown(methodBreakdown, colorScheme, theme, isPrivate),
                 const SizedBox(height: 12),
@@ -731,7 +663,7 @@ class _TransactionsPageState extends State<TransactionsPage>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Recent', style: theme.textTheme.titleSmall),
+                  Text(context.t('recent'), style: theme.textTheme.titleSmall),
                   TextButton(
                     onPressed: () {
                       if (isExpense) {
@@ -740,7 +672,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                         Helpers.navigateTo(context, const IncomeListingPage());
                       }
                     },
-                    child: const Text('View All', style: TextStyle(fontSize: 12)),
+                    child: Text(context.t('view_all'), style: const TextStyle(fontSize: 12)),
                   ),
                 ],
               ),
@@ -748,11 +680,11 @@ class _TransactionsPageState extends State<TransactionsPage>
 
               // Show recent transactions or empty state
               if (filteredTransactions.isEmpty)
-                Container( padding: const EdgeInsets.all(20), margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration( color: colorScheme.surfaceContainerHighest.withValues(alpha:0.3), borderRadius: BorderRadius.circular(12), border: Border.all( color: colorScheme.outline.withValues(alpha:0.2), ), ), child: Row( children: [ Icon( isExpense ? Icons.receipt_long_outlined : Icons.account_balance_wallet_outlined, size: 20, color: colorScheme.onSurfaceVariant, ), const SizedBox(width: 12), Expanded( child: Text( isExpense ? 'No expenses recorded yet' : 'No income recorded yet', style: theme.textTheme.bodySmall?.copyWith( color: colorScheme.onSurfaceVariant, ), ), ), ], ), )
+                Container( padding: const EdgeInsets.all(20), margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration( color: colorScheme.surfaceContainerHighest.withValues(alpha:0.3), borderRadius: BorderRadius.circular(12), border: Border.all( color: colorScheme.outline.withValues(alpha:0.2), ), ), child: Row( children: [ Icon( isExpense ? Icons.receipt_long_outlined : Icons.account_balance_wallet_outlined, size: 20, color: colorScheme.onSurfaceVariant, ), const SizedBox(width: 12), Expanded( child: Text( isExpense ? context.t('no_expenses_recorded') : context.t('no_income_recorded'), style: theme.textTheme.bodySmall?.copyWith( color: colorScheme.onSurfaceVariant, ), ), ), ], ), )
               else
                 ...filteredTransactions.toList().reversed.take(5).map((transaction) {
                   final categoryBox = Hive.box<Category>(AppConstants.categories);
-                  String categoryName = 'Uncategorized';
+                  String categoryName = context.t('uncategorized');
                   List<int> categoryKeys = [];
 
                   if (type == TransactionType.expense) {
@@ -764,7 +696,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                   if (categoryKeys.isNotEmpty) {
                     final categoryKey = categoryKeys.first;
                     final category = categoryBox.get(categoryKey);
-                    categoryName = category?.name ?? 'General';
+                    categoryName = category?.name ?? context.t('general');
                   }
 
                   return Card(
@@ -956,8 +888,8 @@ class _TransactionsPageState extends State<TransactionsPage>
   Widget _buildEmptyState(ThemeData theme, ColorScheme colorScheme, TransactionType type) {
     final isExpense = type == TransactionType.expense;
     final icon = isExpense ? Icons.receipt_long_outlined : Icons.inbox_rounded;
-    final title = isExpense ? 'No expenses yet' : 'No income yet';
-    final subtitle = isExpense ? 'Start tracking your expenses' : 'Start tracking your income';
+    final title = isExpense ? context.t('no_expenses_recorded') : context.t('no_income_recorded');
+    final subtitle = isExpense ? context.t('add_expense_desc') : context.t('add_income_desc');
 
     return Center(
       child: Column(

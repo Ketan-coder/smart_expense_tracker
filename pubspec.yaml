@@ -120,6 +120,17 @@ flutter:
     - assets/icons/Cellphone.json
     - assets/icons/SuccessSendLottie.json
     - assets/icons/MoneyRainDashboard.json
+    - assets/langs/en.json
+    - assets/langs/hi.json
+    - assets/langs/mr.json
+    - assets/langs/gu.json
+    - assets/langs/ml.json
+    - assets/langs/ta.json
+    - assets/langs/te.json
+    - assets/langs/kn.json
+    - assets/langs/bn.json
+    - assets/langs/pa.json
+    - assets/langs/
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

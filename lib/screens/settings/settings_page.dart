@@ -670,7 +670,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return Scaffold(
       body: SimpleCustomAppBar(
-        title: "Settings",
+        title: context.t('settings'),
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
@@ -1004,7 +1004,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              "Toggle privacy anytime from the home screen icon or by shaking your device.",
+                              context.t("privacy_mode_info"),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Theme.of(
@@ -1260,7 +1260,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void _showNumberFormatSheet() {
     BottomSheetUtil.show(
       context: context,
-      title: 'Select Number Format',
+      title: context.t('select_number_format'),
       height: MediaQuery.sizeOf(context).height * 0.5,
       child: NumberFormatSheet(
         selectedFormat: _selectedNumberFormat,
@@ -1272,7 +1272,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Navigator.pop(context);
             SnackBars.show(
               context,
-              message: "Number format changed to ${NumberFormatterService().getFormatName(format)}",
+              message: "${context.t('number_format_changed_to')} ${NumberFormatterService().getFormatName(format)}",
               type: SnackBarType.success,
             );
           }
@@ -1726,13 +1726,13 @@ class _NumberFormatSheetState extends State<NumberFormatSheet> {
   String _getFormatName(NumberFormatType format) {
     switch (format) {
       case NumberFormatType.indian:
-        return 'Indian (1,00,000.00)';
+        return context.t('indian_number_format');
       case NumberFormatType.western:
-        return 'Western (100,000.00)';
+        return context.t('western_number_format');
       case NumberFormatType.european:
-        return 'European (100.000,00)';
+        return context.t('european_number_format');
       case NumberFormatType.none:
-        return 'None (100000.00)';
+        return context.t('none_number_format');
     }
   }
 
@@ -1766,7 +1766,7 @@ class _NumberFormatSheetState extends State<NumberFormatSheet> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        'Example: ${_getExample(_currentSelectedFormat)}',
+                        '${context.t('number_format_example')} : ${_getExample(_currentSelectedFormat)}',
                         style: const TextStyle(fontSize: 12),
                       ),
                     ],
@@ -1815,7 +1815,7 @@ class _NumberFormatSheetState extends State<NumberFormatSheet> {
                       ),
                     ),
                     subtitle: Text(
-                      'Example: ${_getExample(format)}',
+                      '${context.t('number_format_example')} : ${_getExample(format)}',
                       style: TextStyle(
                         fontSize: 12,
                         color: isLightMode ? Colors.grey.shade600 : Colors.grey.shade400,

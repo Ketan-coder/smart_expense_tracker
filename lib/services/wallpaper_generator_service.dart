@@ -361,7 +361,6 @@
 //   }
 // }
 
-
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -376,7 +375,8 @@ enum WallpaperStyle {
 }
 
 class WallpaperGeneratorService {
-  static final WallpaperGeneratorService _instance = WallpaperGeneratorService._internal();
+  static final WallpaperGeneratorService _instance =
+      WallpaperGeneratorService._internal();
   factory WallpaperGeneratorService() => _instance;
   WallpaperGeneratorService._internal();
 
@@ -395,16 +395,22 @@ class WallpaperGeneratorService {
     double spacingFactor = 1.0,
   }) async {
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, size.width, size.height));
+    final canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, size.width, size.height),
+    );
 
     // 1. Background
-    final bgColor = darkMode ? const Color(0xFF000000) : const Color(0xFFF5F5F5);
+    final bgColor = darkMode
+        ? const Color(0xFF000000)
+        : const Color(0xFFF5F5F5);
     canvas.drawPaint(Paint()..color = bgColor);
 
     // ✅ Colors for different day types
     // Future days (hasn't happened yet)
     final emptyColorAfter = darkMode
-        ? (themeColor?.withValues(alpha: 0.2) ?? Colors.white.withValues(alpha: 0.1))
+        ? (themeColor?.withValues(alpha: 0.2) ??
+              Colors.white.withValues(alpha: 0.1))
         : (themeColor?.withValues(alpha: 0.25) ?? const Color(0xFFD0D0D0));
 
     // Past days with no progress (missed days)
@@ -413,12 +419,20 @@ class WallpaperGeneratorService {
         : const Color(0xFFE0E0E0);
 
     // ✅ Single color for all progress when Dynamic Colors is ON
-    Color mainDotColor = darkMode ? const Color(0xFFFFFFFF) : const Color(0xFF333333);
+    Color mainDotColor = darkMode
+        ? const Color(0xFFFFFFFF)
+        : const Color(0xFF333333);
     if (themeColor != null) {
       // Use theme color with high contrast
       mainDotColor = darkMode
-          ? Color.alphaBlend(themeColor.withValues(alpha: 0.8), Colors.white.withValues(alpha: 0.2))
-          : Color.alphaBlend(themeColor.withValues(alpha: 0.9), Colors.black.withValues(alpha: 0.1));
+          ? Color.alphaBlend(
+              themeColor.withValues(alpha: 0.8),
+              Colors.white.withValues(alpha: 0.2),
+            )
+          : Color.alphaBlend(
+              themeColor.withValues(alpha: 0.9),
+              Colors.black.withValues(alpha: 0.1),
+            );
     }
 
     final todayRingColor = themeColor ?? const Color(0xFFFF5252);
@@ -426,17 +440,35 @@ class WallpaperGeneratorService {
     // 3. Draw Selected Style
     if (style == WallpaperStyle.grid) {
       _drawGrid(
-          canvas, size, yearProgress,
-          darkMode, useStatusColors, themeColor,
-          dotScale, verticalOffset, gridWidthFactor, spacingFactor,
-          emptyColor, mainDotColor, todayRingColor, emptyColorAfter
+        canvas,
+        size,
+        yearProgress,
+        darkMode,
+        useStatusColors,
+        themeColor,
+        dotScale,
+        verticalOffset,
+        gridWidthFactor,
+        spacingFactor,
+        emptyColor,
+        mainDotColor,
+        todayRingColor,
+        emptyColorAfter,
       );
     } else {
       _drawDialDesign(
-          canvas, size, yearProgress,
-          darkMode, useStatusColors, themeColor,
-          dotScale, verticalOffset,
-          emptyColor, mainDotColor, todayRingColor, emptyColorAfter
+        canvas,
+        size,
+        yearProgress,
+        darkMode,
+        useStatusColors,
+        themeColor,
+        dotScale,
+        verticalOffset,
+        emptyColor,
+        mainDotColor,
+        todayRingColor,
+        emptyColorAfter,
       );
     }
 
@@ -454,11 +486,21 @@ class WallpaperGeneratorService {
 
   // --- STYLE 1: CLASSIC GRID ---
   void _drawGrid(
-      Canvas canvas, Size size, List<DailyProgress> yearProgress,
-      bool darkMode, bool useStatusColors, Color? themeColor,
-      double dotScale, double verticalOffset, double gridWidthFactor, double spacingFactor,
-      Color emptyColor, Color mainDotColor, Color todayRingColor, Color emptyColorAfter
-      ) {
+    Canvas canvas,
+    Size size,
+    List<DailyProgress> yearProgress,
+    bool darkMode,
+    bool useStatusColors,
+    Color? themeColor,
+    double dotScale,
+    double verticalOffset,
+    double gridWidthFactor,
+    double spacingFactor,
+    Color emptyColor,
+    Color mainDotColor,
+    Color todayRingColor,
+    Color emptyColorAfter,
+  ) {
     const cols = 14;
     final rows = (yearProgress.length / cols).ceil();
     final contentWidth = size.width * gridWidthFactor;
@@ -476,16 +518,37 @@ class WallpaperGeneratorService {
       final x = startX + (col * cellSize) + (cellSize / 2);
       final y = startY + (row * cellSize) + (cellSize / 2);
 
-      _drawDot(canvas, x, y, dotDiameter, day, darkMode, useStatusColors, themeColor, emptyColor, mainDotColor, todayRingColor, emptyColorAfter);
+      _drawDot(
+        canvas,
+        x,
+        y,
+        dotDiameter,
+        day,
+        darkMode,
+        useStatusColors,
+        themeColor,
+        emptyColor,
+        mainDotColor,
+        todayRingColor,
+        emptyColorAfter,
+      );
     }
   }
 
   void _drawDialDesign(
-      Canvas canvas, Size size, List<DailyProgress> yearProgress,
-      bool darkMode, bool useStatusColors, Color? themeColor,
-      double dotScale, double verticalOffset,
-      Color emptyColor, Color mainDotColor, Color todayRingColor, Color emptyColorAfter
-      ) {
+    Canvas canvas,
+    Size size,
+    List<DailyProgress> yearProgress,
+    bool darkMode,
+    bool useStatusColors,
+    Color? themeColor,
+    double dotScale,
+    double verticalOffset,
+    Color emptyColor,
+    Color mainDotColor,
+    Color todayRingColor,
+    Color emptyColorAfter,
+  ) {
     final now = DateTime.now();
     final currentMonth = now.month;
 
@@ -510,7 +573,15 @@ class WallpaperGeneratorService {
 
     // Draw "..." at top only if not at the beginning
     if (currentMonth > 3) {
-      _drawText(canvas, "...", leftMargin, currentY - 40, 24, Colors.grey.withOpacity(0.5), false);
+      _drawText(
+        canvas,
+        "...",
+        leftMargin,
+        currentY - 40,
+        24,
+        Colors.grey.withOpacity(0.5),
+        false,
+      );
     }
 
     for (int offset in monthsToShow) {
@@ -532,14 +603,24 @@ class WallpaperGeneratorService {
       } else if (isPast) {
         fontSize = 95;
       } else {
-        fontSize = (offset == 1) ? 110 : (offset == 2) ? 90 : 75;
+        fontSize = (offset == 1)
+            ? 110
+            : (offset == 2)
+            ? 90
+            : 75;
       }
 
       Color color;
       if (isCurrent) {
-        color = darkMode ? useStatusColors && themeColor != null ? themeColor.withValues(alpha: 0.6) : Colors.white : useStatusColors && themeColor != null ? themeColor : Colors.black;
+        color = darkMode
+            ? useStatusColors && themeColor != null
+                  ? themeColor.withValues(alpha: 0.6)
+                  : Colors.white
+            : useStatusColors && themeColor != null
+            ? themeColor
+            : Colors.black;
       } else if (isPast) {
-        color = darkMode ? Colors.grey.withOpacity(0.5): Colors.grey.shade500;
+        color = darkMode ? Colors.grey.withOpacity(0.5) : Colors.grey.shade500;
       } else {
         color = darkMode ? Colors.grey.withOpacity(0.5) : Colors.grey.shade500;
       }
@@ -548,23 +629,36 @@ class WallpaperGeneratorService {
 
       final monthName = _getMonthName(targetMonth);
       final textHeight = _drawText(
-          canvas,
-          monthName,
-          leftMargin + 25,
-          currentY,
-          fontSize,
-          color,
-          strikethrough
+        canvas,
+        monthName,
+        leftMargin + 25,
+        currentY,
+        fontSize,
+        color,
+        strikethrough,
       );
 
       currentY += textHeight + 10;
 
       if (isCurrent) {
         currentY += 15;
-        final daysInMonth = yearProgress.where((d) => d.date.month == targetMonth).toList();
+        final daysInMonth = yearProgress
+            .where((d) => d.date.month == targetMonth)
+            .toList();
         final gridHeight = _drawMonthGrid(
-            canvas, size, daysInMonth, currentY, leftMargin,
-            dotScale, darkMode, useStatusColors, themeColor, emptyColor, mainDotColor, todayRingColor, emptyColorAfter
+          canvas,
+          size,
+          daysInMonth,
+          currentY,
+          leftMargin,
+          dotScale,
+          darkMode,
+          useStatusColors,
+          themeColor,
+          emptyColor,
+          mainDotColor,
+          todayRingColor,
+          emptyColorAfter,
         );
         currentY += gridHeight + 30;
       } else {
@@ -573,14 +667,33 @@ class WallpaperGeneratorService {
     }
 
     if (currentMonth < 9) {
-      _drawText(canvas, "...", leftMargin + 40, currentY, 80, darkMode ? Colors.grey.shade800 : Colors.grey.shade400, false);
+      _drawText(
+        canvas,
+        "...",
+        leftMargin + 40,
+        currentY,
+        80,
+        darkMode ? Colors.grey.shade800 : Colors.grey.shade400,
+        false,
+      );
     }
   }
 
   double _drawMonthGrid(
-      Canvas canvas, Size size, List<DailyProgress> days, double startY, double startX,
-      double userDotScale, bool darkMode, bool useStatusColors, Color? themeColor, Color emptyColor, Color mainDotColor, Color todayRingColor, Color emptyColorAfter
-      ) {
+    Canvas canvas,
+    Size size,
+    List<DailyProgress> days,
+    double startY,
+    double startX,
+    double userDotScale,
+    bool darkMode,
+    bool useStatusColors,
+    Color? themeColor,
+    Color emptyColor,
+    Color mainDotColor,
+    Color todayRingColor,
+    Color emptyColorAfter,
+  ) {
     const cols = 7;
     final double cellSize = (size.width * 0.11);
     final double dotDiameter = (cellSize * 0.5) * userDotScale;
@@ -596,7 +709,20 @@ class WallpaperGeneratorService {
       final x = startX + (col * cellSize) + (cellSize / 2);
       final y = startY + (row * cellSize) + (cellSize / 2);
 
-      _drawDot(canvas, x, y, dotDiameter, day, darkMode, useStatusColors, themeColor, emptyColor, mainDotColor, todayRingColor, emptyColorAfter);
+      _drawDot(
+        canvas,
+        x,
+        y,
+        dotDiameter,
+        day,
+        darkMode,
+        useStatusColors,
+        themeColor,
+        emptyColor,
+        mainDotColor,
+        todayRingColor,
+        emptyColorAfter,
+      );
 
       col++;
       if (col >= cols) {
@@ -624,7 +750,15 @@ class WallpaperGeneratorService {
     }
   }
 
-  double _drawText(Canvas canvas, String text, double x, double y, double fontSize, Color color, bool strikethrough) {
+  double _drawText(
+    Canvas canvas,
+    String text,
+    double x,
+    double y,
+    double fontSize,
+    Color color,
+    bool strikethrough,
+  ) {
     final textSpan = TextSpan(
       text: text,
       style: TextStyle(
@@ -644,12 +778,38 @@ class WallpaperGeneratorService {
   }
 
   String _getMonthName(int month) {
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const months = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
     return months[month - 1];
   }
 
   // ✅ UPDATED: Shows today's date inside circle with proper color contrast
-  void _drawDot(Canvas canvas, double x, double y, double diameter, DailyProgress day, bool darkMode, bool useStatusColors, Color? themeColor, Color empty, Color main, Color ring, Color emptyColorAfter) {
+  void _drawDot(
+    Canvas canvas,
+    double x,
+    double y,
+    double diameter,
+    DailyProgress day,
+    bool darkMode,
+    bool useStatusColors,
+    Color? themeColor,
+    Color empty,
+    Color main,
+    Color ring,
+    Color emptyColorAfter,
+  ) {
     final paint = Paint()..isAntiAlias = true;
     final isToday = _isSameDay(day.date, DateTime.now());
 
@@ -676,10 +836,13 @@ class WallpaperGeneratorService {
     // Today's ring indicator + date
     if (isToday) {
       // Draw ring
-      canvas.drawCircle(Offset(x, y), (diameter / 2) + 5, Paint()
-        ..color = ring
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
+      canvas.drawCircle(
+        Offset(x, y),
+        (diameter / 2) + 5,
+        Paint()
+          ..color = ring
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3,
       );
 
       // ✅ Draw today's date inside the circle
@@ -699,7 +862,11 @@ class WallpaperGeneratorService {
         }
       } else {
         // No progress: empty color background
-        textColor = darkMode ? useStatusColors && themeColor != null ? themeColor : Colors.white : Colors.black;
+        textColor = darkMode
+            ? useStatusColors && themeColor != null
+                  ? themeColor
+                  : Colors.white
+            : Colors.black;
       }
 
       final textSpan = TextSpan(
@@ -731,7 +898,11 @@ class WallpaperGeneratorService {
   }
 
   // ✅ Colorful status colors (used when Dynamic Colors is OFF)
-  Color _getColorfulStatusColor(DailyProgress day, bool darkMode, Color? themeColor) {
+  Color _getColorfulStatusColor(
+    DailyProgress day,
+    bool darkMode,
+    Color? themeColor,
+  ) {
     final primary = themeColor ?? const Color(0xFF6200EA);
 
     switch (day.status) {
@@ -754,16 +925,27 @@ class WallpaperGeneratorService {
         );
 
       default:
-        return darkMode
-            ? primary.withOpacity(0.25)
-            : primary.withOpacity(0.3);
+        return darkMode ? primary.withOpacity(0.25) : primary.withOpacity(0.3);
     }
   }
 
-  bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
   Future<bool> setAsLockScreen(File f) => _setWallpaper(f, 'lock');
   Future<bool> setAsHomeScreen(File f) => _setWallpaper(f, 'home');
   Future<bool> setAsBothScreens(File f) => _setWallpaper(f, 'both');
+
+  Future<bool> isAodSupported() async {
+    try {
+      final result = await platform.invokeMethod('isAodSupported');
+      return result == true;
+    } catch (e) {
+      debugPrint('Error checking AOD support: $e');
+      return false;
+    }
+  }
+
+  Future<bool> setAsAod(File f) => _setWallpaper(f, 'aod');
 
   Future<bool> _setWallpaper(File file, String loc) async {
     try {
@@ -774,7 +956,18 @@ class WallpaperGeneratorService {
       }
 
       final fileSize = await file.length();
-      debugPrint('📁 Wallpaper file size: ${(fileSize / 1024).toStringAsFixed(2)} KB');
+      debugPrint(
+        '📁 Wallpaper file size: ${(fileSize / 1024).toStringAsFixed(2)} KB',
+      );
+
+      // Special handling for AOD
+      if (loc == 'aod') {
+        final result = await platform.invokeMethod('setAodWallpaper', {
+          'filePath': file.path,
+        });
+        debugPrint('📱 AOD wallpaper result: $result');
+        return result == true;
+      }
 
       // Call native method
       final result = await platform.invokeMethod('setWallpaper', {

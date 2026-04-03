@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/helpers.dart';
 import '../../data/model/goal.dart';
 import '../../services/goal_service.dart';
+import '../../services/langs/localzation_extension.dart';
 import '../../services/number_formatter_service.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/snack_bar.dart';
@@ -29,11 +30,11 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final goal = widget.goal;
-    final progress = goal.progressPercentage;
+    // final progress = goal.progressPercentage;
 
     return Scaffold(
       body: SimpleCustomAppBar(
-        title: "Goal Details",
+        title: context.t('goal_details'),
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.3,
         centerTitle: true,
@@ -150,7 +151,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Financial Details',
+                  context.t('financial_details'),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -158,10 +159,10 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildInfoRow('Target Amount', '₹${NumberFormatterService().formatForDisplay(goal.targetAmount)}'),
-                _buildInfoRow('Current Amount', '₹${NumberFormatterService().formatForDisplay(goal.currentAmount)}'),
-                _buildInfoRow('Remaining', '₹${NumberFormatterService().formatForDisplay(goal.remainingAmount)}'),
-                _buildInfoRow('Installment', '₹${NumberFormatterService().formatForDisplay(goal.installmentAmount)} ${goal.installmentFrequency}'),
+                _buildInfoRow(context.t('target_amount'), '₹${NumberFormatterService().formatForDisplay(goal.targetAmount)}'),
+                _buildInfoRow(context.t('current_amount'), '₹${NumberFormatterService().formatForDisplay(goal.currentAmount)}'),
+                _buildInfoRow(context.t('remaining'), '₹${NumberFormatterService().formatForDisplay(goal.remainingAmount)}'),
+                _buildInfoRow(context.t('installment'), '₹${NumberFormatterService().formatForDisplay(goal.installmentAmount)} ${goal.installmentFrequency}'),
               ],
             ),
           ),
@@ -176,7 +177,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Timeline',
+                  context.t('timeline'),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -184,10 +185,10 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildInfoRow('Target Date', _formatDate(goal.targetDate)),
-                _buildInfoRow('Days Remaining', '${goal.daysRemaining} days'),
-                _buildInfoRow('Status', goal.isOnTrack ? 'On Track 🚀' : 'Needs Attention 📉'),
-                _buildInfoRow('Priority', goal.priority),
+                _buildInfoRow(context.t('target_date'), _formatDate(goal.targetDate)),
+                _buildInfoRow(context.t('days_remaining'), '${goal.daysRemaining} ${context.t('days_sm')}'),
+                _buildInfoRow(context.t('status'), goal.isOnTrack ? context.t('on_track') : context.t('needs_attention')),
+                _buildInfoRow(context.t('priority'), goal.priority),
               ],
             ),
           ),
@@ -202,7 +203,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Settings',
+                  context.t('settings'),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -210,10 +211,10 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildInfoRow('Category', goal.category),
-                _buildInfoRow('Wallet', goal.walletType),
-                _buildInfoRow('Frequency', goal.installmentFrequency),
-                _buildInfoRow('Created', _formatDate(goal.createdAt)),
+                _buildInfoRow(context.t('category'), goal.category),
+                _buildInfoRow(context.t('wallet'), goal.walletType),
+                _buildInfoRow(context.t('frequency'), goal.installmentFrequency),
+                _buildInfoRow(context.t('created'), _formatDate(goal.createdAt)),
               ],
             ),
           ),
@@ -230,7 +231,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
           style: FilledButton.styleFrom(
             minimumSize: const Size(double.infinity, 50),
           ),
-          child: const Text('Add Installment'),
+          child:  Text(context.t('add_installments')),
         ),
         const SizedBox(height: 12),
         OutlinedButton(
@@ -238,7 +239,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(double.infinity, 50),
           ),
-          child: const Text('Mark as Completed'),
+          child: Text(context.t('mark_as_complete')),
         ),
       ],
     );
@@ -309,25 +310,25 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Add Installment',
+                context.t('add_installments'),
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 20),
               TextField(
                 controller: amountController,
                 decoration: InputDecoration(
-                  labelText: 'Amount',
+                  labelText: context.t('amount'),
                   prefixText: '₹ ',
                   border: const OutlineInputBorder(),
-                  hintText: 'Recommended: ₹${NumberFormatterService().formatForDisplay(_goalService.calculateRecommendedInstallment(widget.goal))}',
+                  hintText: '${context.t('recommended')}: ₹${NumberFormatterService().formatForDisplay(_goalService.calculateRecommendedInstallment(widget.goal))}',
                 ),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description (Optional)',
+                decoration: InputDecoration(
+                  labelText: context.t('description'),
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -336,7 +337,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                 onPressed: () async {
                   final amount = double.tryParse(amountController.text) ?? 0;
                   if (amount <= 0) {
-                    SnackBars.show(context, message: 'Please enter a valid amount', type: SnackBarType.error);
+                    SnackBars.show(context, message: context.t('valid_amount_error'), type: SnackBarType.error);
                     return;
                   }
 
@@ -353,12 +354,12 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
                     setState(() {});
                     SnackBars.show(
                       context,
-                      message: 'Installment added successfully',
+                      message: context.t('installment_added_message'),
                       type: SnackBarType.success,
                     );
                   }
                 },
-                child: const Text('Add Installment'),
+                child: Text(context.t('add_installments')),
               ),
             ],
           ),
@@ -387,7 +388,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
       setState(() {});
       SnackBars.show(
         context,
-        message: 'Goal marked as completed! 🎉',
+        message: context.t('goal_mark_complete'),
         type: SnackBarType.success,
       );
     }

@@ -472,7 +472,7 @@ class UniversalHiveFunctions {
   Future<bool> updateExpense(int key, Expense newExpense) async {
     debugPrint("🔄 [updateExpense] Starting atomic update...");
 
-    if (newExpense.amount <= 0 || newExpense.method!.trim().isEmpty ?? true) {
+    if (newExpense.amount <= 0 || newExpense.method!.trim().isEmpty) {
       debugPrint("❌ [updateExpense] Invalid expense data");
       return false;
     }

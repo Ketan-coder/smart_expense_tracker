@@ -10,6 +10,7 @@ import '../../core/helpers.dart';
 import '../../data/model/wallet.dart';
 import 'package:expense_tracker/screens/widgets/privacy_overlay_widget.dart';
 
+import '../../services/langs/localzation_extension.dart';
 import '../../services/privacy/privacy_manager.dart';
 
 class StackedWalletCards extends StatefulWidget {
@@ -172,7 +173,7 @@ class _StackedWalletCardsState extends State<StackedWalletCards>
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'Tap to expand',
+                        context.t('tap_to_expand'),
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),

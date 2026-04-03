@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
-// import '../widgets/bottom_nav_bar.dart'; // Not used in this file
 import '../../data/local/universal_functions.dart';
+import '../../services/langs/localzation_extension.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../expenses/expense_listing_page.dart';
 import '../widgets/custom_app_bar.dart';
@@ -42,20 +42,6 @@ class _CategoryPageState extends State<CategoryPage> {
       _showDefaultCategoriesSheet(context);
     }
   }
-  /// Add new category to Hive
-  // Future<void> addCategory(
-  //     String name,
-  //     String type,
-  //     Color color,
-  //     ) async {
-  //   final categoryBox = Hive.box<Category>(AppConstants.categories);
-  //   final category = Category(
-  //     name: name,
-  //     type: type,
-  //     color: colorToHex(color), // Convert Color to hex string
-  //   );
-  //   await categoryBox.add(category);
-  // }
 
   /// Update a single category in Hive
   Future<void> updateCategory(int key, Category newCategory) async {
@@ -94,7 +80,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
     await BottomSheetUtil.show(
       context: context,
-      title: isEditing ? 'Edit Category' : 'Add Category',
+      title: isEditing ? context.t('edit_category') : context.t('add_category'),
       height: MediaQuery.of(context).size.height * 0.75, // Increased height for better fit
       child: StatefulBuilder(
         builder: (modalContext, setModalState) {
@@ -103,7 +89,7 @@ class _CategoryPageState extends State<CategoryPage> {
             showDialog(
               context: context,
               builder: (context) => AlertDialog(
-                title: const Text('Pick a color'),
+                title: Text(context.t('pick_a_color')),
                 content: SingleChildScrollView(
                   child: BlockPicker(
                     pickerColor: selectedColor,
@@ -116,11 +102,11 @@ class _CategoryPageState extends State<CategoryPage> {
                 ),
                 actions: <Widget>[
                   TextButton(
-                    child: const Text('Cancel'),
+                    child: Text(context.t('cancel')),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   FilledButton(
-                    child: const Text('Select'),
+                    child: Text(context.t('select')),
                     onPressed: () {
                       Navigator.of(context).pop();
                     },
@@ -141,7 +127,7 @@ class _CategoryPageState extends State<CategoryPage> {
             if (name.isEmpty) {
               SnackBars.show(
                 context,
-                message: 'Please enter a category name',
+                message: context.t('category_name_error'),
                 type: SnackBarType.error,
               );
               return;
@@ -171,13 +157,13 @@ class _CategoryPageState extends State<CategoryPage> {
                 Navigator.of(context).pop(); // Close bottom sheet
                 SnackBars.show(
                   context,
-                  message: isEditing ? 'Category updated' : 'Category added',
+                  message: isEditing ? context.t('category_updated') : context.t('category_added_success'),
                   type: SnackBarType.success,
                 );
               } else {
                 SnackBars.show(
                   context,
-                  message: 'Error saving category',
+                  message: context.t('error_saving_category'),
                   type: SnackBarType.error,
                 );
               }
@@ -193,10 +179,10 @@ class _CategoryPageState extends State<CategoryPage> {
               // Category Name
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: "Category Name",
-                  border: OutlineInputBorder(),
-                  hintText: "e.g., Groceries, Salary, etc.",
+                decoration: InputDecoration(
+                  labelText: context.t('category_name_label'),
+                  border: const OutlineInputBorder(),
+                  hintText: context.t('category_name_hint'),
                 ),
                 textCapitalization: TextCapitalization.words,
               ),
@@ -205,11 +191,11 @@ class _CategoryPageState extends State<CategoryPage> {
               // Category Type
               DropdownButtonFormField<String>(
                 initialValue: selectedType,
-                decoration: const InputDecoration(
-                  labelText: 'Category Type',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('category_type'),
+                  border: const OutlineInputBorder(),
                 ),
-                items: ["Expense", "Income"]
+                items: [context.t('expense'), context.t('income')]
                     .map((type) =>
                     DropdownMenuItem(value: type, child: Text(type)))
                     .toList(),
@@ -218,7 +204,7 @@ class _CategoryPageState extends State<CategoryPage> {
                     setModalState(() {
                       selectedType = value;
                       // Reset to appropriate default icon when type changes
-                      selectedIcon = value.toLowerCase() == 'expense'
+                      selectedIcon = value.toLowerCase() == context.t('expense').toLowerCase()
                           ? 'shopping_cart'
                           : 'work';
                     });
@@ -229,14 +215,14 @@ class _CategoryPageState extends State<CategoryPage> {
 
               // Color Selection
               ListTile(
-                contentPadding: EdgeInsets.symmetric(horizontal: 10),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                     side: BorderSide(
                         color: Theme.of(context).colorScheme.outline)),
                 title: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 5.0),
-                  child: const Text('Category Color'),
+                  child: Text(context.t('category_color')),
                 ),
                 trailing: Container(
                   width: 40,
@@ -248,8 +234,8 @@ class _CategoryPageState extends State<CategoryPage> {
                   ),
                   child: Center(
                     child: Text(
-                      "Color",
-                      style: TextStyle(
+                      context.t('color'),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 10,
@@ -265,9 +251,9 @@ class _CategoryPageState extends State<CategoryPage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Category Icon',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  Text(
+                    context.t('category_icon'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 8),
 
@@ -367,7 +353,7 @@ class _CategoryPageState extends State<CategoryPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            nameController.text.isNotEmpty ? nameController.text : "Category Name",
+                            nameController.text.isNotEmpty ? nameController.text : context.t('category_name_label'),
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           Text(
@@ -391,7 +377,7 @@ class _CategoryPageState extends State<CategoryPage> {
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: Text(isEditing ? "Save Changes" : "Create Category"),
+                child: Text(isEditing ? context.t('save_changes') : context.t('create_category')),
               ),
               const SizedBox(height: 16),
             ],
@@ -416,7 +402,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
     await BottomSheetUtil.show(
       context: context,
-      title: 'Default Categories',
+      title: context.t('default_categories'),
       height: MediaQuery.of(context).size.height * 0.65,
       child: StatefulBuilder(
         builder: (context, setModalState) {
@@ -454,7 +440,7 @@ class _CategoryPageState extends State<CategoryPage> {
               Navigator.pop(context);
               SnackBars.show(
                 context,
-                message: 'Default categories updated',
+                message: context.t('default_categories_updated'),
                 type: SnackBarType.success,
               );
             }
@@ -463,15 +449,15 @@ class _CategoryPageState extends State<CategoryPage> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Select which categories should be used when automatically creating expenses/income from SMS:',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+              Text(
+                context.t('sms_parsing_categories_desc'),
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
               ),
               const SizedBox(height: 20),
 
               // Expense Categories Section
               _buildCategorySection(
-                title: 'Expense Categories',
+                title: context.t('expense_categories'),
                 categories: getCategoriesByType('expense'),
                 selectedCategories: selectedExpenseCategories,
                 onToggle: (categoryName) => toggleCategory(categoryName, 'expense'),
@@ -481,7 +467,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
               // Income Categories Section
               _buildCategorySection(
-                title: 'Income Categories',
+                title: context.t('income_categories'),
                 categories: getCategoriesByType('income'),
                 selectedCategories: selectedIncomeCategories,
                 onToggle: (categoryName) => toggleCategory(categoryName, 'income'),
@@ -496,9 +482,9 @@ class _CategoryPageState extends State<CategoryPage> {
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  'When SMS auto-parsing is enabled, transactions will be automatically assigned to these categories based on the transaction type.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                child: Text(
+                  context.t('sms_parsing_auto_assign_desc'),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ),
 
@@ -510,7 +496,7 @@ class _CategoryPageState extends State<CategoryPage> {
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
                 ),
-                child: const Text('Save Default Categories'),
+                child: Text(context.t('save_default_categories')),
               ),
             ],
           );
@@ -539,9 +525,9 @@ class _CategoryPageState extends State<CategoryPage> {
         const SizedBox(height: 12),
 
         if (categories.isEmpty)
-          const Text(
-            'No categories found. Create some categories first.',
-            style: TextStyle(color: Colors.grey, fontSize: 14),
+          Text(
+            context.t('no_categories_found_desc'),
+            style: const TextStyle(color: Colors.grey, fontSize: 14),
           )
         else
           Container(
@@ -628,7 +614,7 @@ class _CategoryPageState extends State<CategoryPage> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Default Categories for SMS Parsing',
+                    context.t('default_categories_header'),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -641,7 +627,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
               if (defaultExpense.isNotEmpty) ...[
                 _buildDefaultCategoryList(
-                  title: 'Expense Categories:',
+                  title: context.t('expense_categories_label'),
                   categories: defaultExpense,
                   type: 'Expense',
                 ),
@@ -650,7 +636,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
               if (defaultIncome.isNotEmpty) ...[
                 _buildDefaultCategoryList(
-                  title: 'Income Categories:',
+                  title: context.t('income_categories_label'),
                   categories: defaultIncome,
                   type: 'Income',
                 ),
@@ -658,7 +644,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
               const SizedBox(height: 8),
               Text(
-                'These categories will be used for auto-parsing SMS transactions',
+                context.t('auto_parsing_usage_desc'),
                 style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -793,90 +779,25 @@ class _CategoryPageState extends State<CategoryPage> {
     // Removed the FloatingActionButton as requested
     return Scaffold(
       body: SimpleCustomAppBar(
-        title: "Category",
+        title: context.t('category'),
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
-        // actions: [
-        //   // ADDED: "Add" button to restore functionality
-        //   IconButton(
-        //     icon: const Icon(Icons.add_rounded),
-        //     onPressed: () => _showAddEditCategorySheet(context),
-        //   ),
-        //   // Set Default Categories
-        //   IconButton(
-        //     icon: const Icon(Icons.settings_suggest_rounded),
-        //     onPressed: () => _showDefaultCategoriesSheet(context),
-        //   ),
-        // ],
         actionItems: [
           CustomAppBarActionItem(
             icon: Icons.add_rounded,
-            label: "Add Category",
-            tooltip: "Add a new category",
+            label: context.t('add_category'),
+            tooltip: context.t('add_category_tooltip'),
             onPressed: () => _showAddEditCategorySheet(context),
           ),
           CustomAppBarActionItem(
             icon: Icons.settings_suggest_rounded,
-            label: "Set Default Categories",
-            tooltip: "Set default categories for SMS parsing",
+            label: context.t('default_categories'),
+            tooltip: context.t('set_default_categories_tooltip'),
             onPressed: () => _showDefaultCategoriesSheet(context),
           ),
         ],
 
-        // RESTORED: User's requested Container structure
-        // child: Container(
-        //   margin: const EdgeInsets.all(10),
-        //   padding: const EdgeInsets.all(10),
-        //   decoration: BoxDecoration(
-        //     borderRadius: BorderRadius.circular(25),
-        //     color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
-        //   ),
-        //   child: ValueListenableBuilder<Box<Category>>(
-        //     valueListenable:
-        //     Hive.box<Category>(AppConstants.categories).listenable(),
-        //     builder: (context, box, _) {
-        //       final categories = box.values.toList();
-        //       final categoryKeys = box.keys.toList();
-        //
-        //       if (categories.isEmpty) {
-        //         return _buildEmptyState(context);
-        //       }
-        //
-        //       // Use SingleChildScrollView + Column to correctly
-        //       // render a list inside the SimpleCustomAppBar's child
-        //       return SingleChildScrollView(
-        //         padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-        //         child: Column(
-        //           children: List.generate(categories.length, (index) {
-        //             final key = categoryKeys[index] as int;
-        //             final category = categories[index];
-        //             final color = Helpers().hexToColor(category.color);
-        //
-        //             return GestureDetector(
-        //               onTap: () {
-        //                 if (category.type.toLowerCase().contains('income')){
-        //                   Helpers.navigateTo(
-        //                     context,
-        //                     IncomeListingPage(filterByCategory: category.name),
-        //                   );
-        //                   return;
-        //                 } else if (category.type.toLowerCase().contains('expense')){
-        //                   Helpers.navigateTo(
-        //                     context,
-        //                     ExpenseListingPage(filterByCategory: category.name),
-        //                   );
-        //                   return;
-        //                 }
-        //               },
-        //               child: _buildCategoryTile(context, key, category, color),
-        //             );
-        //           }),
-        //         ),
-        //       );
-        //     },
-        //   ),
-        // ),
         child: Container(
           margin: const EdgeInsets.all(10),
           padding: const EdgeInsets.all(10),
@@ -953,12 +874,12 @@ class _CategoryPageState extends State<CategoryPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            "No Categories",
+            context.t('no_categories_title'),
             style: theme.textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
           Text(
-            "Tap the + button to add your first category.",
+            context.t('add_first_category_desc'),
             style: theme.textTheme.bodyLarge?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -988,7 +909,7 @@ class _CategoryPageState extends State<CategoryPage> {
         : Colors.black;
 
     // Determine chip color based on type
-    final isExpense = category.type == 'Expense';
+    final isExpense = category.type == context.t('expense');
     final chipColor =
     isExpense ? colorScheme.errorContainer : colorScheme.primaryContainer;
     final chipTextColor = isExpense
@@ -1022,9 +943,8 @@ class _CategoryPageState extends State<CategoryPage> {
           // Delete Action
           final bool? confirmed = await Dialogs.showConfirmation(
             context: context,
-            title: "Delete Category?",
-            message: "Are you sure you want to delete '${category.name}'? "
-                "This cannot be undone.",
+            title: context.t('delete_category_title'),
+            message: context.t('delete_category_confirm').replaceAll('--', category.name),
           );
           return confirmed == true; // Dismiss if confirmed
         }
@@ -1036,7 +956,7 @@ class _CategoryPageState extends State<CategoryPage> {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text("'${category.name}' deleted."),
+                content: Text(context.t('category_deleted').replaceAll('--', category.name)),
                 backgroundColor: Colors.red,
               ),
             );
@@ -1101,19 +1021,6 @@ class _CategoryPageState extends State<CategoryPage> {
                 visualDensity: VisualDensity.compact,
                 side: BorderSide.none,
               ),
-              // Container(
-              //   margin: EdgeInsets.fromLTRB(10, 15, 5, 0),
-              //   decoration: BoxDecoration(
-              //     color: color,
-              //     borderRadius: BorderRadius.circular(12),
-              //     border: Border.all(
-              //       color: isDark
-              //           ? colorScheme.outlineVariant.withValues(alpha:0.5)
-              //           : colorScheme.outline
-              //     )
-              //   ),
-              //   child: SizedBox(height: 10,width: 10,),
-              // )
             ],
           ),
           trailing: Icon(
@@ -1145,4 +1052,3 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 }
-

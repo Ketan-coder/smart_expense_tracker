@@ -777,6 +777,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 
 import '../../core/helpers.dart';
+import '../../services/langs/localzation_extension.dart';
 import '../../services/number_formatter_service.dart';
 
 // ============================================================================
@@ -1312,7 +1313,7 @@ class _FloatingToolbarWithQuickActionsState
                 ),
                 SizedBox(width: isIOS ? 7 : 6),
                 Text(
-                  'Add Quick',
+                  context.t('add_quick_transactions'),
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: isIOS ? FontWeight.w600 : FontWeight.w700,
                     color: colorScheme.primary,

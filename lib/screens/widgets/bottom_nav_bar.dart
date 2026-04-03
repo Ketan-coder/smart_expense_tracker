@@ -2797,7 +2797,7 @@ class _BottomNavBarState extends State<BottomNavBar>
 
     BottomSheetUtil.show(
       context: context,
-      title: "Add Expense",
+      title: context.t('add_expense'),
       child: StatefulBuilder(
         builder: (context, setState) {
           final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -2809,7 +2809,7 @@ class _BottomNavBarState extends State<BottomNavBar>
               TextField(
                 controller: amountController,
                 decoration: InputDecoration(
-                  labelText: "Amount",
+                  labelText: context.t('amount'),
                   border: const OutlineInputBorder(),
                   prefixText: "$_currentCurrency ",
                 ),
@@ -2818,16 +2818,16 @@ class _BottomNavBarState extends State<BottomNavBar>
               const SizedBox(height: 16),
               TextField(
                 controller: addController,
-                decoration: const InputDecoration(
-                  labelText: "Description",
+                decoration: InputDecoration(
+                  labelText: context.t('description'),
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: selectedType,
-                decoration: const InputDecoration(
-                  labelText: "Payment Method",
+                decoration: InputDecoration(
+                  labelText: context.t('method'),
                   border: OutlineInputBorder(),
                 ),
                 items: Helpers()
@@ -2842,7 +2842,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                 },
               ),
               const SizedBox(height: 16),
-              Text('Categories', style: Theme.of(context).textTheme.titleSmall),
+              Text(context.t('categories'), style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -2887,7 +2887,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                     SnackBars.show(
                       context,
                       message:
-                          "Please enter all fields and select at least one category",
+                      context.t('empty_fields_error'),
                       type: SnackBarType.error,
                     );
                     return;
@@ -2912,7 +2912,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                     );
                   }
                 },
-                child: const Text("Save"),
+                child: Text(context.loc.save),
               ),
             ],
           );
@@ -2933,7 +2933,7 @@ class _BottomNavBarState extends State<BottomNavBar>
 
     BottomSheetUtil.show(
       context: context,
-      title: "Add Income",
+      title: context.t('add_income'),
       child: StatefulBuilder(
         builder: (context, setState) {
           final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -2945,7 +2945,7 @@ class _BottomNavBarState extends State<BottomNavBar>
               TextField(
                 controller: amountController,
                 decoration: InputDecoration(
-                  labelText: "Amount",
+                  labelText: context.t('amount'),
                   border: const OutlineInputBorder(),
                   prefixText: "$_currentCurrency ",
                 ),
@@ -2954,16 +2954,16 @@ class _BottomNavBarState extends State<BottomNavBar>
               const SizedBox(height: 16),
               TextField(
                 controller: addController,
-                decoration: const InputDecoration(
-                  labelText: "Description",
+                decoration: InputDecoration(
+                  labelText: context.t('description'),
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: selectedType,
-                decoration: const InputDecoration(
-                  labelText: "Payment Method",
+                decoration: InputDecoration(
+                  labelText: context.t('method'),
                   border: OutlineInputBorder(),
                 ),
                 items: Helpers()
@@ -2978,7 +2978,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                 },
               ),
               const SizedBox(height: 16),
-              Text('Categories', style: Theme.of(context).textTheme.titleSmall),
+              Text(context.t('categories'), style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,

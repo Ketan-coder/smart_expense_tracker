@@ -16,7 +16,10 @@ import '../data/model/habit.dart';
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {
-      debugPrint('🌙 Midnight wallpaper update started at ${DateTime.now()}');
+      debugPrint('🌙 ========================================');
+      debugPrint('🌙 Wallpaper update started at ${DateTime.now()}');
+      debugPrint('🌙 Task: $task');
+      debugPrint('🌙 ========================================');
 
       // 1. Initialize Hive and register ALL adapters
       await Hive.initFlutter();
@@ -76,6 +79,7 @@ void callbackDispatcher() {
       debugPrint('📊 Loaded ${yearProgress.length} days of progress');
 
       // 5. Generate wallpaper
+      debugPrint('🖼️ Generating wallpaper...');
       final wallpaperService = WallpaperGeneratorService();
       final wallpaperFile = await wallpaperService.generateProgressWallpaper(
         yearProgress: yearProgress,
@@ -92,22 +96,38 @@ void callbackDispatcher() {
 
       debugPrint('🖼️ Wallpaper generated: ${wallpaperFile.path}');
 
+      // Verify file exists
+      final exists = await wallpaperFile.exists();
+      final size = exists ? await wallpaperFile.length() : 0;
+      debugPrint('📁 File exists: $exists, Size: ${(size / 1024).toStringAsFixed(2)} KB');
+
       // 6. Set wallpaper
+      debugPrint('📱 Setting wallpaper...');
       final success = await wallpaperService.setAsLockScreen(wallpaperFile);
 
       if (success) {
-        debugPrint('✅ Wallpaper updated successfully at ${DateTime.now()}');
+        debugPrint('✅ ========================================');
+        debugPrint('✅ Wallpaper updated successfully!');
+        debugPrint('✅ Time: ${DateTime.now()}');
+        debugPrint('✅ ========================================');
+
+        // Save last update time
+        await prefs.setString('last_wallpaper_update', DateTime.now().toIso8601String());
       } else {
-        debugPrint('⚠️ Wallpaper set might have failed');
+        debugPrint('❌ ========================================');
+        debugPrint('❌ Wallpaper setting failed');
+        debugPrint('❌ ========================================');
       }
 
       // Close boxes to free memory
       await Hive.close();
 
-      return Future.value(true);
+      return Future.value(success);
     } catch (e, stackTrace) {
-      debugPrint('❌ Wallpaper update failed: $e');
-      debugPrint('Stack trace: $stackTrace');
+      debugPrint('❌ ========================================');
+      debugPrint('❌ Wallpaper update CRASHED: $e');
+      debugPrint('❌ Stack trace: $stackTrace');
+      debugPrint('❌ ========================================');
       return Future.value(false);
     }
   });
@@ -121,51 +141,84 @@ class WallpaperSchedulerService {
   Future<void> initialize() async {
     await Workmanager().initialize(
       callbackDispatcher,
-      isInDebugMode: true, // ✅ Set to true for debugging
+      isInDebugMode: true,
     );
     debugPrint('✅ Workmanager initialized');
   }
 
   Future<void> scheduleDailyUpdate() async {
     // Cancel any existing tasks first
-    await Workmanager().cancelByUniqueName('wallpaper_update');
+    await Workmanager().cancelAll();
 
     final nextMidnight = _getDurationUntilMidnight();
     debugPrint('⏰ Next wallpaper update in: ${nextMidnight.inHours}h ${nextMidnight.inMinutes % 60}m');
 
+    // Schedule daily update at midnight
     await Workmanager().registerPeriodicTask(
-      'wallpaper_update',
-      'wallpaperUpdateTask',
+      'wallpaper_daily_update',
+      'wallpaperDailyTask',
       frequency: const Duration(hours: 24),
       initialDelay: nextMidnight,
       constraints: Constraints(
         networkType: NetworkType.notRequired,
-        requiresBatteryNotLow: false, // ✅ Changed to false so it runs even on low battery
+        requiresBatteryNotLow: false,
+        requiresCharging: false,
+        requiresDeviceIdle: false,
+        requiresStorageNotLow: false,
       ),
       existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+      backoffPolicy: BackoffPolicy.exponential,
+      backoffPolicyDelay: const Duration(minutes: 5),
     );
 
     debugPrint('✅ Daily wallpaper update scheduled for midnight');
+
+    // Also schedule a backup update every 6 hours in case midnight fails
+    await Workmanager().registerPeriodicTask(
+      'wallpaper_backup_update',
+      'wallpaperBackupTask',
+      frequency: const Duration(hours: 6),
+      constraints: Constraints(
+        networkType: NetworkType.notRequired,
+        requiresBatteryNotLow: false,
+      ),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+    );
+
+    debugPrint('✅ Backup wallpaper update scheduled (every 6 hours)');
   }
 
-  // ✅ Add this for testing
   Future<void> runImmediately() async {
     await Workmanager().registerOneOffTask(
-      'wallpaper_update_test',
-      'wallpaperUpdateTask',
-      initialDelay: const Duration(seconds: 5),
+      'wallpaper_manual_update',
+      'wallpaperManualTask',
+      initialDelay: const Duration(seconds: 3),
+      constraints: Constraints(
+        networkType: NetworkType.notRequired,
+        requiresBatteryNotLow: false,
+      ),
     );
-    debugPrint('🧪 Test wallpaper update scheduled in 5 seconds');
+    debugPrint('🧪 Manual wallpaper update scheduled in 3 seconds');
   }
 
   Future<void> cancelScheduledUpdates() async {
-    await Workmanager().cancelByUniqueName('wallpaper_update');
-    debugPrint('❌ Cancelled scheduled wallpaper updates');
+    await Workmanager().cancelAll();
+    debugPrint('❌ Cancelled all scheduled wallpaper updates');
   }
 
   Duration _getDurationUntilMidnight() {
     final now = DateTime.now();
-    final midnight = DateTime(now.year, now.month, now.day + 1, 0, 0, 0);
+    final midnight = DateTime(now.year, now.month, now.day + 1, 0, 5, 0); // 5 minutes after midnight for safety
     return midnight.difference(now);
+  }
+
+  // Check when last update happened
+  Future<DateTime?> getLastUpdateTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastUpdate = prefs.getString('last_wallpaper_update');
+    if (lastUpdate != null) {
+      return DateTime.parse(lastUpdate);
+    }
+    return null;
   }
 }

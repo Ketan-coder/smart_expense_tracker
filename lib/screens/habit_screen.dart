@@ -11,6 +11,7 @@ import '../../core/helpers.dart';
 import '../../data/model/habit.dart';
 import '../../data/model/category.dart';
 import '../../services/habit_detection_service.dart';
+import '../services/langs/localzation_extension.dart';
 import 'add_edit_habit_bottom_sheet.dart';
 import 'home/category_page.dart';
 
@@ -59,14 +60,14 @@ class _HabitPageState extends State<HabitPage>
     final completedToday = allHabits.where((h) => h.isCompletedToday()).toList();
 
     if (allHabits.isEmpty) {
-      return ['Build better habits, one day at a time'];
+      return [context.t('habit_title_message')];
     }
 
     // Completion today
     if (completedToday.isNotEmpty) {
-      messages.add('✓ ${completedToday.length}/${activeHabits.length} habits completed today');
+      messages.add('✓ ${completedToday.length}/${activeHabits.length} ${context.t('habit_completed_title_message')}');
     } else if (activeHabits.isNotEmpty) {
-      messages.add('${activeHabits.length} habit${activeHabits.length > 1 ? 's' : ''} awaiting completion today');
+      messages.add('${activeHabits.length} ${context.t('habit_sm')}${activeHabits.length > 1 ? 's' : ''} ${context.t('habit_awaiting_title_message')}');
     }
 
     // Streak messages
@@ -74,25 +75,25 @@ class _HabitPageState extends State<HabitPage>
     if (habitsWithStreak.isNotEmpty) {
       habitsWithStreak.sort((a, b) => b.streakCount.compareTo(a.streakCount));
       final topStreak = habitsWithStreak.first;
-      messages.add('⚡ ${topStreak.name}: ${topStreak.streakCount} day streak');
+      messages.add('⚡ ${topStreak.name}: ${topStreak.streakCount} ${context.t('day_streak_title_message')}');
     }
 
     // Completion rate
     if (activeHabits.isNotEmpty) {
       final avgCompletion = activeHabits.fold(0.0, (sum, h) => sum + h.getCompletionRate(30)) / activeHabits.length * 100;
       if (avgCompletion >= 75) {
-        messages.add('${avgCompletion.toStringAsFixed(0)}% completion rate - Excellent progress');
+        messages.add('${avgCompletion.toStringAsFixed(0)}% ${context.t('excellent_progress_title_message')}');
       } else if (avgCompletion >= 50) {
-        messages.add('↗ ${avgCompletion.toStringAsFixed(0)}% completion - Keep building momentum');
+        messages.add('↗ ${avgCompletion.toStringAsFixed(0)}% ${context.t('good_progress_title_message')}');
       } else {
-        messages.add('${avgCompletion.toStringAsFixed(0)}% completion - Room for improvement');
+        messages.add('${avgCompletion.toStringAsFixed(0)}% ${context.t('room_for_improvement_title_message')}');
       }
     }
 
     // Paused habits reminder
     final pausedHabits = allHabits.where((h) => !h.isActive).toList();
     if (pausedHabits.isNotEmpty) {
-      messages.add('${pausedHabits.length} habit${pausedHabits.length > 1 ? 's' : ''} currently paused');
+      messages.add('${pausedHabits.length} ${context.t('habit_sm')}${pausedHabits.length > 1 ? 's' : ''} ${context.t('currently_paused_title_message')}');
     }
 
     return messages;
@@ -104,7 +105,7 @@ class _HabitPageState extends State<HabitPage>
     final habitBox = Hive.box<Habit>(AppConstants.habits);
     return Scaffold(
       body: SimpleCustomAppBar(
-        title: "Habits",
+        title: context.t('habit'),
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
@@ -118,8 +119,8 @@ class _HabitPageState extends State<HabitPage>
         actionItems: [
           CustomAppBarActionItem(
             icon: Icons.auto_awesome,
-            label: "Detect Habit",
-            tooltip: "It can detect habits and give you personalized recommendations",
+            label: context.t('detect_habit'),
+            tooltip: context.t('detect_habit_message'),
               onPressed: () {
                 HabitDetectionService.clearCache();
                 _runHabitDetection;
@@ -127,8 +128,8 @@ class _HabitPageState extends State<HabitPage>
           ),
           CustomAppBarActionItem(
             icon: Icons.category,
-            label: "Go to Categories",
-            tooltip: "Add/Edit, Pick Favourites Categories",
+            label: context.t('go_to_categories'),
+            tooltip: context.t('go_to_categories_message'),
             onPressed: () {
               Helpers.navigateTo(context, const CategoryPage());
             },
@@ -184,10 +185,10 @@ class _HabitPageState extends State<HabitPage>
                   ),
                   labelColor: Theme.of(context).colorScheme.onPrimaryContainer,
                   unselectedLabelColor: Theme.of(context).colorScheme.onSurface,
-                  tabs: const [
-                    Tab(text: 'Active'),
-                    Tab(text: 'Completed'),
-                    Tab(text: 'Paused'),
+                  tabs: [
+                    Tab(text: context.t('active')),
+                    Tab(text: context.t('completed')),
+                    Tab(text: context.t('paused')),
                   ],
                 ),
               ),
@@ -283,10 +284,10 @@ class _HabitPageState extends State<HabitPage>
             const SizedBox(height: 16),
             Text(
               filter == 'active'
-                  ? 'No active habits'
+                  ? context.t('no_active_habits')
                   : filter == 'completed'
-                  ? 'No completed habits today'
-                  : 'No paused habits',
+                  ? context.t('no_completed_habits_today')
+                  : context.t('no_paused_habits'),
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(color: Colors.grey),
@@ -296,7 +297,7 @@ class _HabitPageState extends State<HabitPage>
               TextButton.icon(
                 onPressed: _showAddHabitSheet,
                 icon: const Icon(Icons.add),
-                label: const Text('Create your first habit'),
+                label: Text(context.t('create_first_habit')),
               ),
             ],
           ],
@@ -683,7 +684,7 @@ class _HabitPageState extends State<HabitPage>
     if (mounted) {
       SnackBars.show(
         context,
-        message: '🎉 ${habit.name} completed! Streak: ${habit.streakCount}',
+        message: context.t('dynamic_completed_with_streak').replaceAll('--', habit.name).replaceAll('__', habit.streakCount.toString()), //🎉 ${habit.name} completed! Streak: ${habit.streakCount}
         type: SnackBarType.success,
       );
     }
@@ -693,17 +694,17 @@ class _HabitPageState extends State<HabitPage>
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Delete Habit?'),
-            content: Text('Are you sure you want to delete "$habitName"?'),
+            title: Text(context.t('delete_habit_question')),
+            content: Text('${context.t('delete_habit_confirmation_message')} "$habitName"?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: Text(context.t('cancel')),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Delete'),
+                child: Text(context.t('delete')),
               ),
             ],
           ),
@@ -714,7 +715,7 @@ class _HabitPageState extends State<HabitPage>
   void _showHabitDetails(Habit habit, dynamic key) {
     BottomSheetUtil.show(
         context: context,
-        title: 'Edit Habit Details',
+        title: context.t('edit_habit'),
         height: MediaQuery.of(context).size.height / 1.35,
         child: AddEditHabitSheet(habit: habit, habitKey: key, hideTitle: true,),
     );
@@ -728,7 +729,7 @@ class _HabitPageState extends State<HabitPage>
   void _showAddHabitSheet() {
     BottomSheetUtil.show(
         context: context,
-        title: 'Add New Habit',
+        title: context.t('add_new_habit'),
         height: MediaQuery.of(context).size.height / 1.35,
         child: AddEditHabitSheet(hideTitle: true,)
     );
@@ -745,7 +746,7 @@ class _HabitPageState extends State<HabitPage>
   Future<void> _runHabitDetection() async {
     SnackBars.show(
       context,
-      message: '🔍 Analyzing your spending patterns...',
+      message: context.t('analyzing_spending_patterns'),
       type: SnackBarType.info,
     );
     try {
@@ -755,7 +756,7 @@ class _HabitPageState extends State<HabitPage>
         if (mounted) {
           SnackBars.show(
             context,
-            message: 'No habit patterns detected yet. Keep tracking!',
+            message: context.t('no_habit_pattern_detected'),
             type: SnackBarType.warning,
           );
         }
@@ -765,11 +766,11 @@ class _HabitPageState extends State<HabitPage>
         _showDetectedHabitsDialog(patterns);
       }
     } catch (e) {
-      debugPrint('Error detecting habits: $e');
+      debugPrint('${context.t('error_detecting_habits')}: $e');
       if (mounted) {
         SnackBars.show(
           context,
-          message: 'Error detecting habits',
+          message: context.t('error_detecting_habits'),
           type: SnackBarType.error,
         );
       }
@@ -781,10 +782,10 @@ class _HabitPageState extends State<HabitPage>
       context: context,
       builder: (context) => AlertDialog(
         title: Row(
-          children: const [
+          children: [
             Icon(Icons.auto_awesome, color: Colors.purple),
             SizedBox(width: 8),
-            Text('Detected Habits'),
+            Text(context.t('detected_habits')),
           ],
         ),
         content: SizedBox(
@@ -820,7 +821,7 @@ class _HabitPageState extends State<HabitPage>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(context.t('close')),
           ),
         ],
       ),
@@ -845,7 +846,7 @@ class _HabitPageState extends State<HabitPage>
     if (mounted) {
       SnackBars.show(
         context,
-        message: '✅ Habit "${habit.name}" added!',
+        message: context.t('dynamic_added_habit_message').replaceAll('__', habit.name),
         type: SnackBarType.success,
       );
     }

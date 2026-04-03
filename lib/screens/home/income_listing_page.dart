@@ -7,6 +7,7 @@ import '../../core/helpers.dart';
 import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../data/model/income.dart';
+import '../../services/langs/localzation_extension.dart';
 import '../../services/number_formatter_service.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../widgets/bottom_sheet.dart';
@@ -65,20 +66,6 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
   List<MapEntry<dynamic, Income>> _getFilteredIncomes(Box<Income> box) {
     var incomes = box.toMap().entries.toList();
 
-    // Apply filters
-    // if (_filterCategory != null) {
-    //   final categoryBox = Hive.box<Category>(AppConstants.categories);
-    //   final categoryKey = categoryBox.keys.firstWhere(
-    //         (key) => categoryBox.get(key)?.name == _filterCategory,
-    //     orElse: () => -1,
-    //   );
-    //   if (categoryKey != -1) {
-    //     incomes = incomes.where((i) =>
-    //         i.value.categoryKeys.contains(categoryKey)
-    //     ).toList();
-    //   }
-    // }
-
     if (_filterCategoryIds.isNotEmpty) {
       incomes = incomes.where((i) {
         return i.value.categoryKeys
@@ -92,12 +79,6 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
         return _filterMethods.contains(method);
       }).toList();
     }
-
-    // if (_filterSource != null) {
-    //   incomes = incomes.where((i) =>
-    //   (i.value.method ?? 'UPI') == _filterSource
-    //   ).toList();
-    // }
 
     if (_dateRange != null) {
       incomes = incomes.where((i) =>
@@ -153,7 +134,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
 
     BottomSheetUtil.show(
       context: context,
-      title: 'Filter by Category',
+      title: context.t('filter_by_category'),
       height: MediaQuery.of(context).size.height * 0.6,
       child: StatefulBuilder(
         builder: (context, localSetState) {
@@ -163,7 +144,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                 children: [
                   // ALL Categories checkbox
                   CheckboxListTile(
-                    title: const Text('All Categories'),
+                    title: Text(context.t('all_categories')),
                     value: _filterCategoryIds.isEmpty,
                     onChanged: (selected) {
                       localSetState(() {
@@ -211,7 +192,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
   String get selectedCategoryLabel {
     final categoryBox = Hive.box<Category>(AppConstants.categories);
 
-    if (_filterCategoryIds.isEmpty) return "All";
+    if (_filterCategoryIds.isEmpty) return context.t('all');
 
     final names = _filterCategoryIds.map((id) {
       return categoryBox.get(id)?.name ?? "";
@@ -220,56 +201,12 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
     return names.join(", ");
   }
 
-
-  // void _showSourceFilter() {
-  //   final sources = Helpers().getPaymentMethods();
-  //
-  //   BottomSheetUtil.show(
-  //       context: context,
-  //       title: 'Filter by Source',
-  //       height: MediaQuery.of(context).size.height * 0.5,
-  //       child: SafeArea(
-  //         child: SingleChildScrollView(
-  //           child: Column(
-  //             mainAxisSize: MainAxisSize.min,
-  //             children: [
-  //               ListTile(
-  //                 title: const Text('All Sources'),
-  //                 leading: Radio<String?>(
-  //                   value: null,
-  //                   groupValue: _filterSource,
-  //                   onChanged: (value) {
-  //                     setState(() => _filterSource = value);
-  //                     Navigator.pop(context);
-  //                   },
-  //                 ),
-  //               ),
-  //               ...sources.map((source) {
-  //                 return ListTile(
-  //                   title: Text(source),
-  //                   leading: Radio<String>(
-  //                     value: source,
-  //                     groupValue: _filterSource,
-  //                     onChanged: (value) {
-  //                       setState(() => _filterSource = value);
-  //                       Navigator.pop(context);
-  //                     },
-  //                   ),
-  //                 );
-  //               }),
-  //             ],
-  //           ),
-  //         ),
-  //       ),
-  //   );
-  // }
-
   void _showSourceFilter() {
     final methods = Helpers().getPaymentMethods(); // list of strings
 
     BottomSheetUtil.show(
       context: context,
-      title: 'Filter by Method',
+      title: context.t('filter_by_method'),
       height: MediaQuery.sizeOf(context).height * 0.5,
       child: StatefulBuilder(
         builder: (context, localSetState) {
@@ -279,7 +216,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                 children: [
                   // ALL METHODS OPTION
                   CheckboxListTile(
-                    title: const Text('All Methods'),
+                    title: Text(context.t('all_methods')),
                     value: _filterMethods.isEmpty,
                     onChanged: (selected) {
                       localSetState(() {
@@ -321,23 +258,23 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
 
   void _showAmountFilter() {
     final minController = TextEditingController(
-      text: NumberFormatterService().formatForDisplay(_minAmount ?? 0.0),
+      text: _minAmount?.toString() ?? '',
     );
     final maxController = TextEditingController(
-      text: NumberFormatterService().formatForDisplay(_maxAmount ?? 0.0),
+      text: _maxAmount?.toString() ?? '',
     );
 
     BottomSheetUtil.show(
       context: context,
-      title: 'Filter by Amount',
+      title: context.t('filter_by_amount'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextField(
             controller: minController,
             decoration:  InputDecoration(
-              labelText: 'Minimum Amount',
-              border: OutlineInputBorder(),
+              labelText: context.t('min_amount'),
+              border: const OutlineInputBorder(),
               prefixText: '$_currentCurrency ',
             ),
             keyboardType: TextInputType.number,
@@ -346,8 +283,8 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
           TextField(
             controller: maxController,
             decoration:  InputDecoration(
-              labelText: 'Maximum Amount',
-              border: OutlineInputBorder(),
+              labelText: context.t('max_amount'),
+              border: const OutlineInputBorder(),
               prefixText: '$_currentCurrency ',
             ),
             keyboardType: TextInputType.number,
@@ -364,7 +301,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                     });
                     Navigator.pop(context);
                   },
-                  child: const Text('Clear'),
+                  child: Text(context.t('clear')),
                 ),
               ),
               const SizedBox(width: 12),
@@ -377,7 +314,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                     });
                     Navigator.pop(context);
                   },
-                  child: const Text('Apply'),
+                  child: Text(context.t('apply')),
                 ),
               ),
             ],
@@ -406,13 +343,15 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
       _dateRange = null;
       _minAmount = null;
       _maxAmount = null;
+      _filterCategoryIds.clear();
+      _filterMethods.clear();
     });
   }
 
   int _getActiveFilterCount() {
     int count = 0;
-    if (_filterCategory != null) count++;
-    if (_filterSource != null) count++;
+    if (_filterCategoryIds.isNotEmpty) count++;
+    if (_filterMethods.isNotEmpty) count++;
     if (_dateRange != null) count++;
     if (_minAmount != null || _maxAmount != null) count++;
     return count;
@@ -426,7 +365,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
 
     return Scaffold(
       body: SimpleCustomAppBar(
-        title: "All Income",
+        title: context.t('all_income'),
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,
@@ -450,7 +389,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                   children: [
                     Icon(_sortBy == 'date' ? Icons.check : Icons.calendar_today_rounded, size: 20),
                     const SizedBox(width: 12),
-                    const Text('Date'),
+                    Text(context.t('date')),
                   ],
                 ),
               ),
@@ -460,7 +399,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                   children: [
                     Icon(_sortBy == 'amount' ? Icons.check : Icons.currency_rupee_rounded, size: 20),
                     const SizedBox(width: 12),
-                    const Text('Amount'),
+                    Text(context.t('amount')),
                   ],
                 ),
               ),
@@ -470,7 +409,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                   children: [
                     Icon(_sortBy == 'category' ? Icons.check : Icons.category_rounded, size: 20),
                     const SizedBox(width: 12),
-                    const Text('Category'),
+                    Text(context.t('category')),
                   ],
                 ),
               ),
@@ -480,7 +419,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                   children: [
                     Icon(_sortBy == 'source' ? Icons.check : Icons.source_rounded, size: 20),
                     const SizedBox(width: 12),
-                    const Text('Source'),
+                    Text(context.t('source')),
                   ],
                 ),
               ),
@@ -519,21 +458,21 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                         child: Row(
                           children: [
                             FilterChip(
-                              label: Text('Category${selectedCategoryLabel != 'All' ? ': $selectedCategoryLabel' : ''}'),
-                              selected: _filterCategoryIds != [] && selectedCategoryLabel != 'All',
+                              label: Text('${context.t('category')}${selectedCategoryLabel != context.t('all') ? ': $selectedCategoryLabel' : ''}'),
+                              selected: _filterCategoryIds.isNotEmpty,
                               onSelected: (_) => _showCategoryFilter(),
                               avatar: Icon(
                                 Icons.category_rounded,
                                 size: 18,
-                                color: selectedCategoryLabel != 'All' ? colorScheme.primary : null,
+                                color: _filterCategoryIds.isNotEmpty ? colorScheme.primary : null,
                               ),
                             ),
                             const SizedBox(width: 8),
                             FilterChip(
                               label: Text(
                                 _filterMethods.isEmpty
-                                    ? 'Methods'
-                                    : 'Methods: ${_filterMethods.join(", ")}',
+                                    ? context.t('methods')
+                                    : '${context.t('methods')}: ${_filterMethods.join(", ")}',
                               ),
                               selected: _filterMethods.isNotEmpty,
                               onSelected: (_) => _showSourceFilter(),
@@ -543,21 +482,11 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                                 color: _filterMethods.isNotEmpty ? colorScheme.primary : null,
                               ),
                             ),
-                            // FilterChip(
-                            //   label: Text('Source${_filterSource != null ? ': $_filterSource' : ''}'),
-                            //   selected: _filterSource != null,
-                            //   onSelected: (_) => _showSourceFilter(),
-                            //   avatar: Icon(
-                            //     Icons.source_rounded,
-                            //     size: 18,
-                            //     color: _filterSource != null ? colorScheme.primary : null,
-                            //   ),
-                            // ),
                             const SizedBox(width: 8),
                             FilterChip(
                               label: Text(_dateRange != null
                                   ? '${DateFormat('d MMM').format(_dateRange!.start)} - ${DateFormat('d MMM').format(_dateRange!.end)}'
-                                  : 'Date Range'),
+                                  : context.t('date')),
                               selected: _dateRange != null,
                               onSelected: (_) => _showDateRangePicker(),
                               avatar: Icon(
@@ -569,8 +498,8 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                             const SizedBox(width: 8),
                             FilterChip(
                               label: Text(_minAmount != null || _maxAmount != null
-                                  ? '$_currentCurrency ${NumberFormatterService().formatForDisplay(_minAmount ?? 0.0)} - $_currentCurrency ${NumberFormatterService().formatForDisplay(_maxAmount ?? 0.0) ?? '∞'}'
-                                  : 'Amount'),
+                                  ? '$_currentCurrency ${NumberFormatterService().formatForDisplay(_minAmount ?? 0.0)} - $_currentCurrency ${NumberFormatterService().formatForDisplay(_maxAmount ?? 0.0)}'
+                                  : context.t('amount')),
                               selected: _minAmount != null || _maxAmount != null,
                               onSelected: (_) => _showAmountFilter(),
                               avatar: Icon(
@@ -582,7 +511,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                             if (activeFilters > 0) ...[
                               const SizedBox(width: 8),
                               ActionChip(
-                                label: const Text('Clear All'),
+                                label: Text(context.t('clear_all')),
                                 onPressed: _clearAllFilters,
                                 avatar: const Icon(Icons.clear_rounded, size: 18),
                               ),
@@ -604,27 +533,20 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${filteredIncomes.length} Transaction${filteredIncomes.length != 1 ? 's' : ''}',
+                                    '${filteredIncomes.length} ${context.t('add_transaction')}${filteredIncomes.length != 1 ? 's' : ''}',
                                     style: theme.textTheme.bodyLarge?.copyWith(
                                       color: colorScheme.onPrimaryContainer,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Total Earned',
+                                    context.t('total_earned'),
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onPrimaryContainer.withValues(alpha:0.7),
+                                      color: colorScheme.onPrimaryContainer.withAlpha(178),
                                     ),
                                   ),
                                 ],
                               ),
-                              // Text(
-                              //   '$_currentCurrency ${total.toStringAsFixed(2)}',
-                              //   style: theme.textTheme.headlineMedium?.copyWith(
-                              //     color: colorScheme.onPrimaryContainer,
-                              //     fontWeight: FontWeight.bold,
-                              //   ),
-                              // ),
                               PrivacyCurrency(
                                   amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(total)}',
                                   isPrivacyActive: isPrivate,
@@ -649,7 +571,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Sorted by ${_sortBy.capitalize()} (${_ascending ? 'Ascending' : 'Descending'})',
+                            context.t('sorted_by').replaceAll('--', _sortBy.capitalize()).replaceAll('(__)', _ascending ? context.t('ascending') : context.t('descending')),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -672,12 +594,12 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  'No income found',
+                                  context.t('no_income_found'),
                                   style: theme.textTheme.titleMedium,
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Try adjusting your filters',
+                                  context.t('adjust_filters_desc'),
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -688,7 +610,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                         )
                       else
                         ...groupedIncomes.entries.map((entry) {
-                          // Calculate total for this date - ADD THIS LINE
+                          // Calculate total for this date
                           double dailyTotal = entry.value.fold(0.0, (sum, incomeEntry) => sum + incomeEntry.value.amount);
 
                           return Column(
@@ -709,11 +631,11 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: colorScheme.primary.withValues(alpha:0.1),
+                                        color: colorScheme.primary.withAlpha(25),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
-                                        'Total: $_currentCurrency ${NumberFormatterService().formatForDisplay(dailyTotal)}',
+                                        '${context.t('total')}: $_currentCurrency ${NumberFormatterService().formatForDisplay(dailyTotal)}',
                                         style: theme.textTheme.labelSmall?.copyWith(
                                           fontWeight: FontWeight.w600,
                                           color: colorScheme.primary,
@@ -751,10 +673,10 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
     final keyId = incomeEntry.key as int;
     final income = incomeEntry.value;
     final categoryBox = Hive.box<Category>(AppConstants.categories);
-    String categoryName = 'Uncategorized';
+    String categoryName = context.t('uncategorized');
     if (income.categoryKeys.isNotEmpty) {
       final category = categoryBox.get(income.categoryKeys.first);
-      categoryName = category?.name ?? 'General';
+      categoryName = category?.name ?? context.t('general');
     }
 
     return Dismissible(
@@ -777,16 +699,16 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
           final confirm = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text("Confirm Deletion"),
-              content: const Text("Are you sure you want to delete this income?"),
+              title: Text(context.t('confirm_deletion')),
+              content: Text(context.t('delete_income_confirm')),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text("Cancel"),
+                  child: Text(context.t('cancel')),
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(true),
-                  child: const Text("Delete", style: TextStyle(color: Colors.red)),
+                  child: Text(context.t('delete'), style: const TextStyle(color: Colors.red)),
                 ),
               ],
             ),
@@ -841,13 +763,6 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
               ),
             ],
           ),
-          // trailing: Text(
-          //   '$_currentCurrency ${income.amount.toStringAsFixed(2)}',
-          //   style: theme.textTheme.titleMedium?.copyWith(
-          //     color: colorScheme.primary,
-          //     fontWeight: FontWeight.bold,
-          //   ),
-          // ),
           trailing: PrivacyCurrency(
             amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(income.amount)}',
             isPrivacyActive: isPrivate,
@@ -886,7 +801,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
 
     BottomSheetUtil.show(
       context: context,
-      title: 'Edit Income',
+      title: context.t('edit_income'),
       child: StatefulBuilder(
         builder: (context, setModalState) {
           final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -899,7 +814,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                 controller: amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration:  InputDecoration(
-                  labelText: 'Amount',
+                  labelText: context.t('amount'),
                   border: const OutlineInputBorder(),
                   prefixText: '$_currentCurrency ',
                 ),
@@ -907,17 +822,17 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
               const SizedBox(height: 16),
               TextField(
                 controller: descController,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('description'),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: selectedMethod,
-                decoration: const InputDecoration(
-                  labelText: 'Source',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('source'),
+                  border: const OutlineInputBorder(),
                 ),
                 items: Helpers().getPaymentMethods()
                     .map((type) => DropdownMenuItem(value: type, child: Text(type)))
@@ -929,9 +844,9 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                 },
               ),
               const SizedBox(height: 16),
-              const Text(
-                "Selected Categories:",
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Text(
+                context.t('selected_categories'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -944,7 +859,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                   final isSelected = selectedCategoryKeys.contains(catKey);
                   return ChoiceChip(
                     label: Text(category.name),
-                    backgroundColor: (Helpers().hexToColor(category.color)).withValues(alpha:0.5),
+                    backgroundColor: (Helpers().hexToColor(category.color)).withAlpha(128),
                     selected: isSelected,
                     onSelected: (selected) {
                       setModalState(() {
@@ -965,7 +880,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                   if (amount == null || amount <= 0 || selectedCategoryKeys.isEmpty) {
                     SnackBars.show(
                       context,
-                      message: "Please fill all fields and select at least one category",
+                      message: context.t('empty_fields_error'),
                       type: SnackBarType.error,
                     );
                     return;
@@ -984,11 +899,11 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
 
                   SnackBars.show(
                     context,
-                    message: "Income updated successfully",
+                    message: context.t('income_updated_success'),
                     type: SnackBarType.success,
                   );
                 },
-                child: const Text('Save Changes'),
+                child: Text(context.t('save_changes')),
               ),
             ],
           );
@@ -1001,8 +916,8 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = DateTime(now.year, now.month, now.day - 1);
-    if (date == today) return 'Today';
-    if (date == yesterday) return 'Yesterday';
+    if (date == today) return context.t('today');
+    if (date == yesterday) return context.t('yesterday');
     return DateFormat('d MMM yyyy').format(date);
   }
 }
