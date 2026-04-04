@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:expense_tracker/screens/home/category_page.dart';
 import 'package:expense_tracker/screens/home/income_listing_page.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
@@ -14,6 +16,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
+import '../../services/langs/app_localalizations.dart';
 import '../../services/langs/localzation_extension.dart';
 import '../../services/number_formatter_service.dart';
 import '../expenses/expense_listing_page.dart';
@@ -1234,6 +1237,14 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   }
 
   void _showExportOptions() {
+    final expenses = _getFilteredExpenses(_startDate, _endDate);
+    final incomes = _getFilteredIncomes(_startDate, _endDate);
+    final categoryBreakdown = _getCategoryBreakdown(expenses);
+    // final totalExpense = expenses.fold(0.0, (sum, e) => sum + e.amount);
+    // final totalIncome = incomes.fold(0.0, (sum, i) => sum + i.amount);
+    // final netSavings = totalIncome - totalExpense;
+    final languageCode = AppLocalizations.of(context)!.locale.languageCode;
+
     BottomSheetUtil.showQuickAction(
       context: context,
       height: MediaQuery.of(context).size.height * 0.15,
@@ -1247,7 +1258,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             subtitle: Text(context.t('pdf_desc')),
             onTap: () {
               Navigator.pop(context);
-              _exportAsPDF();
+              exportAsPDF(context: context, startDate: _startDate, endDate: _endDate, expenses: expenses, incomes: incomes, categoryBreakdown: categoryBreakdown, currentCurrency: _currentCurrency, languageCode: languageCode);
             },
           ),
           ListTile(
@@ -1256,7 +1267,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             subtitle: Text(context.t('csv_desc')),
             onTap: () {
               Navigator.pop(context);
-              _exportAsCSV();
+              exportAsCSV(context: context, startDate: _startDate, endDate: _endDate, expenses: expenses, incomes: incomes);
             },
           ),
           const SizedBox(height: 20),
@@ -1265,134 +1276,217 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     );
   }
 
-  Future<void> _exportAsPDF() async {
+  /// Returns the correct Noto font asset path for the current app locale.
+  /// Falls back to NotoSans (Latin) for unsupported locales.
+  String _getFontAssetForLocale(String languageCode) {
+    switch (languageCode) {
+      case 'hi':
+      case 'mr':
+        return 'assets/fonts/NotoSansDevanagari.ttf';
+      case 'ta':
+        return 'assets/fonts/NotoSansTamil.ttf';
+      case 'te':
+        return 'assets/fonts/NotoSansTelugu.ttf';
+      case 'kn':
+        return 'assets/fonts/NotoSansKannada.ttf';
+      case 'ml':
+        return 'assets/fonts/NotoSansMalayalam.ttf';
+      case 'bn':
+        return 'assets/fonts/NotoSansBengali.ttf';
+      case 'gu':
+        return 'assets/fonts/NotoSansGujarati.ttf';
+      case 'pa':
+        return 'assets/fonts/NotoSansGurmukhi.ttf';
+      default:
+        return 'assets/fonts/NotoSans.ttf';
+    }
+  }
+
+  /// Loads the correct font for the current locale and returns base + bold fonts.
+  /// For Indian scripts, bold variants often don't ship separately — we reuse
+  /// the same TTF for both base and bold (pdf package will fake-bold if needed).
+  Future<({pw.Font base, pw.Font bold})> _loadFontsForLocale(
+      String languageCode) async {
+    final fontAsset = _getFontAssetForLocale(languageCode);
+    final fontData = await rootBundle.load(fontAsset);
+    final font = pw.Font.ttf(fontData);
+
+    // Try to load a Bold variant if it exists (e.g. NotoSansDevanagari-Bold.ttf).
+    // If not found, fall back to the same font (pdf lib will synthesise bold).
+    pw.Font boldFont;
+    try {
+      final boldAsset = fontAsset.replaceFirst('.ttf', '-Bold.ttf');
+      final boldData = await rootBundle.load(boldAsset);
+      boldFont = pw.Font.ttf(boldData);
+    } catch (_) {
+      boldFont = font;
+    }
+
+    return (base: font, bold: boldFont);
+  }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF EXPORT
+// ─────────────────────────────────────────────────────────────────────────────
+
+  Future<void> exportAsPDF({
+    required BuildContext context,
+    required DateTime startDate,
+    required DateTime endDate,
+    required List<dynamic> expenses,   // List<Expense>
+    required List<dynamic> incomes,    // List<Income>
+    required Map<String, double> categoryBreakdown,
+    required String currentCurrency,
+    required String languageCode,
+    // Pass these from your SnackBars helper:
+    // required void Function(String message, {bool isError, bool isInfo}) showSnackBar,
+  }) async {
     try {
       SnackBars.show(context, message: context.t('generating_pdf'), type: SnackBarType.info);
 
-      final expenses = _getFilteredExpenses(_startDate, _endDate);
-      final incomes = _getFilteredIncomes(_startDate, _endDate);
-      final categoryBreakdown = _getCategoryBreakdown(expenses);
-      final totalExpense = expenses.fold(0.0, (sum, e) => sum + e.amount);
-      final totalIncome = incomes.fold(0.0, (sum, i) => sum + i.amount);
-      final netSavings = totalIncome - totalExpense;
+      final totalExpense = expenses.fold<double>(0.0, (sum, e) => sum + (e.amount as double));
+      final totalIncome  = incomes.fold<double>(0.0,  (sum, i) => sum + (i.amount as double));
+      final netSavings   = totalIncome - totalExpense;
 
-      final ByteData baseFontData = await rootBundle.load('assets/fonts/NotoSans.ttf');
-      final ByteData boldFontData = await rootBundle.load('assets/fonts/NotoSans.ttf');
-      final pw.Font baseFont = pw.Font.ttf(baseFontData);
-      final pw.Font boldFont = pw.Font.ttf(boldFontData);
+      // ── Font loading ──────────────────────────────────────────────────────────
+      final fonts = await _loadFontsForLocale(languageCode);
 
+      // ── Localized strings ─────────────────────────────────────────────────────
+      final l = context; // shorthand — we just call context.t(...)
+      final dateRange =
+          '${DateFormat('d MMM yyyy').format(startDate)} - ${DateFormat('d MMM yyyy').format(endDate)}';
+
+      // ── Build PDF ─────────────────────────────────────────────────────────────
       final pdf = pw.Document();
 
       pdf.addPage(
         pw.MultiPage(
-          theme: pw.ThemeData.withFont(base: baseFont, bold: boldFont),
+          theme: pw.ThemeData.withFont(
+            base: fonts.base,
+            bold: fonts.bold,
+          ),
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(32),
-          header: (context) => pw.Column(
+
+          // ── Header ────────────────────────────────────────────────────────────
+          header: (_) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                'Financial Report',
-                style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+                l.t('financial_reports'),
+                style: pw.TextStyle(
+                    fontSize: 22, fontWeight: pw.FontWeight.bold),
               ),
-              pw.SizedBox(height: 8),
+              pw.SizedBox(height: 6),
               pw.Text(
-                'Period: ${DateFormat('d MMM yyyy').format(_startDate)} - ${DateFormat('d MMM yyyy').format(_endDate)}',
-                style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
+                '${l.t('select_date_range')}: $dateRange',
+                style: const pw.TextStyle(
+                    fontSize: 11, color: PdfColors.grey700),
               ),
-              pw.SizedBox(height: 20),
+              pw.SizedBox(height: 16),
+              pw.Divider(color: PdfColors.grey400),
+              pw.SizedBox(height: 8),
             ],
           ),
-          footer: (context) => pw.Container(
+
+          // ── Footer ────────────────────────────────────────────────────────────
+          footer: (ctx) => pw.Container(
             alignment: pw.Alignment.centerRight,
-            margin: const pw.EdgeInsets.only(top: 20),
+            margin: const pw.EdgeInsets.only(top: 16),
             child: pw.Text(
-              'Page ${context.pageNumber} of ${context.pagesCount}',
-              style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+              // "Page 1 of 3"  — no translation key needed, numbers are universal
+              'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
+              style: const pw.TextStyle(
+                  fontSize: 9, color: PdfColors.grey600),
             ),
           ),
-          build: (context) => [
-            pw.Header(level: 1, child: pw.Text('Summary')),
-            pw.SizedBox(height: 10),
+
+          // ── Body ──────────────────────────────────────────────────────────────
+          build: (_) => [
+
+            // 1. Summary table
+            pw.Header(
+              level: 1,
+              child: pw.Text(l.t('overview'),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.SizedBox(height: 8),
             pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+              border: pw.TableBorder.all(
+                  color: PdfColors.grey400, width: 0.5),
               columnWidths: {
                 0: const pw.FlexColumnWidth(3),
                 1: const pw.FlexColumnWidth(2),
               },
               children: [
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-                  children: [
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(8),
-                      child: pw.Text('Metric', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(8),
-                      child: pw.Text('Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right),
-                    ),
-                  ],
-                ),
-                pw.TableRow(
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Total Income')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${NumberFormatterService().formatForDisplay(totalIncome)}', textAlign: pw.TextAlign.right)),
-                  ],
-                ),
-                pw.TableRow(
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Total Expenses')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${NumberFormatterService().formatForDisplay(totalExpense)}', textAlign: pw.TextAlign.right)),
-                  ],
-                ),
-                pw.TableRow(
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Net Savings')),
-                    pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${NumberFormatterService().formatForDisplay(netSavings)}', textAlign: pw.TextAlign.right)),
-                  ],
-                ),
+                // Header row
+                _pdfHeaderRow([l.t('metric'), l.t('amount')]),
+                _pdfDataRow([
+                  l.t('total_income'),
+                  '$currentCurrency ${NumberFormatterService().formatForDisplay(totalIncome)}',
+                ]),
+                _pdfDataRow([
+                  l.t('total_expense'),
+                  '$currentCurrency ${NumberFormatterService().formatForDisplay(totalExpense)}',
+                ]),
+                _pdfDataRow([
+                  l.t('net_savings'),
+                  '$currentCurrency ${NumberFormatterService().formatForDisplay(netSavings)}',
+                ]),
               ],
             ),
-            pw.SizedBox(height: 30),
+            pw.SizedBox(height: 28),
 
-            pw.Header(level: 1, child: pw.Text('Expense by Category')),
-            pw.SizedBox(height: 10),
+            // 2. Expense by Category
+            pw.Header(
+              level: 1,
+              child: pw.Text(l.t('category_analysis'),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.SizedBox(height: 8),
             if (categoryBreakdown.isNotEmpty)
               pw.Table(
-                border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+                border: pw.TableBorder.all(
+                    color: PdfColors.grey400, width: 0.5),
                 columnWidths: {
                   0: const pw.FlexColumnWidth(3),
                   1: const pw.FlexColumnWidth(2),
                   2: const pw.FlexColumnWidth(2),
                 },
                 children: [
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-                    children: [
-                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Category', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
-                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Percentage', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
-                    ],
-                  ),
-                  ...categoryBreakdown.entries.map((e) {
-                    final percentage = totalExpense > 0 ? (e.value / totalExpense * 100) : 0.0;
-                    return pw.TableRow(
-                      children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(e.key)),
-                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${e.value.toStringAsFixed(2)}', textAlign: pw.TextAlign.right)),
-                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('${percentage.toStringAsFixed(1)}%', textAlign: pw.TextAlign.right)),
-                      ],
-                    );
+                  _pdfHeaderRow([
+                    l.t('category'),
+                    l.t('amount'),
+                    l.t('percentage'),
+                  ]),
+                  ...categoryBreakdown.entries.map((entry) {
+                    final pct = totalExpense > 0
+                        ? (entry.value / totalExpense * 100)
+                        : 0.0;
+                    return _pdfDataRow([
+                      entry.key,
+                      '$currentCurrency ${entry.value.toStringAsFixed(2)}',
+                      '${pct.toStringAsFixed(1)}%',
+                    ]);
                   }),
                 ],
-              ),
-            pw.SizedBox(height: 30),
+              )
+            else
+              pw.Text(l.t('no_expenses_categorize'),
+                  style: const pw.TextStyle(color: PdfColors.grey600)),
+            pw.SizedBox(height: 28),
 
-            pw.Header(level: 1, child: pw.Text('Recent Transactions')),
-            pw.SizedBox(height: 10),
+            // 3. Recent Transactions (expenses, first 20)
+            pw.Header(
+              level: 1,
+              child: pw.Text(l.t('transactions'),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.SizedBox(height: 8),
             if (expenses.isNotEmpty)
               pw.Table(
-                border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+                border: pw.TableBorder.all(
+                    color: PdfColors.grey400, width: 0.5),
                 columnWidths: {
                   0: const pw.FlexColumnWidth(2),
                   1: const pw.FlexColumnWidth(3),
@@ -1400,99 +1494,421 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   3: const pw.FlexColumnWidth(2),
                 },
                 children: [
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-                    children: [
-                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Date', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Description', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Category', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
-                    ],
-                  ),
+                  _pdfHeaderRow([
+                    l.t('date'),
+                    l.t('description'),
+                    l.t('category'),
+                    l.t('amount'),
+                  ]),
                   ...expenses.take(20).map((e) {
-                    final categoryBox = Hive.box<Category>(AppConstants.categories);
-                    String categoryName = 'Uncategorized';
-                    if (e.categoryKeys.isNotEmpty) {
-                      final category = categoryBox.get(e.categoryKeys.first);
-                      categoryName = category?.name ?? 'General';
+                    final categoryBox =
+                    Hive.box<Category>(AppConstants.categories);
+                    String categoryName = l.t('uncategorized');
+                    if ((e.categoryKeys as List).isNotEmpty) {
+                      final cat = categoryBox.get(e.categoryKeys.first);
+                      categoryName = cat?.name ?? l.t('general');
                     }
-                    return pw.TableRow(
-                      children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(DateFormat('d MMM yyyy').format(e.date))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(e.description)),
-                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(categoryName)),
-                        pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${NumberFormatterService().formatForDisplay(e.amount)}', textAlign: pw.TextAlign.right)),
-                      ],
-                    );
+                    return _pdfDataRow([
+                      DateFormat('d MMM yyyy').format(e.date as DateTime),
+                      e.description as String,
+                      categoryName,
+                      '$currentCurrency ${NumberFormatterService().formatForDisplay(e.amount as double)}',
+                    ]);
                   }),
                 ],
-              ),
+              )
+            else
+              pw.Text(l.t('no_expenses_recorded'),
+                  style: const pw.TextStyle(color: PdfColors.grey600)),
           ],
         ),
       );
 
-      final output = await getTemporaryDirectory();
-      final file = File('${output.path}/financial_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf');
+      // ── Save & share ─────────────────────────────────────────────────────────
+      final dir  = await getTemporaryDirectory();
+      final file = File(
+          '${dir.path}/financial_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf');
       await file.writeAsBytes(await pdf.save());
+      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)],text: context.t('financial_reports')));
 
-      await Share.shareXFiles([XFile(file.path)], text: 'Financial Report');
-
-      if (mounted) {
+      if (context.mounted) {
         SnackBars.show(context, message: context.t('pdf_generated_success'), type: SnackBarType.success);
       }
     } catch (e) {
       debugPrint('Error generating PDF: $e');
-      if (mounted) {
+      if (context.mounted) {
         SnackBars.show(context, message: context.t('pdf_generation_error').replaceAll('--', e.toString()), type: SnackBarType.error);
       }
     }
   }
 
-  Future<void> _exportAsCSV() async {
+// ─────────────────────────────────────────────────────────────────────────────
+// CSV EXPORT
+// ─────────────────────────────────────────────────────────────────────────────
+
+  Future<void> exportAsCSV({
+    required BuildContext context,
+    required DateTime startDate,
+    required DateTime endDate,
+    required List<dynamic> expenses,  // List<Expense>
+    required List<dynamic> incomes,   // List<Income>
+    // required void Function(String message, {bool isError, bool isInfo}) showSnackBar,
+  }) async {
     try {
       SnackBars.show(context, message: context.t('generating_csv'), type: SnackBarType.info);
 
-      final expenses = _getFilteredExpenses(_startDate, _endDate);
-      final incomes = _getFilteredIncomes(_startDate, _endDate);
       final categoryBox = Hive.box<Category>(AppConstants.categories);
 
-      StringBuffer csv = StringBuffer();
+      // CSV header — keep English keys for interoperability with spreadsheets,
+      // but use localized type labels in the data rows.
+      final csv = StringBuffer();
       csv.writeln('Date,Type,Description,Category,Amount,Method');
 
-      for (var income in incomes) {
+      // ── Income rows ──────────────────────────────────────────────────────────
+      for (final income in incomes) {
         String categoryName = context.t('uncategorized');
-        if (income.categoryKeys.isNotEmpty) {
-          final category = categoryBox.get(income.categoryKeys.first);
-          categoryName = category?.name ?? context.t('general');
+        if ((income.categoryKeys as List).isNotEmpty) {
+          final cat = categoryBox.get(income.categoryKeys.first);
+          categoryName = cat?.name ?? context.t('general');
         }
-        csv.writeln('${DateFormat('yyyy-MM-dd').format(income.date)},Income,"${income.description}","$categoryName",${income.amount},${income.method ?? 'N/A'}');
+        // Escape commas/quotes inside fields with double-quote wrapping
+        final description = _csvEscape(income.description as String);
+        final category    = _csvEscape(categoryName);
+        final method      = _csvEscape((income.method as String?) ?? 'N/A');
+
+        csv.writeln(
+          '${DateFormat('yyyy-MM-dd').format(income.date as DateTime)},'
+              '${context.t('income')},'   // localized type
+              '$description,'
+              '$category,'
+              '${income.amount},'
+              '$method',
+        );
       }
 
-      for (var expense in expenses) {
+      // ── Expense rows ─────────────────────────────────────────────────────────
+      for (final expense in expenses) {
         String categoryName = context.t('uncategorized');
-        if (expense.categoryKeys.isNotEmpty) {
-          final category = categoryBox.get(expense.categoryKeys.first);
-          categoryName = category?.name ?? context.t('general');
+        if ((expense.categoryKeys as List).isNotEmpty) {
+          final cat = categoryBox.get(expense.categoryKeys.first);
+          categoryName = cat?.name ?? context.t('general');
         }
-        csv.writeln('${DateFormat('yyyy-MM-dd').format(expense.date)},Expense,"${expense.description}","$categoryName",${expense.amount},${expense.method ?? 'N/A'}');
+        final description = _csvEscape(expense.description as String);
+        final category    = _csvEscape(categoryName);
+        final method      = _csvEscape((expense.method as String?) ?? 'N/A');
+
+        csv.writeln(
+          '${DateFormat('yyyy-MM-dd').format(expense.date as DateTime)},'
+              '${context.t('expense')},'  // localized type
+              '$description,'
+              '$category,'
+              '${expense.amount},'
+              '$method',
+        );
       }
 
-      final output = await getTemporaryDirectory();
-      final file = File('${output.path}/transactions_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv');
-      await file.writeAsString(csv.toString());
+      // ── Save & share ─────────────────────────────────────────────────────────
+      final dir  = await getTemporaryDirectory();
+      final file = File(
+          '${dir.path}/transactions_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv');
 
-      await Share.shareXFiles([XFile(file.path)], text: 'Transaction Data');
+      // UTF-8 BOM so Excel auto-detects encoding for non-Latin scripts
+      await file.writeAsBytes([
+        0xEF, 0xBB, 0xBF,                         // UTF-8 BOM
+        ...utf8.encode(csv.toString()),
+      ]);
 
-      if (mounted) {
+      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)],text: context.t('transactions')));
+
+      if (context.mounted) {
         SnackBars.show(context, message: context.t('csv_generated_success'), type: SnackBarType.success);
       }
     } catch (e) {
       debugPrint('Error generating CSV: $e');
-      if (mounted) {
+      if (context.mounted) {
         SnackBars.show(context, message: context.t('csv_generation_error').replaceAll('--', e.toString()), type: SnackBarType.error);
       }
     }
   }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+  /// Wraps a CSV field in double-quotes and escapes any internal double-quotes.
+  String _csvEscape(String value) {
+    final escaped = value.replaceAll('"', '""');
+    return '"$escaped"';
+  }
+
+  /// PDF table header row (grey background, bold text).
+  pw.TableRow _pdfHeaderRow(List<String> cells) {
+    return pw.TableRow(
+      decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+      children: cells
+          .map(
+            (cell) => pw.Padding(
+          padding: const pw.EdgeInsets.all(8),
+          child: pw.Text(
+            cell,
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            textAlign: cells.indexOf(cell) == 0
+                ? pw.TextAlign.left
+                : pw.TextAlign.right,
+          ),
+        ),
+      )
+          .toList(),
+    );
+  }
+
+  /// PDF table data row (white background, normal text).
+  pw.TableRow _pdfDataRow(List<String> cells) {
+    return pw.TableRow(
+      children: cells
+          .map(
+            (cell) => pw.Padding(
+          padding: const pw.EdgeInsets.all(8),
+          child: pw.Text(
+            cell,
+            textAlign: cells.indexOf(cell) == 0
+                ? pw.TextAlign.left
+                : pw.TextAlign.right,
+          ),
+        ),
+      )
+          .toList(),
+    );
+  }
+
+  // Future<void> _exportAsPDF() async {
+  //   try {
+  //     SnackBars.show(context, message: context.t('generating_pdf'), type: SnackBarType.info);
+  //
+  //     final expenses = _getFilteredExpenses(_startDate, _endDate);
+  //     final incomes = _getFilteredIncomes(_startDate, _endDate);
+  //     final categoryBreakdown = _getCategoryBreakdown(expenses);
+  //     final totalExpense = expenses.fold(0.0, (sum, e) => sum + e.amount);
+  //     final totalIncome = incomes.fold(0.0, (sum, i) => sum + i.amount);
+  //     final netSavings = totalIncome - totalExpense;
+  //
+  //     final ByteData baseFontData = await rootBundle.load('assets/fonts/NotoSans.ttf');
+  //     final ByteData boldFontData = await rootBundle.load('assets/fonts/NotoSans.ttf');
+  //     final pw.Font baseFont = pw.Font.ttf(baseFontData);
+  //     final pw.Font boldFont = pw.Font.ttf(boldFontData);
+  //
+  //     final pdf = pw.Document();
+  //
+  //     pdf.addPage(
+  //       pw.MultiPage(
+  //         theme: pw.ThemeData.withFont(base: baseFont, bold: boldFont),
+  //         pageFormat: PdfPageFormat.a4,
+  //         margin: const pw.EdgeInsets.all(32),
+  //         header: (context) => pw.Column(
+  //           children: [
+  //             pw.Text(
+  //               'Financial Report',
+  //               style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+  //             ),
+  //             pw.SizedBox(height: 8),
+  //             pw.Text(
+  //               'Period: ${DateFormat('d MMM yyyy').format(_startDate)} - ${DateFormat('d MMM yyyy').format(_endDate)}',
+  //               style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
+  //             ),
+  //             pw.SizedBox(height: 20),
+  //           ],
+  //         ),
+  //         footer: (context) => pw.Container(
+  //           alignment: pw.Alignment.centerRight,
+  //           margin: const pw.EdgeInsets.only(top: 20),
+  //           child: pw.Text(
+  //             'Page ${context.pageNumber} of ${context.pagesCount}',
+  //             style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+  //           ),
+  //         ),
+  //         build: (context) => [
+  //           pw.Header(level: 1, child: pw.Text('Summary')),
+  //           pw.SizedBox(height: 10),
+  //           pw.Table(
+  //             border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+  //             columnWidths: {
+  //               0: const pw.FlexColumnWidth(3),
+  //               1: const pw.FlexColumnWidth(2),
+  //             },
+  //             children: [
+  //               pw.TableRow(
+  //                 decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+  //                 children: [
+  //                   pw.Padding(
+  //                     padding: const pw.EdgeInsets.all(8),
+  //                     child: pw.Text('Metric', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+  //                   ),
+  //                   pw.Padding(
+  //                     padding: const pw.EdgeInsets.all(8),
+  //                     child: pw.Text('Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right),
+  //                   ),
+  //                 ],
+  //               ),
+  //               pw.TableRow(
+  //                 children: [
+  //                   pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Total Income')),
+  //                   pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${NumberFormatterService().formatForDisplay(totalIncome)}', textAlign: pw.TextAlign.right)),
+  //                 ],
+  //               ),
+  //               pw.TableRow(
+  //                 children: [
+  //                   pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Total Expenses')),
+  //                   pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${NumberFormatterService().formatForDisplay(totalExpense)}', textAlign: pw.TextAlign.right)),
+  //                 ],
+  //               ),
+  //               pw.TableRow(
+  //                 children: [
+  //                   pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Net Savings')),
+  //                   pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${NumberFormatterService().formatForDisplay(netSavings)}', textAlign: pw.TextAlign.right)),
+  //                 ],
+  //               ),
+  //             ],
+  //           ),
+  //           pw.SizedBox(height: 30),
+  //
+  //           pw.Header(level: 1, child: pw.Text('Expense by Category')),
+  //           pw.SizedBox(height: 10),
+  //           if (categoryBreakdown.isNotEmpty)
+  //             pw.Table(
+  //               border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+  //               columnWidths: {
+  //                 0: const pw.FlexColumnWidth(3),
+  //                 1: const pw.FlexColumnWidth(2),
+  //                 2: const pw.FlexColumnWidth(2),
+  //               },
+  //               children: [
+  //                 pw.TableRow(
+  //                   decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+  //                   children: [
+  //                     pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Category', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+  //                     pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
+  //                     pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Percentage', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
+  //                   ],
+  //                 ),
+  //                 ...categoryBreakdown.entries.map((e) {
+  //                   final percentage = totalExpense > 0 ? (e.value / totalExpense * 100) : 0.0;
+  //                   return pw.TableRow(
+  //                     children: [
+  //                       pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(e.key)),
+  //                       pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${e.value.toStringAsFixed(2)}', textAlign: pw.TextAlign.right)),
+  //                       pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('${percentage.toStringAsFixed(1)}%', textAlign: pw.TextAlign.right)),
+  //                     ],
+  //                   );
+  //                 }),
+  //               ],
+  //             ),
+  //           pw.SizedBox(height: 30),
+  //
+  //           pw.Header(level: 1, child: pw.Text('Recent Transactions')),
+  //           pw.SizedBox(height: 10),
+  //           if (expenses.isNotEmpty)
+  //             pw.Table(
+  //               border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+  //               columnWidths: {
+  //                 0: const pw.FlexColumnWidth(2),
+  //                 1: const pw.FlexColumnWidth(3),
+  //                 2: const pw.FlexColumnWidth(2),
+  //                 3: const pw.FlexColumnWidth(2),
+  //               },
+  //               children: [
+  //                 pw.TableRow(
+  //                   decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+  //                   children: [
+  //                     pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Date', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+  //                     pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Description', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+  //                     pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Category', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+  //                     pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
+  //                   ],
+  //                 ),
+  //                 ...expenses.take(20).map((e) {
+  //                   final categoryBox = Hive.box<Category>(AppConstants.categories);
+  //                   String categoryName = 'Uncategorized';
+  //                   if (e.categoryKeys.isNotEmpty) {
+  //                     final category = categoryBox.get(e.categoryKeys.first);
+  //                     categoryName = category?.name ?? 'General';
+  //                   }
+  //                   return pw.TableRow(
+  //                     children: [
+  //                       pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(DateFormat('d MMM yyyy').format(e.date))),
+  //                       pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(e.description)),
+  //                       pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(categoryName)),
+  //                       pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('$_currentCurrency ${NumberFormatterService().formatForDisplay(e.amount)}', textAlign: pw.TextAlign.right)),
+  //                     ],
+  //                   );
+  //                 }),
+  //               ],
+  //             ),
+  //         ],
+  //       ),
+  //     );
+  //
+  //     final output = await getTemporaryDirectory();
+  //     final file = File('${output.path}/financial_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf');
+  //     await file.writeAsBytes(await pdf.save());
+  //
+  //     await Share.shareXFiles([XFile(file.path)], text: 'Financial Report');
+  //
+  //     if (mounted) {
+  //       SnackBars.show(context, message: context.t('pdf_generated_success'), type: SnackBarType.success);
+  //     }
+  //   } catch (e) {
+  //     debugPrint('Error generating PDF: $e');
+  //     if (mounted) {
+  //       SnackBars.show(context, message: context.t('pdf_generation_error').replaceAll('--', e.toString()), type: SnackBarType.error);
+  //     }
+  //   }
+  // }
+  //
+  // Future<void> _exportAsCSV() async {
+  //   try {
+  //     SnackBars.show(context, message: context.t('generating_csv'), type: SnackBarType.info);
+  //
+  //     final expenses = _getFilteredExpenses(_startDate, _endDate);
+  //     final incomes = _getFilteredIncomes(_startDate, _endDate);
+  //     final categoryBox = Hive.box<Category>(AppConstants.categories);
+  //
+  //     StringBuffer csv = StringBuffer();
+  //     csv.writeln('Date,Type,Description,Category,Amount,Method');
+  //
+  //     for (var income in incomes) {
+  //       String categoryName = context.t('uncategorized');
+  //       if (income.categoryKeys.isNotEmpty) {
+  //         final category = categoryBox.get(income.categoryKeys.first);
+  //         categoryName = category?.name ?? context.t('general');
+  //       }
+  //       csv.writeln('${DateFormat('yyyy-MM-dd').format(income.date)},Income,"${income.description}","$categoryName",${income.amount},${income.method ?? 'N/A'}');
+  //     }
+  //
+  //     for (var expense in expenses) {
+  //       String categoryName = context.t('uncategorized');
+  //       if (expense.categoryKeys.isNotEmpty) {
+  //         final category = categoryBox.get(expense.categoryKeys.first);
+  //         categoryName = category?.name ?? context.t('general');
+  //       }
+  //       csv.writeln('${DateFormat('yyyy-MM-dd').format(expense.date)},Expense,"${expense.description}","$categoryName",${expense.amount},${expense.method ?? 'N/A'}');
+  //     }
+  //
+  //     final output = await getTemporaryDirectory();
+  //     final file = File('${output.path}/transactions_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv');
+  //     await file.writeAsString(csv.toString());
+  //
+  //     await Share.shareXFiles([XFile(file.path)], text: 'Transaction Data');
+  //
+  //     if (mounted) {
+  //       SnackBars.show(context, message: context.t('csv_generated_success'), type: SnackBarType.success);
+  //     }
+  //   } catch (e) {
+  //     debugPrint('Error generating CSV: $e');
+  //     if (mounted) {
+  //       SnackBars.show(context, message: context.t('csv_generation_error').replaceAll('--', e.toString()), type: SnackBarType.error);
+  //     }
+  //   }
+  // }
 }
 
 class ShowcaseView extends StatelessWidget {

@@ -115,6 +115,14 @@ flutter:
   #   - images/a_dot_ham.jpeg
   assets:
     - assets/fonts/NotoSans.ttf
+    - assets/fonts/NotoSansDevanagari.ttf
+    - assets/fonts/NotoSansTamil.ttf
+    - assets/fonts/NotoSansTelugu.ttf
+    - assets/fonts/NotoSansKannada.ttf
+    - assets/fonts/NotoSansMalayalam.ttf
+    - assets/fonts/NotoSansBengali.ttf
+    - assets/fonts/NotoSansGujarati.ttf
+    - assets/fonts/NotoSansGurmukhi.ttf
     - assets/icons/
     - assets/icons/IndiaRupeeCoin.json
     - assets/icons/Cellphone.json

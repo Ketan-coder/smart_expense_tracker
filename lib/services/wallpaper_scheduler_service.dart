@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:expense_tracker/services/progress_calendar_service.dart';
 import 'package:expense_tracker/services/wallpaper_generator_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/adapters.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -141,7 +142,7 @@ class WallpaperSchedulerService {
   Future<void> initialize() async {
     await Workmanager().initialize(
       callbackDispatcher,
-      isInDebugMode: true,
+      isInDebugMode: kDebugMode,
     );
     debugPrint('✅ Workmanager initialized');
   }
