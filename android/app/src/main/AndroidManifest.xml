@@ -1,41 +1,29 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <!-- SMS Permissions - Only request what you actively use -->
-    <uses-feature
-        android:name="android.hardware.camera"
-        android:required="false" />
-    <uses-feature
-        android:name="android.hardware.telephony"
-        android:required="false" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
-    <!-- Remove READ_PHONE_STATE if not needed -->
-     <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove" />
-    <uses-permission android:name="android.permission.SET_WALLPAPER"/>
-    <uses-permission android:name="android.permission.SET_WALLPAPER_HINTS"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <uses-permission android:name="android.permission.SET_WALLPAPER_HINTS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- Remove RECEIVE_BOOT_COMPLETED if not needed for critical startup -->
-    <!-- <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/> -->
-
-    <!-- For background work -->
+    <!-- KEEP: needed for Workmanager task execution -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- Notifications and Alarms -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" tools:node="remove" />
-    <uses-permission android:name="android.permission.VIBRATE" tools:node="remove" />
-    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Remove FOREGROUND_SERVICE if not using foreground services -->
-    <!-- <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> -->
-
-    <!-- Battery optimization - Let system manage this -->
+    <!-- REMOVED: causes constant battery drain, not needed for once-daily task -->
     <!-- <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" /> -->
+    <!-- <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> -->
+    <!-- <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" /> -->
 
-    <!-- Biometric -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
     <application
@@ -44,7 +32,12 @@
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="true"
         android:largeHeap="false"
+        android:enableOnBackInvokedCallback="true"
         android:hardwareAccelerated="true">
+
+        <uses-native-library android:name="libOpenCL.so" android:required="false"/>
+        <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
+        <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
 
         <activity
             android:name=".MainActivity"
@@ -61,12 +54,28 @@
                 android:resource="@style/NormalTheme" />
 
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- Telephony SMS Handler - Only if actively used -->
+        <!-- Workmanager worker -->
+<!--        <service-->
+<!--            android:name="dev.fluttercommunity.workmanager.BackgroundWorker"-->
+<!--            android:permission="android.permission.BIND_JOB_SERVICE"-->
+<!--            android:exported="true" />-->
+
+        <!-- Boot receiver -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name="com.shounakmulay.telephony.sms.IncomingSmsHandler"
             android:permission="android.permission.BIND_JOB_SERVICE"
@@ -77,8 +86,6 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- OPTIMIZED: Single SMS Receiver with normal priority -->
-        <!-- Only register if you're actively parsing SMS for expenses -->
         <receiver
             android:name=".SmsReceiver"
             android:enabled="true"
@@ -89,25 +96,12 @@
             </intent-filter>
         </receiver>
 
-        <!-- Download Manager - Only if using downloads -->
-        <!-- Consider removing if not needed -->
-        <!--
-        <receiver
-            android:name="vn.hunghd.flutterdownloader.DownloadBroadcastReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-            </intent-filter>
-        </receiver>
-        -->
-
     </application>
 
     <queries>
         <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
         </intent>
     </queries>
 </manifest>

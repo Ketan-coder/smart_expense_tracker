@@ -593,5 +593,9 @@
   "payment_number": "പേയ്‌മെന്റ് #",
   "add_quick_transactions": "ദ്രുത ഇടപാടുകൾ ചേർക്കുക",
   "currency": "കറൻസി",
-  "language": "ഭാഷ"
+  "language": "ഭാഷ",
+  "daily_expenses": "ദൈനംദിന ചെലവുകൾ",
+  "view_all_categories": "എല്ലാ വിഭാഗങ്ങളും കാണുക",
+  "record_date": "രേഖ തീയതി",
+  "search_categories": "വിഭാഗങ്ങൾ തിരയൂ"
 }

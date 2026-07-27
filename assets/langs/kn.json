@@ -593,5 +593,9 @@
   "payment_number": "ಪಾವತಿ #",
   "add_quick_transactions": "ತ್ವರಿತ ಲೆನ್‌ದೇನುಗಳನ್ನು ಸೇರಿಸಿ",
   "currency": "ಕರೆನ್ಸಿ",
-  "language": "ಭಾಷೆ"
+  "language": "ಭಾಷೆ",
+  "daily_expenses": "ದೈನಂದಿನ ಖರ್ಚುಗಳು",
+  "view_all_categories": "ಎಲ್ಲಾ ವರ್ಗಗಳನ್ನು ನೋಡಿ",
+  "record_date": "ರೆಕಾರ್ಡ್ ದಿನಾಂಕ",
+  "search_categories": "ವರ್ಗಗಳನ್ನು ಹುಡುಕಿ"
 }

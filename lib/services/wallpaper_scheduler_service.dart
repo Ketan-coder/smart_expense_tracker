@@ -149,7 +149,7 @@ class WallpaperSchedulerService {
 
   Future<void> scheduleDailyUpdate() async {
     // Cancel any existing tasks first
-    await Workmanager().cancelAll();
+    // await Workmanager().cancelAll();
 
     final nextMidnight = _getDurationUntilMidnight();
     debugPrint('⏰ Next wallpaper update in: ${nextMidnight.inHours}h ${nextMidnight.inMinutes % 60}m');
@@ -167,7 +167,7 @@ class WallpaperSchedulerService {
         requiresDeviceIdle: false,
         requiresStorageNotLow: false,
       ),
-      existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
       backoffPolicy: BackoffPolicy.exponential,
       backoffPolicyDelay: const Duration(minutes: 5),
     );
@@ -175,18 +175,93 @@ class WallpaperSchedulerService {
     debugPrint('✅ Daily wallpaper update scheduled for midnight');
 
     // Also schedule a backup update every 6 hours in case midnight fails
-    await Workmanager().registerPeriodicTask(
-      'wallpaper_backup_update',
-      'wallpaperBackupTask',
-      frequency: const Duration(hours: 6),
-      constraints: Constraints(
-        networkType: NetworkType.notRequired,
-        requiresBatteryNotLow: false,
-      ),
-      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
-    );
+    // await Workmanager().registerPeriodicTask(
+    //   'wallpaper_backup_update',
+    //   'wallpaperBackupTask',
+    //   frequency: const Duration(hours: 6),
+    //   constraints: Constraints(
+    //     networkType: NetworkType.notRequired,
+    //     requiresBatteryNotLow: false,
+    //   ),
+    //   existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+    // );
+    //
+    // debugPrint('✅ Backup wallpaper update scheduled (every 6 hours)');
+  }
 
-    debugPrint('✅ Backup wallpaper update scheduled (every 6 hours)');
+  // In WallpaperSchedulerService, add this:
+  Future<bool> runDirectUpdate() async {
+    try {
+      debugPrint('🖼️ Running direct wallpaper update...');
+
+      final prefs = await SharedPreferences.getInstance();
+      final bool darkMode = prefs.getBool('wp_dark') ?? true;
+      final bool useStatusColors = prefs.getBool('wp_colors') ?? false;
+      final int styleIndex = prefs.getInt('wp_style') ?? 0;
+      final WallpaperStyle style = WallpaperStyle.values[styleIndex];
+      final double dotScale = prefs.getDouble('wp_scale') ?? 1.0;
+      final double verticalOffset = prefs.getDouble('wp_offset') ?? 0.45;
+      final double gridWidth = prefs.getDouble('wp_width') ?? 0.8;
+      final double spacing = prefs.getDouble('wp_spacing') ?? 1.0;
+
+      Color? themeColor;
+      final int? savedColor = prefs.getInt('wp_theme_color');
+      if (savedColor != null) themeColor = Color(savedColor);
+
+      final calendarService = ProgressCalendarService();
+      await calendarService.refreshTodayProgress();
+      final yearProgress = await calendarService.getYearProgress(DateTime.now().year);
+
+      final wallpaperService = WallpaperGeneratorService();
+      final wallpaperFile = await wallpaperService.generateProgressWallpaper(
+        yearProgress: yearProgress,
+        size: const Size(1080, 2400),
+        style: style,
+        darkMode: darkMode,
+        useStatusColors: useStatusColors,
+        themeColor: themeColor,
+        dotScale: dotScale,
+        verticalOffset: verticalOffset,
+        gridWidthFactor: gridWidth,
+        spacingFactor: spacing,
+      );
+
+      final success = await wallpaperService.setAsLockScreen(wallpaperFile);
+
+      if (success) {
+        await prefs.setString('last_wallpaper_update', DateTime.now().toIso8601String());
+        debugPrint('✅ Direct wallpaper update successful');
+      }
+
+      return success;
+    } catch (e) {
+      debugPrint('❌ Direct wallpaper update failed: $e');
+      return false;
+    }
+  }
+
+  Future<void> runCatchUpIfNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastUpdateStr = prefs.getString('last_wallpaper_update');
+
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+
+    if (lastUpdateStr == null) {
+      debugPrint('🔄 No previous update found, running directly...');
+      await runDirectUpdate(); // ← direct, not via Workmanager
+      return;
+    }
+
+    final lastUpdate = DateTime.parse(lastUpdateStr);
+    final lastUpdateDay = DateTime(lastUpdate.year, lastUpdate.month, lastUpdate.day);
+
+    if (lastUpdateDay.isBefore(today)) {
+      final daysLate = today.difference(lastUpdateDay).inDays;
+      debugPrint('🔄 Wallpaper is $daysLate day(s) outdated, running directly...');
+      await runDirectUpdate(); // ← direct, not via Workmanager
+    } else {
+      debugPrint('✅ Wallpaper already up to date');
+    }
   }
 
   Future<void> runImmediately() async {

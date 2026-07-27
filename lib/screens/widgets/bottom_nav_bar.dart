@@ -920,6 +920,7 @@ import 'package:expense_tracker/screens/widgets/privacy_overlay_widget.dart';
 import 'package:expense_tracker/screens/widgets/quick_actions.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:expense_tracker/screens/widgets/transaction_sheet.dart';
+import 'package:expense_tracker/screens/widgets/transaction_widget.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -943,7 +944,7 @@ import '../../services/sms_service.dart';
 import '../add_edit_habit_bottom_sheet.dart';
 import '../goals/add_edit_goal_sheet.dart';
 import '../home/home_page.dart';
-import '../transaction_page.dart';
+import '../transaction_page.dart' hide TransactionType;
 import 'floating_toolbar.dart';
 
 class BottomNavBar extends StatefulWidget {
@@ -2405,7 +2406,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                         categoryBox.keyAt(categories.indexOf(category)) as int;
                     final isSelected = selectedCategoryKeys.contains(catKey);
                     return ChoiceChip(
-                      label: Text(category.name ?? ''),
+                      label: Text(category.name),
                       selected: isSelected,
                       onSelected: (selected) {
                         setModalState(() {
@@ -2690,7 +2691,8 @@ class _BottomNavBarState extends State<BottomNavBar>
                   backgroundColor: Theme.of(context).colorScheme.errorContainer,
                   onTap: () {
                     Navigator.pop(context);
-                    _showAddExpenseSheet();
+                    // _showAddExpenseSheet();
+                    showTransactionAddEditSheet(context: context, type: TransactionType.expense, currency: _currentCurrency);
                   },
                 ),
                 const SizedBox(height: 12),
@@ -2707,7 +2709,8 @@ class _BottomNavBarState extends State<BottomNavBar>
                   ).colorScheme.primaryContainer,
                   onTap: () {
                     Navigator.pop(context);
-                    _showAddIncomeSheet();
+                    // _showAddIncomeSheet();
+                    showTransactionAddEditSheet(context: context, type: TransactionType.income, currency: _currentCurrency);
                   },
                 ),
                 const SizedBox(height: 8),

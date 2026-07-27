@@ -8,6 +8,7 @@ import 'dart:io' show Platform, exit;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 // Import your platform utils
+import '../../ai/ai_chat_page.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/category.dart';
@@ -39,6 +40,7 @@ import '../../services/privacy/privacy_manager.dart'
     if (dart.library.html) '../../services/privacy/privacy_manager_stub.dart';
 import '../../services/privacy/secure_window_manager.dart'
     if (dart.library.html) '../../services/privacy/secure_window_manager_stub.dart';
+import '../widgets/transaction_widget.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -1167,7 +1169,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   onTap: () => _showLanguageSearchSheet(),
                 ),
 
-                if (!kIsWeb && kDebugMode) // Only show on mobile
+                if (!kIsWeb && kDebugMode)...[
+                  const Divider(),
                   ListTile(
                     leading: const Icon(Icons.bug_report, color: Colors.orange),
                     title: const Text('Test Wallpaper Update'),
@@ -1183,6 +1186,27 @@ class _SettingsPageState extends State<SettingsPage> {
                       }
                     },
                   ),
+                  ListTile(
+                    leading: const Icon(Icons.data_object, color: Colors.orange),
+                    title: const Text('Generate Random Data'),
+                    subtitle: const Text('Generates 30 days of random Expense and Income'),
+                    onTap: () async {
+                      final results = await Dialogs.showConfirmation(context: context) ?? false;
+                      if (results) {
+                        generateTestData(context);
+                      }
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.computer, color: Colors.orange),
+                    title: const Text('Ai Chat Page'),
+                    subtitle: const Text('Testing AI Chat Page'),
+                    onTap: () async {
+                      Helpers.navigateTo(context, const AiChatPage());
+                    },
+                  ),
+                ],
+
 
                 const Divider(),
 

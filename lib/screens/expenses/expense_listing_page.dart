@@ -14,6 +14,7 @@ import '../widgets/bottom_sheet.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/privacy_overlay_widget.dart';
 import '../widgets/snack_bar.dart';
+import '../widgets/transaction_widget.dart';
 
 class ExpenseListingPage extends StatefulWidget {
   final String? initialFilter, filterByCategory, filterByMethod;
@@ -705,7 +706,9 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
-          _showEditExpenseSheet(keyId, expense);
+          // _showEditExpenseSheet(keyId, expense);
+          showTransactionAddEditSheet(context: context, type: TransactionType.expense,
+              expenseKey: keyId, existingExpense: expense, currency: _currentCurrency);
           return false;
         } else {
           final confirm = await showDialog<bool>(

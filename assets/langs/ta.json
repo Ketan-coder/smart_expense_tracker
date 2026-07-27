@@ -593,5 +593,9 @@
   "payment_number": "பேமெண்ட் #",
   "add_quick_transactions": "விரைவு பரிவர்த்தனைகளை சேர்க்கவும்",
   "currency": "நாணயம்",
-  "language": "மொழி"
+  "language": "மொழி",
+  "daily_expenses": "தினசரி செலவுகள்",
+  "view_all_categories": "அனைத்து பிரிவுகளையும் காண்க",
+  "record_date": "பதிவு தேதி",
+  "search_categories": "பிரிவுகளைத் தேடு"
 }

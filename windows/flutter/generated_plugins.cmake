@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   battery_plus
   dynamic_color
+  flutter_gemma
   local_auth_windows
   permission_handler_windows
   screen_brightness_windows

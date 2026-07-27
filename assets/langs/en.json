@@ -593,5 +593,9 @@
   "payment_number": "Payment #",
   "add_quick_transactions" : "Add Quick Transactions",
   "currency": "Currency",
-  "language": "Language"
+  "language": "Language",
+  "daily_expenses": "Daily Expenses",
+  "view_all_categories": "View All Categories",
+  "record_date": "Record Date",
+  "search_categories": "Search Categories"
 }

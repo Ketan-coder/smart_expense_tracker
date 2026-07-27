@@ -593,5 +593,9 @@
   "payment_number": "पेमेंट #",
   "add_quick_transactions": "त्वरित व्यवहार जोडा",
   "currency": "चलन",
-  "language": "भाषा"
+  "language": "भाषा",
+  "daily_expenses": "दैनिक खर्च",
+  "view_all_categories": "सर्व श्रेणी पहा",
+  "record_date": "रेकॉर्ड तारीख",
+  "search_categories": "श्रेणी शोधा"
 }

@@ -29,7 +29,6 @@ class CategoryPage extends StatefulWidget {
 }
 
 class _CategoryPageState extends State<CategoryPage> {
-  final PrivacyManager _categoryPagePrivacyManager = PrivacyManager();
 
   @override
   void initState() {
@@ -39,7 +38,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
   void initCall() {
     if (widget.openDefaultCategories) {
-      _showDefaultCategoriesSheet(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) { _showDefaultCategoriesSheet(context); });
     }
   }
 
@@ -388,7 +387,7 @@ class _CategoryPageState extends State<CategoryPage> {
   }
 
   /// Shows bottom sheet to set default categories for SMS auto-parsing
-  Future<void> _showDefaultCategoriesSheet(context) async {
+  Future<void> _showDefaultCategoriesSheet(BuildContext context) async {
     final categoryBox = Hive.box<Category>(AppConstants.categories);
     final allCategories = categoryBox.values.toList();
 

@@ -593,5 +593,9 @@
   "payment_number": "పేమెంట్ #",
   "add_quick_transactions": "త్వరిత లావాదేవీలను జోడించండి",
   "currency": "కరెన్సీ",
-  "language": "భాష"
+  "language": "భాష",
+  "daily_expenses": "రోజువారీ ఖర్చులు",
+  "view_all_categories": "అన్ని వర్గాలను చూడండి",
+  "record_date": "రికార్డ్ తేదీ",
+  "search_categories": "వర్గాలను శోధించండి"
 }

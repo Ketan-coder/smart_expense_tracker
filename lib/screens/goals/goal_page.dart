@@ -126,12 +126,16 @@ class _GoalsPageState extends State<GoalsPage>
         // actions: [
         //   IconButton(
         //     icon: const Icon(Icons.add_rounded),
-        //     onPressed: () => _showAddGoalSheet(),
+        //     onPressed: () {
+        //       Navigator.push(context, MaterialPageRoute(
+        //         builder: (_) => const AiChatPage(),
+        //       ));
+        //     },
         //   ),
-        //   // IconButton(
-        //   //   icon: const Icon(Icons.track_changes),
-        //   //   onPressed: () => Helpers.navigateTo(context, const HabitPage()),
-        //   // ),
+          // IconButton(
+          //   icon: const Icon(Icons.track_changes),
+          //   onPressed: () => Helpers.navigateTo(context, const HabitPage()),
+          // ),
         // ],
         child: ListenableBuilder(
           listenable: _privacyManager,
@@ -515,15 +519,6 @@ class _GoalsPageState extends State<GoalsPage>
   //   );
   // }
 
-  void _navigateToGoalDetail(Goal goal, dynamic key) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => GoalDetailPage(goal: goal, goalKey: key),
-      ),
-    );
-  }
-
   void _showGoalActions(BuildContext context, Goal goal, dynamic key) {
     BottomSheetUtil.showQuickAction(
         context: context, child: SafeArea(
@@ -766,17 +761,17 @@ class _GoalsPageState extends State<GoalsPage>
 
   void _toggleGoalCompletion(Goal goal, dynamic key) async {
     final updatedGoal = Goal(
-      name: goal.name ?? '',
+      name: goal.name,
       description: goal.description,
-      targetAmount: goal.targetAmount ?? 0,
-      targetDate: goal.targetDate ?? DateTime.now(),
-      category: goal.category ?? 'general',
-      priority: goal.priority ?? 'medium',
+      targetAmount: goal.targetAmount,
+      targetDate: goal.targetDate,
+      category: goal.category,
+      priority: goal.priority,
       walletType: goal.walletType,
       installmentAmount: goal.installmentAmount,
       installmentFrequency: goal.installmentFrequency,
-      currentAmount: goal.currentAmount ?? 0,
-      isCompleted: !(goal.isCompleted ?? false),
+      currentAmount: goal.currentAmount,
+      isCompleted: !(goal.isCompleted),
     );
 
     final success = await _goalService.updateGoal(key, updatedGoal);

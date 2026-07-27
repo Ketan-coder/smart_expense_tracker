@@ -593,5 +593,9 @@
   "payment_number": "પૅમૅન્ટ #",
   "add_quick_transactions": "ઝડપી વ્યવહારો ઉમેરો",
   "currency": "ચલણ",
-  "language": "ભાષા"
+  "language": "ભાષા",
+  "daily_expenses": "દૈનિક ખર્ચ",
+  "view_all_categories": "બધી શ્રેણીઓ જુઓ",
+  "record_date": "રેકોર્ડ તારીખ",
+  "search_categories": "શ્રેણીઓ શોધો"
 }

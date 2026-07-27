@@ -593,5 +593,9 @@
   "payment_number": "पेमेंट #",
   "add_quick_transactions": "त्वरित लेनदेन जोड़ें",
   "currency": "मुद्रा",
-  "language": "भाषा"
+  "language": "भाषा",
+  "daily_expenses": "दैनिक खर्च",
+  "view_all_categories": "सभी श्रेणियाँ देखें",
+  "record_date": "रिकॉर्ड तिथि",
+  "search_categories": "श्रेणियाँ खोजें"
 }

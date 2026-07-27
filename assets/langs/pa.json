@@ -593,5 +593,9 @@
   "payment_number": "ਪੇਮੈਂਟ #",
   "add_quick_transactions": "ਤੁਰੰਤ ਲੈਣ-ਦੇਣ ਸ਼ਾਮਲ ਕਰੋ",
   "currency": "ਮੁਦਰਾ",
-  "language": "ਭਾਸ਼ਾ"
+  "language": "ਭਾਸ਼ਾ",
+  "daily_expenses": "ਰੋਜ਼ਾਨਾ ਖਰਚੇ",
+  "view_all_categories": "ਸਾਰੀਆਂ ਸ਼੍ਰੇਣੀਆਂ ਵੇਖੋ",
+  "record_date": "ਰਿਕਾਰਡ ਤਾਰੀਖ",
+  "search_categories": "ਸ਼੍ਰੇਣੀਆਂ ਖੋਜੋ"
 }

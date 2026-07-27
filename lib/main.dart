@@ -8,13 +8,17 @@ import 'package:expense_tracker/services/langs/app_localalizations.dart';
 import 'package:expense_tracker/services/notification_service.dart';
 import 'package:expense_tracker/services/number_formatter_service.dart';
 import 'package:expense_tracker/services/progress_calendar_service.dart';
-import 'package:expense_tracker/services/wallpaper_scheduler_service.dart';
+import 'package:expense_tracker/services/wallpaper_scheduler_service.dart' hide callbackDispatcher;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_gemma/core/api/flutter_gemma.dart';
+import 'package:flutter_gemma/core/domain/web_storage_mode.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 import 'dart:io' show Platform;
+import 'ai/smart_spend_ai.dart';
 import 'core/helpers.dart';
 import 'data/model/category.dart';
 import 'data/model/daily_progress.dart';
@@ -25,13 +29,14 @@ import 'data/model/income.dart';
 import 'data/model/recurring.dart';
 import 'data/model/wallet.dart';
 import 'package:dynamic_color/dynamic_color.dart';
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 // Conditional import for recurring scheduler
 import 'package:expense_tracker/services/recurring_scheduler.dart'
 if (dart.library.html) 'package:expense_tracker/services/recurring_scheduler_web.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   // Only initialize notifications on mobile platforms
@@ -77,13 +82,18 @@ void main() async {
   await Hive.openBox<Wallet>(AppConstants.wallets);
   await Hive.openBox<Goal>(AppConstants.goals);
   await Hive.openBox<Loan>(AppConstants.loans);
-
+  await Workmanager().initialize(callbackDispatcher);
 
   await ProgressCalendarService().initialize();
-  await WallpaperSchedulerService().initialize(); // Schedule daily wallpaper updates (if enabled)
-  WallpaperSchedulerService().scheduleDailyUpdate();
+  final scheduler = WallpaperSchedulerService();
+  await scheduler.initialize();
+  await scheduler.scheduleDailyUpdate();
+  await scheduler.runCatchUpIfNeeded();
   await NumberFormatterService().initialize();
   final prefs = await SharedPreferences.getInstance();
+  String? token = await Helpers().getEnvValue('HUGGING_FACE_TOKEN');
+  await FlutterGemma.initialize(huggingFaceToken: token,webStorageMode: WebStorageMode.cacheApi,);
+  await SmartSpendAI.instance.initialize();
   if (prefs.getBool('wallpaper_enabled') ?? false) { await WallpaperSchedulerService().scheduleDailyUpdate(); }
 
   // Only register recurring task on mobile platforms

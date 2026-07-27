@@ -63,6 +63,8 @@ dependencies:
   timezone: any
   battery_plus: ^7.0.0
   device_info_plus: ^12.2.0
+  flutter_gemma: ^0.13.2
+  flutter_dotenv: ^6.0.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -114,6 +116,7 @@ flutter:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
   assets:
+    - .env
     - assets/fonts/NotoSans.ttf
     - assets/fonts/NotoSansDevanagari.ttf
     - assets/fonts/NotoSansTamil.ttf

@@ -14,6 +14,7 @@ import '../widgets/bottom_sheet.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/privacy_overlay_widget.dart';
 import '../widgets/snack_bar.dart';
+import '../widgets/transaction_widget.dart';
 
 class IncomeListingPage extends StatefulWidget {
   final String? initialFilter, filterByCategory, filterByMethod;
@@ -694,6 +695,8 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
           _showEditIncomeSheet(keyId, income);
+          showTransactionAddEditSheet(context: context, type: TransactionType.income,
+              incomeKey: keyId, existingIncome: income, currency: _currentCurrency);
           return false;
         } else {
           final confirm = await showDialog<bool>(

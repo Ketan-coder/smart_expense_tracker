@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -242,6 +243,11 @@ class Helpers {
   Future<void> setCurrentShowQuickActions(bool state) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('showQuickActions', state);
+  }
+
+  Future<String?> getEnvValue(String key) async {
+    final value = dotenv.env[key];
+    return value;
   }
 
   // Language code to name mapping
