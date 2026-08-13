@@ -597,5 +597,8 @@
   "daily_expenses": "দৈনিক খরচ",
   "view_all_categories": "সব ক্যাটাগরি দেখুন",
   "record_date": "রেকর্ড তারিখ",
-  "search_categories": "বিভাগ অনুসন্ধান করুন"
+  "search_categories": "বিভাগ অনুসন্ধান করুন",
+  "beta_features": "বেটা বৈশিষ্ট্য",
+  "ai_assistant_title": "Fin: এআই আর্থিক সহকারী",
+  "ai_assistant_sub_title": "আপনার খরচ ও আর্থিক বিশ্লেষণ সম্পর্কে প্রশ্ন করুন"
 }

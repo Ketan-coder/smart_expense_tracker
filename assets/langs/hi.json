@@ -597,5 +597,8 @@
   "daily_expenses": "दैनिक खर्च",
   "view_all_categories": "सभी श्रेणियाँ देखें",
   "record_date": "रिकॉर्ड तिथि",
-  "search_categories": "श्रेणियाँ खोजें"
+  "search_categories": "श्रेणियाँ खोजें",
+  "beta_features": "बीटा सुविधाएँ",
+  "ai_assistant_title": "Fin: एआई वित्तीय सहायक",
+  "ai_assistant_sub_title": "अपने खर्चों और वित्तीय जानकारी के बारे में प्रश्न पूछें"
 }

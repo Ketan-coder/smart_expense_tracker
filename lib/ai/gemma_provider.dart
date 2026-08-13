@@ -1,40 +1,67 @@
-// lib/services/ai/gemma_provider.dart
+// lib/ai/gemma_provider.dart
 //
-// Concrete AiProvider backed by flutter_gemma (0.13.0+).
-// Gemma 4 E2B — using NPU backend (required for Qualcomm variant).
+// Concrete AiProvider backed by flutter_gemma (0.13.x+).
+// ModelConfig is PUBLIC so SmartSpendAI can pass the right tier config.
+// To upgrade model: change one constant below — nothing else changes.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'ai_provider.dart';
 
 // ─────────────────────────────────────────────────────────────
-// MODEL CONFIGS
+// PUBLIC MODEL CONFIG  (used by SmartSpendAI for tier selection)
 // ─────────────────────────────────────────────────────────────
 
-class _ModelConfig {
+class ModelConfig {
   final String name;
   final String huggingFaceUrl;
   final ModelType modelType;
-  final String modelName;
+  final String modelFileName;
   final int sizeBytes;
+  final PreferredBackend preferredBackend;
+  final int maxTokens;
 
-  const _ModelConfig({
+  const ModelConfig({
     required this.name,
     required this.huggingFaceUrl,
     required this.modelType,
-    required this.modelName,
+    required this.modelFileName,
     required this.sizeBytes,
+    required this.preferredBackend,
+    required this.maxTokens,
   });
+
+  String get downloadSizeLabel {
+    final mb = sizeBytes ~/ (1024 * 1024);
+    return mb >= 1000
+        ? '${(mb / 1024).toStringAsFixed(1)} GB'
+        : '${mb} MB';
+  }
 }
 
-// ✅ Gemma 4 E2B (Qualcomm NPU-optimized)
-const _kDefaultModel = _ModelConfig(
+// ── HIGH tier: Gemma 4 E2B — 6GB+ RAM, ~2.4GB storage ───────
+const kHighTierModel = ModelConfig(
   name: 'Gemma 4 E2B',
   huggingFaceUrl:
   'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
   modelType: ModelType.gemmaIt,
-  modelName: 'gemma-4-E2B-it.litertlm',
+  modelFileName: 'gemma-4-E2B-it.litertlm',
   sizeBytes: 2400 * 1024 * 1024,
+  preferredBackend: PreferredBackend.gpu,
+  maxTokens: 2048,
+);
+
+// ── MID tier: Gemma 3 1B — 4GB+ RAM, ~500MB storage ─────────
+const kMidTierModel = ModelConfig(
+  name: 'Gemma 3 1B',
+  huggingFaceUrl:
+  'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task',
+  modelType: ModelType.gemmaIt,
+  modelFileName: 'gemma3-1b-it-int4.task',
+  sizeBytes: 500 * 1024 * 1024,
+  preferredBackend: PreferredBackend.gpu,
+  maxTokens: 1024,
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -42,17 +69,18 @@ const _kDefaultModel = _ModelConfig(
 // ─────────────────────────────────────────────────────────────
 
 class GemmaProvider implements AiProvider {
-  final _ModelConfig _config;
+  final ModelConfig _config;
   final String? _huggingFaceToken;
 
   InferenceModel? _model;
   bool _isReady = false;
   bool _isInitializing = false;
+  static bool _pluginInitialized = false;
 
   GemmaProvider({
-    _ModelConfig? config,
+    required ModelConfig config,
     String? huggingFaceToken,
-  })  : _config = config ?? _kDefaultModel,
+  })  : _config = config,
         _huggingFaceToken = huggingFaceToken;
 
   @override
@@ -64,57 +92,98 @@ class GemmaProvider implements AiProvider {
   @override
   int get modelSizeBytes => _config.sizeBytes;
 
+  Future<void> _ensurePluginInitialized() async {
+    if (!_pluginInitialized) {
+      try {
+        // FlutterGemma is initialized globally in main.dart
+        _pluginInitialized = true;
+      } catch (e) {
+        debugPrint('⚠️ [GemmaProvider] initialization error: $e');
+      }
+    }
+  }
+
+  // ── Initialize ─────────────────────────────────────────────
+
   @override
   Future<void> initialize() async {
     if (_isReady || _isInitializing) return;
+
     _isInitializing = true;
 
     try {
       debugPrint('🤖 [GemmaProvider] Loading ${_config.name}...');
 
-      await FlutterGemma.initialize(huggingFaceToken: _huggingFaceToken);
+      await _ensurePluginInitialized();
 
-      final isInstalled = await FlutterGemma.isModelInstalled(_config.modelName);
-      if (!isInstalled) {
-        throw ModelNotDownloadedException(
-          'Model ${_config.name} is not downloaded yet. '
-              'Call GemmaProvider.downloadModel() first.',
-        );
-      }
+      final modelManager = FlutterGemmaPlugin.instance.modelManager;
 
-      debugPrint('🔄 [GemmaProvider] Setting model as active...');
-      await FlutterGemma.installModel(modelType: _config.modelType)
-          .fromNetwork(
+      debugPrint(
+        '📦 [GemmaProvider] Checking model readiness...',
+      );
+
+      // IMPORTANT:
+      // ensureModelReady() handles both cases:
+      //
+      // 1. Model already exists:
+      //      → restore/use it
+      //      → do NOT download it again
+      //
+      // 2. Model doesn't exist:
+      //      → download it from the supplied URL
+      //
+      // This is important because after an Android restart
+      // the model file can exist while no active model is set.
+      await modelManager.ensureModelReady(
+        _config.modelFileName,
         _config.huggingFaceUrl,
-        token: _huggingFaceToken,
-      )
-          .install();
+      );
 
-      // ←←← THIS IS THE FIX
+      debugPrint(
+        '✅ [GemmaProvider] Model is ready.',
+      );
+
+      debugPrint(
+        '🔍 [GemmaProvider] Active model: '
+            '${FlutterGemma.hasActiveModel()}',
+      );
+
       _model = await FlutterGemma.getActiveModel(
-        maxTokens: 4096,
-        preferredBackend: PreferredBackend.gpu,   // NPU is required for this model
+        maxTokens: _config.maxTokens,
+        preferredBackend: _config.preferredBackend,
       );
 
       _isReady = true;
-      debugPrint('✅ [GemmaProvider] ${_config.name} ready');
-    } catch (e) {
       _isInitializing = false;
-      debugPrint('❌ [GemmaProvider] Failed to initialize: $e');
+
+      debugPrint(
+        '✅ [GemmaProvider] ${_config.name} ready',
+      );
+    } catch (e, stackTrace) {
+      _isInitializing = false;
+
+      debugPrint(
+        '❌ [GemmaProvider] initialize failed: $e',
+      );
+
+      debugPrint(
+        '📍 StackTrace:\n$stackTrace',
+      );
+
       rethrow;
     }
-
-    _isInitializing = false;
   }
 
-  // downloadModel, isDownloaded, chat, analyze, dispose remain the same
+  // ── Download ───────────────────────────────────────────────
+
   Future<void> downloadModel({
     void Function(double progress)? onProgress,
     void Function(String error)? onError,
   }) async {
-    debugPrint('📥 [GemmaProvider] Starting download of ${_config.name}...');
-
+    debugPrint('📥 [GemmaProvider] Downloading ${_config.name}...');
     try {
+      await _ensurePluginInitialized();
+
       await FlutterGemma.installModel(modelType: _config.modelType)
           .fromNetwork(
         _config.huggingFaceUrl,
@@ -125,6 +194,10 @@ class GemmaProvider implements AiProvider {
       })
           .install();
 
+      // Record our own "this device has downloaded this model" flag.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_downloadedPrefsKey, true);
+
       debugPrint('✅ [GemmaProvider] Download complete');
     } catch (e) {
       debugPrint('❌ [GemmaProvider] Download failed: $e');
@@ -133,13 +206,43 @@ class GemmaProvider implements AiProvider {
     }
   }
 
+  String get _downloadedPrefsKey =>
+      'gemma_model_downloaded_${_config.modelFileName}';
+
   Future<bool> isDownloaded() async {
     try {
-      return await FlutterGemma.isModelInstalled(_config.modelName);
+      await _ensurePluginInitialized();
+
+      final prefs = await SharedPreferences.getInstance();
+      final recordedDownloaded = prefs.getBool(_downloadedPrefsKey) ?? false;
+
+      // 🛠️ FIX FOR WEB APP REFRESH:
+      // Cache API might take a moment to be readable after a fast refresh,
+      // causing isModelInstalled to return false and erase your model.
+      // If we previously recorded a complete download locally, we trust it
+      // first. If it's truly not there, getActiveModel will throw safely later.
+      if (kIsWeb && recordedDownloaded) {
+        return true;
+      }
+
+      final installed = await FlutterGemma.isModelInstalled(_config.modelFileName);
+      if (installed) {
+        await prefs.setBool(_downloadedPrefsKey, true);
+        return true;
+      }
+
+      // Final fallback for edge cases
+      if (recordedDownloaded) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        return await FlutterGemma.isModelInstalled(_config.modelFileName);
+      }
+      return false;
     } catch (_) {
       return false;
     }
   }
+
+  // ── Chat ───────────────────────────────────────────────────
 
   @override
   Stream<String> chat({
@@ -148,16 +251,19 @@ class GemmaProvider implements AiProvider {
     required String systemContext,
   }) async* {
     if (!_isReady || _model == null) {
-      yield 'AI is not ready yet. Please wait for the model to load.';
+      yield 'AI is not ready yet.';
       return;
     }
 
     try {
-      final chat = await _model!.createChat();
+      final chat = await _model!.createChat(
+        systemInstruction: systemContext.isNotEmpty ? systemContext : null,
+        temperature: 0.7,
+        topK: 40,
+      );
 
-      await chat.addQueryChunk(Message.systemInfo(text: systemContext));
-
-      for (final m in history.takeLast(6)) {
+      // Last 8 messages = 4 exchanges — keeps context tight
+      for (final m in history.takeLast(8)) {
         await chat.addQueryChunk(
           Message.text(text: m.content, isUser: m.isUser),
         );
@@ -172,11 +278,15 @@ class GemmaProvider implements AiProvider {
           yield chunk.token;
         }
       }
+
+      await chat.close();
     } catch (e) {
       debugPrint('❌ [GemmaProvider] Chat error: $e');
-      yield '\n\n_Something went wrong. Please try again._';
+      yield '\n\nSomething went wrong. Please try again.';
     }
   }
+
+  // ── Analyze ────────────────────────────────────────────────
 
   @override
   Future<String> analyze({
@@ -184,17 +294,18 @@ class GemmaProvider implements AiProvider {
     required String systemContext,
   }) async {
     if (!_isReady || _model == null) return 'AI is not ready.';
-
-    final buffer = StringBuffer();
+    final buf = StringBuffer();
     await for (final token in chat(
       history: [],
       userMessage: prompt,
       systemContext: systemContext,
     )) {
-      buffer.write(token);
+      buf.write(token);
     }
-    return buffer.toString();
+    return buf.toString();
   }
+
+  // ── Dispose ────────────────────────────────────────────────
 
   @override
   Future<void> dispose() async {
@@ -202,12 +313,10 @@ class GemmaProvider implements AiProvider {
     _model = null;
     _isReady = false;
     _isInitializing = false;
-    debugPrint('🧹 [GemmaProvider] Model disposed');
+    debugPrint('🧹 [GemmaProvider] Disposed');
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// EXCEPTIONS + EXTENSION
 // ─────────────────────────────────────────────────────────────
 
 class ModelNotDownloadedException implements Exception {
@@ -217,10 +326,9 @@ class ModelNotDownloadedException implements Exception {
   String toString() => 'ModelNotDownloadedException: $message';
 }
 
-extension _IterableExtension<T> on Iterable<T> {
+extension _IterableExt<T> on Iterable<T> {
   Iterable<T> takeLast(int n) {
     final list = toList();
-    if (list.length <= n) return list;
-    return list.sublist(list.length - n);
+    return list.length <= n ? list : list.sublist(list.length - n);
   }
 }

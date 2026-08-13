@@ -92,6 +92,9 @@ void main() async {
   await NumberFormatterService().initialize();
   final prefs = await SharedPreferences.getInstance();
   String? token = await Helpers().getEnvValue('HUGGING_FACE_TOKEN');
+  // This is the ONLY place FlutterGemma.initialize() should be called.
+  // GemmaProvider must NOT call it again — doing so resets webStorageMode
+  // and breaks model persistence across reloads (see gemma_provider.dart).
   await FlutterGemma.initialize(huggingFaceToken: token,webStorageMode: WebStorageMode.cacheApi,);
   await SmartSpendAI.instance.initialize();
   if (prefs.getBool('wallpaper_enabled') ?? false) { await WallpaperSchedulerService().scheduleDailyUpdate(); }

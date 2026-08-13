@@ -597,5 +597,8 @@
   "daily_expenses": "ദൈനംദിന ചെലവുകൾ",
   "view_all_categories": "എല്ലാ വിഭാഗങ്ങളും കാണുക",
   "record_date": "രേഖ തീയതി",
-  "search_categories": "വിഭാഗങ്ങൾ തിരയൂ"
+  "search_categories": "വിഭാഗങ്ങൾ തിരയൂ",
+  "beta_features": "ബീറ്റ സവിശേഷതകൾ",
+  "ai_assistant_title": "Fin: AI സാമ്പത്തിക സഹായി",
+  "ai_assistant_sub_title": "നിങ്ങളുടെ ചെലവുകളും സാമ്പത്തിക വിവരങ്ങളും സംബന്ധിച്ച് ചോദ്യങ്ങൾ ചോദിക്കുക"
 }

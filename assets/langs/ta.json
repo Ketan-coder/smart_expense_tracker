@@ -597,5 +597,8 @@
   "daily_expenses": "தினசரி செலவுகள்",
   "view_all_categories": "அனைத்து பிரிவுகளையும் காண்க",
   "record_date": "பதிவு தேதி",
-  "search_categories": "பிரிவுகளைத் தேடு"
+  "search_categories": "பிரிவுகளைத் தேடு",
+  "beta_features": "பீட்டா அம்சங்கள்",
+  "ai_assistant_title": "Fin: AI நிதி உதவியாளர்",
+  "ai_assistant_sub_title": "உங்கள் செலவுகள் மற்றும் நிதி தகவல்கள் குறித்து கேள்விகள் கேளுங்கள்"
 }

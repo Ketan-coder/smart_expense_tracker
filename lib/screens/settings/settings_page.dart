@@ -1171,6 +1171,28 @@ class _SettingsPageState extends State<SettingsPage> {
 
                 if (!kIsWeb && kDebugMode)...[
                   const Divider(),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 2,
+                        ),
+                        child: Text(
+                          'Testing Features',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                   ListTile(
                     leading: const Icon(Icons.bug_report, color: Colors.orange),
                     title: const Text('Test Wallpaper Update'),
@@ -1197,16 +1219,42 @@ class _SettingsPageState extends State<SettingsPage> {
                       }
                     },
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.computer, color: Colors.orange),
-                    title: const Text('Ai Chat Page'),
-                    subtitle: const Text('Testing AI Chat Page'),
-                    onTap: () async {
-                      Helpers.navigateTo(context, const AiChatPage());
-                    },
-                  ),
                 ],
 
+                const Divider(),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        context.t('beta_features'),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Colors.orange,
+                  ),
+                  title: Text(context.t('ai_assistant_title')),
+                  subtitle: Text(context.t('ai_assistant_sub_title')),
+                  onTap: () async {
+                    Helpers.navigateTo(context, const AiChatPage());
+                  },
+                ),
 
                 const Divider(),
 

@@ -597,5 +597,8 @@
   "daily_expenses": "ದೈನಂದಿನ ಖರ್ಚುಗಳು",
   "view_all_categories": "ಎಲ್ಲಾ ವರ್ಗಗಳನ್ನು ನೋಡಿ",
   "record_date": "ರೆಕಾರ್ಡ್ ದಿನಾಂಕ",
-  "search_categories": "ವರ್ಗಗಳನ್ನು ಹುಡುಕಿ"
+  "search_categories": "ವರ್ಗಗಳನ್ನು ಹುಡುಕಿ",
+  "beta_features": "ಬೀಟಾ ವೈಶಿಷ್ಟ್ಯಗಳು",
+  "ai_assistant_title": "Fin: AI ಹಣಕಾಸು ಸಹಾಯಕ",
+  "ai_assistant_sub_title": "ನಿಮ್ಮ ಖರ್ಚುಗಳು ಮತ್ತು ಹಣಕಾಸಿನ ಮಾಹಿತಿಯ ಬಗ್ಗೆ ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಿ"
 }

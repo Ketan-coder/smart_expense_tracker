@@ -597,5 +597,8 @@
   "daily_expenses": "రోజువారీ ఖర్చులు",
   "view_all_categories": "అన్ని వర్గాలను చూడండి",
   "record_date": "రికార్డ్ తేదీ",
-  "search_categories": "వర్గాలను శోధించండి"
+  "search_categories": "వర్గాలను శోధించండి",
+  "beta_features": "బీటా ఫీచర్లు",
+  "ai_assistant_title": "Fin: AI ఆర్థిక సహాయకుడు",
+  "ai_assistant_sub_title": "మీ ఖర్చులు మరియు ఆర్థిక వివరాల గురించి ప్రశ్నలు అడగండి"
 }

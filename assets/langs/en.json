@@ -597,5 +597,10 @@
   "daily_expenses": "Daily Expenses",
   "view_all_categories": "View All Categories",
   "record_date": "Record Date",
-  "search_categories": "Search Categories"
+  "search_categories": "Search Categories",
+  "beta_features": "Beta Features",
+  "ai_assistant_title": "Fin: AI Financial Assistant",
+  "ai_assistant_sub_title": "Ask questions about your expenses and insights",
+  "enable_dynamic_theme_title": "Enable Dynamic Theme?",
+  "disable_dynamic_theme_title": "Disable Dynamic Theme?"
 }
