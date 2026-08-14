@@ -10,6 +10,7 @@ import 'ai_provider.dart';
 class ChatHistoryStore {
   static const _messagesKey = 'ai_chat_history_v1';
   static const _savedAtKey = 'ai_chat_history_saved_at_v1';
+  static const _summaryKey = 'ai_chat_summary_v1';
 
   // 🛠️ FIX: Extended TTL to 7 days based on your request.
   static const ttl = Duration(days: 7);
@@ -67,9 +68,34 @@ class ChatHistoryStore {
     await prefs.setInt(_savedAtKey, DateTime.now().millisecondsSinceEpoch);
   }
 
+  /// The rolling summary of everything OLDER than the last exchange or
+  /// two — see SmartSpendAI._updateMemoryAndSummary(). This is what lets
+  /// the model stay coherent across a long conversation while only ever
+  /// paying token-cost for a couple of raw messages plus one compact
+  /// paragraph, instead of the whole transcript growing unbounded.
+  ///
+  /// Shares this store's TTL: if the conversation itself has expired,
+  /// the summary is stale too and load() below returns ''.
+  Future<String> loadSummary() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedAtMs = prefs.getInt(_savedAtKey);
+    if (savedAtMs == null) return '';
+
+    final savedAt = DateTime.fromMillisecondsSinceEpoch(savedAtMs);
+    if (DateTime.now().difference(savedAt) > ttl) return '';
+
+    return prefs.getString(_summaryKey) ?? '';
+  }
+
+  Future<void> saveSummary(String summary) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_summaryKey, summary);
+  }
+
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_messagesKey);
     await prefs.remove(_savedAtKey);
+    await prefs.remove(_summaryKey);
   }
 }

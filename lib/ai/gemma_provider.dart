@@ -48,7 +48,7 @@ const kHighTierModel = ModelConfig(
   modelType: ModelType.gemmaIt,
   modelFileName: 'gemma-4-E2B-it.litertlm',
   sizeBytes: 2400 * 1024 * 1024,
-  preferredBackend: PreferredBackend.gpu,
+  preferredBackend: PreferredBackend.cpu,
   maxTokens: 2048,
 );
 
@@ -60,7 +60,7 @@ const kMidTierModel = ModelConfig(
   modelType: ModelType.gemmaIt,
   modelFileName: 'gemma3-1b-it-int4.task',
   sizeBytes: 500 * 1024 * 1024,
-  preferredBackend: PreferredBackend.gpu,
+  preferredBackend: PreferredBackend.cpu,
   maxTokens: 1024,
 );
 
@@ -250,6 +250,11 @@ class GemmaProvider implements AiProvider {
     required String userMessage,
     required String systemContext,
   }) async* {
+
+    int padCount = 0;
+    int totalTextTokens = 0;
+
+
     if (!_isReady || _model == null) {
       yield 'AI is not ready yet.';
       return;
@@ -262,8 +267,11 @@ class GemmaProvider implements AiProvider {
         topK: 40,
       );
 
-      // Last 8 messages = 4 exchanges — keeps context tight
-      for (final m in history.takeLast(8)) {
+      // Only the most recent exchange is sent raw — everything older is
+      // now carried by the rolling summary SmartSpendAI injects into
+      // systemContext, so we don't need to keep spending tokens on raw
+      // transcript the further a conversation goes.
+      for (final m in history.takeLast(2)) {
         await chat.addQueryChunk(
           Message.text(text: m.content, isUser: m.isUser),
         );
@@ -274,9 +282,33 @@ class GemmaProvider implements AiProvider {
       );
 
       await for (final chunk in chat.generateChatResponseAsync()) {
-        if (chunk is TextResponse) {
-          yield chunk.token;
+        if (chunk is! TextResponse) {
+          continue;
         }
+
+        final token = chunk.token;
+
+        if (token == '<pad>') {
+          padCount++;
+
+          // The model is clearly stuck in a padding-token loop.
+          if (padCount >= 20) {
+            debugPrint(
+              '⚠️ [GemmaProvider] Detected <pad> generation loop.',
+            );
+
+            break;
+          }
+
+          continue;
+        }
+
+        if (token.trim().isEmpty) {
+          continue;
+        }
+
+        totalTextTokens++;
+        yield token;
       }
 
       await chat.close();

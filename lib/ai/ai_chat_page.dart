@@ -748,11 +748,27 @@ class _FinAvatarState extends State<_FinAvatar>
     duration: const Duration(milliseconds: 120),
   );
 
-  /// Controls thinking / eye movement.
+  /// Controls thinking / eye movement. This is a *random-target* saccade
+  /// controller — animateTo() jumps it to a new random value every so
+  /// often (see _animateThinking). Its value must be used DIRECTLY as a
+  /// position, never wrapped in sin()/cos() — sin() expects a smoothly
+  /// increasing phase, and feeding it a randomly-jumping value produces
+  /// unpredictable, jittery output. That mismatch was the whole "gibberish
+  /// thinking face" bug: eyes, antenna glow, and the loading dots were
+  /// all deriving from sin(randomValue), fighting each other every frame.
   late final AnimationController _thinkCtrl = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 500),
   );
+
+  /// Smooth, continuously-looping pulse — dedicated to the thinking-dots
+  /// wave and antenna glow, which need a steady repeating sweep. Kept
+  /// entirely separate from [_thinkCtrl] (see above) so those visuals
+  /// stay smooth regardless of how erratically the eyes are darting.
+  late final AnimationController _dotsCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat();
 
   /// Kept for compatibility with the existing avatar architecture.
   /// The actual mouth movement uses [_speechCtrl] for more natural motion.
@@ -1070,6 +1086,7 @@ class _FinAvatarState extends State<_FinAvatar>
     _floatCtrl.dispose();
     _blinkCtrl.dispose();
     _thinkCtrl.dispose();
+    _dotsCtrl.dispose();
     _talkCtrl.dispose();
     _speechCtrl.dispose();
     _gazeCtrl.dispose();
@@ -1192,31 +1209,40 @@ class _FinAvatarState extends State<_FinAvatar>
               // ─────────────────────────────────────────
               // ORGANIC FLOAT
               // ─────────────────────────────────────────
+              //
+              // Every term here uses an INTEGER multiple of t (1x, 2x)
+              // so each one completes a whole number of cycles exactly
+              // when _floatCtrl's 3-second loop restarts — the value at
+              // t=0 and t=2π are identical, so there's no jump/stutter
+              // at the loop boundary. Position (floatY) and the subtle
+              // secondary bob are also both driven by the SAME phase
+              // (sin(t)), not sin for one axis and cos for another —
+              // mixing sin/cos across axes at different speeds is what
+              // was tracing a circular/looping path instead of a bob.
 
-              final floatY =
-                  math.sin(t) * 4.0 +
-                      math.cos(t * 1.5) * 2.0;
+              final floatY = math.sin(t) * 5.0;
 
-              final swayX =
-                  math.sin(t * 0.7) * 3.0;
+              // Purely vertical — no horizontal component. A subtle
+              // sway sounds nice in theory but any x/y combo of two
+              // out-of-phase or differently-tuned oscillators reads as
+              // circling, which is worse than no sway at all.
+              const swayX = 0.0;
 
-              // Tiny breathing scale.
-              final breathe =
-                  1.0 +
-                      math.sin(t * 1.2) * 0.02;
+              // Tiny breathing scale, same single phase as the float.
+              final breathe = 1.0 + math.sin(t) * 0.015;
 
               // ─────────────────────────────────────────
               // THINKING HEAD MOVEMENT
               // ─────────────────────────────────────────
+              //
+              // _thinkCtrl is a random-target saccade controller (see
+              // its doc comment) — used directly here, never through
+              // sin(), so the head eases smoothly between actual
+              // positions instead of jittering.
 
               final thinkTilt =
               widget.state == AvatarState.thinking
-                  ? math.sin(
-                _thinkCtrl.value *
-                    math.pi *
-                    2,
-              ) *
-                  0.035
+                  ? (_thinkCtrl.value - 0.5) * 0.07
                   : 0.0;
 
               // ─────────────────────────────────────────
@@ -1225,7 +1251,7 @@ class _FinAvatarState extends State<_FinAvatar>
 
               final listeningTilt =
               widget.state == AvatarState.listening
-                  ? math.sin(t * 0.8) * 0.008
+                  ? math.sin(t) * 0.006
                   : 0.0;
 
               return Transform.translate(
@@ -1322,7 +1348,7 @@ class _FinAvatarState extends State<_FinAvatar>
               child: AnimatedBuilder(
                 animation: Listenable.merge([
                   _talkCtrl,
-                  _thinkCtrl,
+                  _dotsCtrl,
                   _speechCtrl,
                 ]),
                 builder: (
@@ -1340,16 +1366,19 @@ class _FinAvatarState extends State<_FinAvatar>
                                 0.25);
                   } else if (widget.state ==
                       AvatarState.thinking) {
-                    // Soft thinking pulse.
+                    // Soft thinking pulse — driven by the smooth,
+                    // continuously-looping _dotsCtrl (not the erratic
+                    // random-target _thinkCtrl), so it breathes evenly
+                    // instead of flickering.
                     glow =
                         0.35 +
                             (0.5 +
                                 0.5 *
                                     math.sin(
-                                      _thinkCtrl
+                                      _dotsCtrl
                                           .value *
                                           math.pi *
-                                          4,
+                                          2,
                                     )) *
                                 0.4;
                   } else if (widget.state ==
@@ -1508,7 +1537,7 @@ class _FinAvatarState extends State<_FinAvatar>
                 0.3,
               ),
               child: AnimatedBuilder(
-                animation: _thinkCtrl,
+                animation: _dotsCtrl,
                 builder: (
                     context,
                     _,
@@ -1524,7 +1553,7 @@ class _FinAvatarState extends State<_FinAvatar>
                             i * 0.33;
 
                         final v =
-                        (_thinkCtrl.value -
+                        (_dotsCtrl.value -
                             delay)
                             .clamp(
                           0.0,
@@ -1591,16 +1620,17 @@ class _FinAvatarState extends State<_FinAvatar>
           ) {
         double xOffset = 0.0;
 
-        // Thinking eye movement.
+        // Thinking eye movement — _thinkCtrl's value is used directly
+        // as a position (it already eases smoothly between random
+        // targets via animateTo/curve in _animateThinking). Both eyes
+        // get the SAME offset so they track together like real eyes
+        // looking at one point, rather than diverging apart — using
+        // opposite signs here was what made the thinking expression
+        // look broken/cross-eyed.
         if (widget.state ==
             AvatarState.thinking) {
           xOffset =
-              math.sin(
-                _thinkCtrl.value *
-                    math.pi *
-                    2,
-              ) *
-                  (isLeft ? -3.5 : 3.5);
+              (_thinkCtrl.value - 0.5) * 7.0;
         }
 
         // Slight independent eye movement during

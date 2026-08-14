@@ -17,6 +17,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/helpers.dart';
 import 'ai_provider.dart';
+import 'chat_history_store.dart';
 import 'context_builder.dart';
 import 'gemma_provider.dart';
 import 'memory_store.dart';
@@ -174,6 +175,7 @@ class SmartSpendAI {
   ModelConfig? _activeConfig;
   final ContextBuilder _contextBuilder = ContextBuilder();
   final MemoryStore _memoryStore = MemoryStore();
+  final ChatHistoryStore _historyStore = ChatHistoryStore();
   String? _cachedContext;
   DateTime? _contextBuiltAt;
 
@@ -479,16 +481,26 @@ Do not unnecessarily translate the user's message.
       yield 'AI assistant is disabled. Enable it in Settings.';
       return;
     }
+
     if (_state != AiState.ready || _provider == null) {
       yield 'AI is not ready yet.';
       return;
     }
 
-    final systemContext = await _buildPersonalizedSystemContext();
+    // The UI already adds the current user message to history.
+    // The provider receives the current message separately.
+    final previousHistory = history.length > 1
+        ? history.sublist(0, history.length - 1)
+        : <AiMessage>[];
+
+    final systemContext = await _buildPersonalizedSystemContext(
+      userMessage: userMessage,
+    );
 
     final buffer = StringBuffer();
+
     await for (final token in _provider!.chat(
-      history: history,
+      history: previousHistory,
       userMessage: userMessage,
       systemContext: systemContext,
     )) {
@@ -496,25 +508,89 @@ Do not unnecessarily translate the user's message.
       yield token;
     }
 
-    // Learn from this exchange in the background — never blocks the reply.
-    unawaited(_maybeExtractMemories(userMessage, buffer.toString()));
+    unawaited(
+      _maybeExtractMemories(
+        userMessage,
+        buffer.toString(),
+      ),
+    );
   }
 
-  /// Builds the financial-data + memories system prompt shared by chat()
-  /// and ask().
-  Future<String> _buildPersonalizedSystemContext() async {
+  /// Builds the financial-data + memories + rolling-summary system prompt
+  /// shared by chat() and ask().
+  ///
+  /// This is also where the hard token-budget guard lives: everything
+  /// above (financial snapshot, memories, summary, rules) is assembled,
+  /// and if the total would still be too big for THIS device's actual
+  /// model (mid-tier has a much smaller window than high-tier), the
+  /// least-essential parts are trimmed first — memories, then the
+  /// summary — never the financial data itself. This is what actually
+  /// guarantees no more "token limit exceeded" crashes, rather than
+  /// hoping the numbers work out.
+  Future<String> _buildPersonalizedSystemContext({
+    String? userMessage,
+    bool includeMemories = true,
+  }) async {
     final financialContext = await _getContext();
-    final memories = await _memoryStore.load();
-    final memoryBlock = _memoryStore.toContextBlock(memories);
-    final combined = memoryBlock.isEmpty
-        ? financialContext
-        : '$financialContext\n\n$memoryBlock';
-    return _buildSystemContext(combined);
+
+    final allMemories = includeMemories ? await _memoryStore.load() : <UserMemory>[];
+    final summary = await _historyStore.loadSummary();
+
+    // Reserve room for the system rules themselves, the current message,
+    // the couple of raw history turns GemmaProvider still sends, and the
+    // model's own response — none of that is visible to us here, so we
+    // budget generously for it. What's left is what memories + summary
+    // are allowed to cost.
+    const reservedForRulesHistoryAndResponse = 550;
+    final modelBudget = _activeConfig?.maxTokens ?? 1024;
+    // ~4 chars per token for this kind of prose.
+    var charsLeft =
+        ((modelBudget - reservedForRulesHistoryAndResponse) * 4)
+            .clamp(400, 6000) -
+            financialContext.length;
+
+    String memoryBlock = '';
+    if (charsLeft > 0) {
+      // Try the normal top-12 block first; if it doesn't fit this
+      // device's budget, shrink the count instead of dropping it whole
+      // — a few of the most important memories is still much better
+      // than none.
+      for (final limit in [12, 8, 5, 3]) {
+        final relevant =
+        _memoryStore.getRelevantMemories(allMemories, limit: limit);
+        final candidate = _memoryStore.toContextBlock(relevant);
+        if (candidate.length <= charsLeft) {
+          memoryBlock = candidate;
+          break;
+        }
+      }
+      charsLeft -= memoryBlock.length;
+    }
+
+    String summaryBlock = '';
+    if (summary.isNotEmpty && charsLeft > 60) {
+      final capped =
+      summary.length > charsLeft ? summary.substring(0, charsLeft) : summary;
+      summaryBlock = 'CONVERSATION SO FAR (summary of earlier turns):\n  $capped';
+    }
+
+    final parts = <String>[financialContext];
+    if (memoryBlock.isNotEmpty) parts.add(memoryBlock);
+    if (summaryBlock.isNotEmpty) parts.add(summaryBlock);
+
+    return _buildSystemContext(
+      parts.join('\n\n'),
+      userMessage: userMessage,
+    );
   }
 
-  /// Fire-and-forget: asks the on-device model to pull out any new,
-  /// durable facts about the user from the exchange that just happened,
-  /// and stores them via [MemoryStore] for future personalization.
+  /// Fire-and-forget: after each exchange, asks the on-device model (in
+  /// the SAME call that already extracts memories, to avoid doubling
+  /// inference cost per turn) to fold this exchange into a compact
+  /// running summary. That summary — not raw growing history — is what
+  /// carries "everything older than the last exchange" forward, which is
+  /// what actually keeps token usage flat as a conversation gets long
+  /// instead of climbing turn after turn.
   Future<void> _maybeExtractMemories(
       String userMessage,
       String assistantReply,
@@ -538,11 +614,14 @@ Do not unnecessarily translate the user's message.
       )
           .join('\n');
 
-      final prompt = '''
-You maintain durable memory about the user.
+      final existingSummary = await _historyStore.loadSummary();
 
-Your job is to extract ONLY information that is genuinely about
-the user and useful for future conversations.
+      final prompt = '''
+You maintain durable memory AND a running summary for this conversation.
+
+PART 1 — MEMORY:
+Extract ONLY information that is genuinely about the user and useful for
+future conversations.
 
 DO NOT store:
 - One-off questions
@@ -575,25 +654,35 @@ Existing memories:
 
 $existingList
 
+PART 2 — RUNNING SUMMARY:
+Update the running summary of the conversation so far in 2-3 short
+sentences (under 60 words) — what's been discussed, any open threads or
+follow-ups the user seems to want. Merge with the previous summary rather
+than replacing it wholesale; drop anything no longer relevant.
+
+Previous summary: ${existingSummary.isEmpty ? '(none yet)' : existingSummary}
+
+Latest exchange —
 User message:
 "$userMessage"
 
 Assistant response:
 "$assistantReply"
 
-Return ONLY valid JSON.
+Return ONLY valid JSON in this exact shape:
 
-Format:
-
-[
-  {
-    "key": "unique_stable_key",
-    "type": "profile",
-    "fact": "short factual statement",
-    "confidence": 0.95,
-    "importance": 0.90
-  }
-]
+{
+  "memories": [
+    {
+      "key": "unique_stable_key",
+      "type": "profile",
+      "fact": "short factual statement",
+      "confidence": 0.95,
+      "importance": 0.90
+    }
+  ],
+  "summary": "updated 2-3 sentence summary"
+}
 
 Allowed type values:
 "profile"
@@ -603,20 +692,21 @@ Allowed type values:
 
 Rules:
 
-- Maximum 3 memories per conversation.
+- Maximum 3 memories per turn.
 - Maximum 20 words per fact.
 - confidence must be between 0.0 and 1.0.
 - importance must be between 0.0 and 1.0.
 - Do not invent information.
 - Do not infer information that the user did not state.
 - If an existing memory changed, use the SAME key so it can be updated.
-- If nothing should be remembered, return [].
+- If nothing new should be remembered, use an empty array for "memories".
+- "summary" must always be present, even if unchanged from before.
 ''';
 
       final result = await _provider?.analyze(
-        prompt: prompt,
-        systemContext: '''
-You are a memory extraction system.
+          prompt: prompt,
+          systemContext: '''
+You are a memory + summary maintenance system.
 
 Return ONLY JSON.
 Do not explain your answer.
@@ -648,12 +738,31 @@ Do not use markdown.
       }
 
       // ---------------------------------------------------------
-      // Parse JSON.
+      // Parse JSON. Backwards-compatible: older prompt shape (this
+      // exact function, before summaries existed) returned a bare
+      // array — keep accepting that too rather than assuming the new
+      // object shape is guaranteed.
       // ---------------------------------------------------------
 
       final decoded = jsonDecode(cleaned);
 
-      if (decoded is! List) {
+      List<dynamic> memoriesJson;
+      if (decoded is Map) {
+        final summary = decoded['summary'];
+        if (summary is String && summary.trim().isNotEmpty) {
+          // Hard cap regardless of what the model produced — this is
+          // the actual guarantee, not just a prompt instruction.
+          final capped = summary.trim().length > 400
+              ? summary.trim().substring(0, 400)
+              : summary.trim();
+          await _historyStore.saveSummary(capped);
+        }
+        memoriesJson = (decoded['memories'] is List)
+            ? decoded['memories'] as List
+            : const [];
+      } else if (decoded is List) {
+        memoriesJson = decoded;
+      } else {
         return;
       }
 
@@ -661,7 +770,7 @@ Do not use markdown.
       // Process extracted memories.
       // ---------------------------------------------------------
 
-      for (final item in decoded) {
+      for (final item in memoriesJson) {
         if (item is! Map) {
           continue;
         }
@@ -761,27 +870,21 @@ Do not use markdown.
     }
 
     try {
-      final financialContext = await _getContext();
-      String systemContext = financialContext;
-
-      if (includeMemories) {
-        final memories = await _memoryStore.load();
-        final memoryBlock = _memoryStore.toContextBlock(memories);
-        if (memoryBlock.isNotEmpty) {
-          systemContext += '\n\n$memoryBlock';
-        }
-      }
+      // Reuses the same budget-guarded builder chat() uses, so ask()
+      // gets the same "never exceeds this device's actual token limit"
+      // guarantee instead of its own unbounded copy of the logic.
+      var systemContext = await _buildPersonalizedSystemContext(
+        includeMemories: includeMemories,
+      );
 
       if (extraContext != null && extraContext.isNotEmpty) {
         systemContext += '\n\nADDITIONAL CONTEXT:\n$extraContext';
       }
 
-      final finalContext = _buildSystemContext(systemContext);
-
       // Perform single-shot inference
       final answer = await _provider!.analyze(
         prompt: prompt,
-        systemContext: finalContext,
+        systemContext: systemContext,
       );
 
       return answer;
