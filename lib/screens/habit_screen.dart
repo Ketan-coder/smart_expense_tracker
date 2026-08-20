@@ -1,4 +1,5 @@
 import 'package:expense_tracker/data/local/universal_functions.dart';
+// import 'package:expense_tracker/screens/widgets/ai_overview_box.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/custom_app_bar.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
@@ -163,6 +164,19 @@ class _HabitPageState extends State<HabitPage>
             mainAxisSize:
                 MainAxisSize.min, // Shrink-wrap to provide finite height
             children: [
+//               const SizedBox(height: 10,),
+//               AIOverviewBox(
+//                 title: 'Habit Insight',
+//                 prompt: '''
+// Analyze my financial habits and give me 2-3 short insights.
+//
+// Point out positive patterns and one useful area for improvement
+// when the data supports it.
+//
+// Do not make assumptions.
+// ''',
+//               ),
+//               const SizedBox(height: 10,),
               // Tab Bar
               Container(
                 margin: const EdgeInsets.symmetric(

@@ -10,6 +10,7 @@ import '../../services/goal_service.dart';
 import '../../services/langs/localzation_extension.dart';
 import '../../services/number_formatter_service.dart';
 import '../../services/privacy/privacy_manager.dart';
+// import '../widgets/ai_overview_box.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/snack_bar.dart';
 import 'add_edit_goal_sheet.dart';
@@ -149,6 +150,21 @@ class _GoalsPageState extends State<GoalsPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+//                 const SizedBox(height: 10,),
+//
+//                 AIOverviewBox(
+//                   title: 'Goal Insight',
+//                   prompt: '''
+// Analyze my current financial goals and give me a short overview
+// of my progress.
+//
+// Mention progress, remaining amounts, or useful observations
+// only when supported by the data.
+//
+// Keep it motivating and concise.
+// ''',
+//                 ),
+//                 const SizedBox(height: 10,),
                 // Tab Bar
                 Container(
                   margin: const EdgeInsets.symmetric(

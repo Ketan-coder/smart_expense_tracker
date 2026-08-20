@@ -1,3 +1,4 @@
+// import 'package:expense_tracker/screens/widgets/ai_overview_box.dart';
 import 'package:expense_tracker/screens/widgets/bottom_sheet.dart';
 import 'package:expense_tracker/screens/widgets/custom_app_bar.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
@@ -65,6 +66,19 @@ class _LoanPageState extends State<LoanPage> with SingleTickerProviderStateMixin
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+//               const SizedBox(height: 10,),
+//               AIOverviewBox(
+//                 title: 'Loan Overview',
+//                 prompt: '''
+// Give me a short overview of my current loans.
+//
+// Mention money I need to receive, money I need to repay,
+// and important loan-related observations when supported by the data.
+//
+// Keep it to 2-3 sentences.
+// ''',
+//               ),
+//               const SizedBox(height: 10,),
               // Tab Bar
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -691,7 +705,7 @@ class _AddLoanContentState extends State<_AddLoanContent> {
 
           // Creditor Type
           DropdownButtonFormField<LoanCreditorType>(
-            value: _creditorType,
+            initialValue: _creditorType,
             decoration: InputDecoration(
               labelText: context.t('creditor_type'),
               border: const OutlineInputBorder(),
@@ -747,7 +761,7 @@ class _AddLoanContentState extends State<_AddLoanContent> {
 
             // Interest Type
             DropdownButtonFormField<InterestType>(
-              value: _interestType,
+              initialValue: _interestType,
               decoration: InputDecoration(
                 labelText: context.t('interest_type'),
                 border: const OutlineInputBorder(),
@@ -807,7 +821,7 @@ class _AddLoanContentState extends State<_AddLoanContent> {
 
               // Payment Frequency
               DropdownButtonFormField<PaymentFrequency>(
-                value: _paymentFrequency,
+                initialValue: _paymentFrequency,
                 decoration: InputDecoration(
                   labelText: context.t('payment_frequency'),
                   border: const OutlineInputBorder(),
@@ -878,7 +892,7 @@ class _AddLoanContentState extends State<_AddLoanContent> {
           // Purpose (if bank/NBFC)
           if (_creditorType != LoanCreditorType.person) ...[
             DropdownButtonFormField<LoanPurpose>(
-              value: _purpose,
+              initialValue: _purpose,
               decoration: InputDecoration(
                 labelText: context.t('loan_purpose'),
                 border: const OutlineInputBorder(),
@@ -952,7 +966,7 @@ class _AddLoanContentState extends State<_AddLoanContent> {
 
           // Payment Method
           DropdownButtonFormField<String>(
-            value: _selectedMethod,
+            initialValue: _selectedMethod,
             decoration: InputDecoration(
               labelText: context.t('method'),
               border: const OutlineInputBorder(),
@@ -1356,7 +1370,7 @@ class _AddPaymentContentState extends State<_AddPaymentContent> {
 
         // Method
         DropdownButtonFormField<String>(
-          value: _selectedMethod,
+          initialValue: _selectedMethod,
           decoration: InputDecoration(
             labelText: context.t('method'),
             border: const OutlineInputBorder(),

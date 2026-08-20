@@ -634,5 +634,8 @@
   "clear_data_title": "सारा डेटा साफ़ करें?",
   "clear_data_warning": "क्या आप वाकई सभी खर्च, आय और सेटिंग्स हटाना चाहते हैं? इसे पूर्ववत नहीं किया जा सकता।",
   "error_clearing_data": "डेटा साफ़ करने में त्रुटि हुई",
-  "currency_changed": "मुद्रा बदलकर"
+  "currency_changed": "मुद्रा बदलकर",
+  "ai_overview_cards": "AI ओवरव्यू कार्ड",
+  "ai_overview_cards_enabled": "समर्थित स्क्रीन पर AI द्वारा तैयार की गई जानकारी दिखाएं",
+  "ai_overview_cards_disabled": "AI ओवरव्यू कार्ड छिपे हुए हैं"
 }

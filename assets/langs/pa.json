@@ -634,5 +634,8 @@
   "clear_data_title": "ਸਾਰਾ ਡਾਟਾ ਸਾਫ਼ ਕਰਨਾ ਹੈ?",
   "clear_data_warning": "ਕੀ ਤੁਸੀਂ ਯਕੀਨੀ ਤੌਰ 'ਤੇ ਸਾਰੇ ਖਰਚੇ, ਆਮਦਨ ਅਤੇ ਸੈਟਿੰਗਾਂ ਮਿਟਾਉਣਾ ਚਾਹੁੰਦੇ ਹੋ? ਇਸਨੂੰ ਵਾਪਸ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ।",
   "error_clearing_data": "ਡਾਟਾ ਸਾਫ਼ ਕਰਨ ਵਿੱਚ ਤਰੁੱਟੀ",
-  "currency_changed": "ਮੁਦਰਾ ਬਦਲ ਕੇ"
+  "currency_changed": "ਮੁਦਰਾ ਬਦਲ ਕੇ",
+  "ai_overview_cards": "AI ਓਵਰਵਿਊ ਕਾਰਡ",
+  "ai_overview_cards_enabled": "ਸਮਰਥਿਤ ਸਕ੍ਰੀਨਾਂ 'ਤੇ AI ਦੁਆਰਾ ਤਿਆਰ ਕੀਤੀ ਜਾਣਕਾਰੀ ਦਿਖਾਓ",
+  "ai_overview_cards_disabled": "AI ਓਵਰਵਿਊ ਕਾਰਡ ਲੁਕਾਏ ਹੋਏ ਹਨ"
 }

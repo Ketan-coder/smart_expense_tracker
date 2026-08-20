@@ -17,6 +17,7 @@ import '../../services/privacy/privacy_manager.dart';
 import '../expenses/expense_listing_page.dart';
 import '../loan_page.dart';
 import '../reports/reports_page.dart';
+import '../widgets/ai_overview_box.dart';
 import '../widgets/bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import '../widgets/custom_app_bar.dart';
@@ -302,6 +303,21 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // AI Overview
+                              AIOverviewBox(
+                                prompt: '''
+Give me a 2 line overview of my current financial situation.
+
+Make it motivating and useful.
+Mention spending, income, savings, or financial habits
+only when the available data supports it.
+
+Do not give generic financial advice.
+Keep it concise and natural.
+''',
+                              ),
+
+                              const SizedBox(height: 20),
                               // 1. Total Balance
                               _buildBalanceCard(theme, colorScheme),
                               const SizedBox(height: 24),

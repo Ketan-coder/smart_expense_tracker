@@ -634,5 +634,8 @@
   "clear_data_title": "Clear All Data?",
   "clear_data_warning": "Are you sure you want to delete all expenses, incomes, and settings? This cannot be undone.",
   "error_clearing_data": "Error clearing data",
-  "currency_changed": "Currency changed to"
+  "currency_changed": "Currency changed to",
+  "ai_overview_cards": "AI Overview Cards",
+  "ai_overview_cards_enabled": "Show AI generated insights on supported screens",
+  "ai_overview_cards_disabled": "AI Overview cards are hidden"
 }

@@ -634,5 +634,8 @@
   "clear_data_title": "सर्व डेटा साफ करायचा?",
   "clear_data_warning": "तुम्हाला सर्व खर्च, उत्पन्न आणि सेटिंग्ज हटवायची खात्री आहे का? ही कृती पूर्ववत करता येणार नाही.",
   "error_clearing_data": "डेटा साफ करताना त्रुटी आली",
-  "currency_changed": "चलन बदलून"
+  "currency_changed": "चलन बदलून",
+  "ai_overview_cards": "AI ओव्हरव्ह्यू कार्ड्स",
+  "ai_overview_cards_enabled": "समर्थित स्क्रीनवर AI द्वारे तयार केलेली माहिती दाखवा",
+  "ai_overview_cards_disabled": "AI ओव्हरव्ह्यू कार्ड्स लपवले आहेत"
 }

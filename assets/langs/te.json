@@ -634,6 +634,9 @@
   "clear_data_title": "మొత్తం డేటాను తొలగించాలా?",
   "clear_data_warning": "మీరు అన్ని ఖర్చులు, ఆదాయాలు మరియు సెట్టింగ్‌లను తొలగించాలనుకుంటున్నారా? దీన్ని రద్దు చేయడం సాధ్యం కాదు.",
   "error_clearing_data": "డేటాను తొలగించడంలో లోపం",
-  "currency_changed": "కరెన్సీ మార్చబడింది"
+  "currency_changed": "కరెన్సీ మార్చబడింది",
+  "ai_overview_cards": "AI ఓవerview కార్డులు",
+  "ai_overview_cards_enabled": "మద్దతు ఉన్న స్క్రీన్‌లలో AI రూపొందించిన సమాచారాన్ని చూపించండి",
+  "ai_overview_cards_disabled": "AI ఓవerview కార్డులు దాచబడ్డాయి"
 
 }

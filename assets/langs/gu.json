@@ -634,5 +634,8 @@
   "clear_data_title": "બધો ડેટા સાફ કરવો છે?",
   "clear_data_warning": "શું તમે ખરેખર બધા ખર્ચ, આવક અને સેટિંગ્સ કાઢી નાખવા માંગો છો? આ ક્રિયા પૂર્વવત્ કરી શકાશે નહીં.",
   "error_clearing_data": "ડેટા સાફ કરવામાં ભૂલ થઈ",
-  "currency_changed": "ચલણ બદલવામાં આવ્યું"
+  "currency_changed": "ચલણ બદલવામાં આવ્યું",
+  "ai_overview_cards": "AI ઓવરવ્યૂ કાર્ડ્સ",
+  "ai_overview_cards_enabled": "સપોર્ટેડ સ્ક્રીન પર AI દ્વારા બનાવેલી માહિતી બતાવો",
+  "ai_overview_cards_disabled": "AI ઓવરવ્યૂ કાર્ડ્સ છુપાયેલા છે"
 }

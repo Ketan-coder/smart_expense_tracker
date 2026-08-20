@@ -245,6 +245,18 @@ class Helpers {
     await prefs.setBool('showQuickActions', state);
   }
 
+  Future<bool?> getCurrentAIOverviewBoxes() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('ai_overview_enabled') ?? true;
+  }
+
+  Future<void> setCurrentAIOverviewBoxes(bool state) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('ai_overview_enabled', state);
+  }
+
+
+
   Future<String?> getEnvValue(String key) async {
     final value = dotenv.env[key];
     return value;

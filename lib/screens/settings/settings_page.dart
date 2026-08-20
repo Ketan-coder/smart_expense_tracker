@@ -69,6 +69,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _faceDetectionEnabled = false;
   bool _adaptiveBrightnessEnabled = true;
   bool _showQuickActions = true;
+  bool _aiOverviewEnabled = true;
 
   final List<Map<String, String>> _currencies = [
     {"code": "USD", "name": "US Dollar", "symbol": "\$"},
@@ -127,6 +128,7 @@ class _SettingsPageState extends State<SettingsPage> {
         await Helpers().getCurrentDynamicColorState() ?? true;
     final showQuickActions =
         await Helpers().getCurrentShowQuickActions() ?? true;
+    final aiOverviewEnabled = await Helpers().getCurrentAIOverviewBoxes() ?? true;
     await NumberFormatterService().initialize();
 
     if (mounted) {
@@ -140,6 +142,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _selectedLanguage = language;
         _dynamicColorState = dynamicColorState;
         _showQuickActions = showQuickActions;
+        _aiOverviewEnabled = aiOverviewEnabled;
         _selectedNumberFormat = NumberFormatterService().currentFormat;
       });
     }
@@ -255,6 +258,25 @@ class _SettingsPageState extends State<SettingsPage> {
         message: value
             ? context.t('adaptive_brightness_enabled')
             : context.t('adaptive_brightness_disabled'),
+        type: SnackBarType.info,
+        behavior: SnackBarBehavior.floating,
+      );
+    }
+  }
+
+  Future<void> _updateAIOverview(bool value) async {
+    setState(() {
+      _aiOverviewEnabled = value;
+    });
+
+    Helpers().setCurrentAIOverviewBoxes(value);
+
+    if (mounted) {
+      SnackBars.show(
+        context,
+        message: value
+            ? 'AI Overview enabled'
+            : 'AI Overview disabled',
         type: SnackBarType.info,
         behavior: SnackBarBehavior.floating,
       );
@@ -1254,6 +1276,26 @@ class _SettingsPageState extends State<SettingsPage> {
                   onTap: () async {
                     Helpers.navigateTo(context, const AiChatPage());
                   },
+                ),
+
+                // AI Overview Cards
+                ListTile(
+                  leading: Icon(
+                    Icons.auto_awesome_rounded,
+                    color: _aiOverviewEnabled
+                        ? Colors.orange
+                        : null,
+                  ),
+                  title: Text(context.t('ai_overview_cards')),
+                  subtitle: Text(
+                    _aiOverviewEnabled
+                        ? context.t('ai_overview_cards_enabled')
+                        : context.t('ai_overview_cards_disabled'),
+                  ),
+                  trailing: Switch(
+                    value: _aiOverviewEnabled,
+                    onChanged: _updateAIOverview,
+                  ),
                 ),
 
                 const Divider(),

@@ -634,5 +634,8 @@
   "clear_data_title": "সব তথ্য মুছবেন?",
   "clear_data_warning": "আপনি কি নিশ্চিত যে আপনি সব খরচ, আয় ও সেটিংস মুছতে চান? এটি পূর্বাবস্থায় ফেরানো যাবে না।",
   "error_clearing_data": "তথ্য মুছতে সমস্যা হয়েছে",
-  "currency_changed": "মুদ্রা পরিবর্তিত হয়েছে"
+  "currency_changed": "মুদ্রা পরিবর্তিত হয়েছে",
+  "ai_overview_cards": "AI ওভারভিউ কার্ড",
+  "ai_overview_cards_enabled": "সমর্থিত স্ক্রিনে AI দ্বারা তৈরি অন্তর্দৃষ্টি দেখান",
+  "ai_overview_cards_disabled": "AI ওভারভিউ কার্ড লুকানো আছে"
 }
