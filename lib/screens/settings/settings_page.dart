@@ -1281,7 +1281,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 // AI Overview Cards
                 ListTile(
                   leading: Icon(
-                    Icons.auto_awesome_rounded,
+                    Icons.info_outline,
                     color: _aiOverviewEnabled
                         ? Colors.orange
                         : null,
