@@ -78,6 +78,14 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   hive_ce_generator: ^1.1.0
   build_runner: ^2.8.0
+  flutter_native_splash: ^2.4.1
+
+flutter_native_splash:
+  color: "#FFFBFE"        # match cs.surface for your purple seed light theme
+  color_dark: "#1C1B1F"   # match cs.surface for dark theme
+  android_12:
+    color: "#FFFBFE"
+    color_dark: "#1C1B1F"
 
 flutter_launcher_icons:
   android: true

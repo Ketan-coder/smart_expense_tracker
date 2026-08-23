@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:expense_tracker/core/app_constants.dart';
 import 'package:expense_tracker/data/model/loan.dart';
 import 'package:expense_tracker/screens/habit_screen.dart';
@@ -20,6 +22,7 @@ import 'package:workmanager/workmanager.dart';
 import 'dart:io' show Platform;
 import 'ai/smart_spend_ai.dart';
 import 'core/helpers.dart';
+import 'screens/app_splash_screen.dart';
 import 'data/model/category.dart';
 import 'data/model/daily_progress.dart';
 import 'data/model/expense.dart';
@@ -95,8 +98,23 @@ void main() async {
   // This is the ONLY place FlutterGemma.initialize() should be called.
   // GemmaProvider must NOT call it again — doing so resets webStorageMode
   // and breaks model persistence across reloads (see gemma_provider.dart).
+  // This call itself is cheap (just registers the plugin), so it's fine
+  // to await — it's NOT the part that takes seconds.
   await FlutterGemma.initialize(huggingFaceToken: token,webStorageMode: WebStorageMode.cacheApi,);
-  await SmartSpendAI.instance.initialize();
+
+  // 🛠️ SPLASH FIX: previously `await`ed here, which meant runApp() below
+  // never ran until the on-device model had fully loaded into memory —
+  // for the 2.3GB high-tier model that can take many seconds, and Android's
+  // default splash screen only dismisses once Flutter draws its first
+  // frame. Result: the app visually "hung" on the OS splash with no way
+  // to show progress, because Flutter hadn't even started yet.
+  //
+  // Firing this without awaiting lets runApp() run immediately — the OS
+  // splash dismisses right away, and AppSplashScreen (Flutter-side) takes
+  // over to show real loading/download progress via SmartSpendAI's
+  // listener API, while the rest of the app becomes usable in the
+  // meantime instead of being blocked on the AI model specifically.
+  unawaited(SmartSpendAI.instance.initialize());
   if (prefs.getBool('wallpaper_enabled') ?? false) { await WallpaperSchedulerService().scheduleDailyUpdate(); }
 
   // Only register recurring task on mobile platforms
@@ -247,7 +265,7 @@ class _MyAppState extends State<MyApp> {
             colorScheme: darkColorScheme,
           ),
           themeMode: _themeMode,
-          home: const BottomNavBar(currentIndex: 0),
+          home: const AppSplashScreen(),
         );
       },
     );

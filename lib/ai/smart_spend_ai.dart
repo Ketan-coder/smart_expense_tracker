@@ -149,7 +149,19 @@ class SmartSpendAI {
   final List<VoidCallback> _listeners = [];
   void addListener(VoidCallback cb) => _listeners.add(cb);
   void removeListener(VoidCallback cb) => _listeners.remove(cb);
+
+  // 🛠️ SPLASH FIX: `_state` defaults to `notDownloaded` at construction,
+  // which is a lie until initialize() has actually run its first check —
+  // a splash screen reading `.state` on the very first frame could see
+  // that default and wrongly decide there's "nothing to wait for". This
+  // completes the moment the FIRST real `_notify()` fires (whatever the
+  // resulting state turns out to be), so callers can await one genuine
+  // signal before making a decision, instead of racing the default value.
+  final Completer<void> _firstStateKnown = Completer<void>();
+  Future<void> get firstStateKnown => _firstStateKnown.future;
+
   void _notify() {
+    if (!_firstStateKnown.isCompleted) _firstStateKnown.complete();
     for (final cb in _listeners) cb();
   }
 
@@ -317,7 +329,7 @@ class SmartSpendAI {
         String? language,
       }) {
     final languageInstruction = _getLanguageInstruction(
-      userMessage ?? '', language ?? ''
+        userMessage ?? '', language ?? ''
     );
 
     return '''
@@ -582,7 +594,7 @@ Do not unnecessarily translate the user's message.
     return _buildSystemContext(
       parts.join('\n\n'),
       userMessage: userMessage,
-        language: language,
+      language: language,
     );
   }
 
