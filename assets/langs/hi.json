@@ -637,5 +637,14 @@
   "currency_changed": "मुद्रा बदलकर",
   "ai_overview_cards": "AI ओवरव्यू कार्ड",
   "ai_overview_cards_enabled": "समर्थित स्क्रीन पर AI द्वारा तैयार की गई जानकारी दिखाएं",
-  "ai_overview_cards_disabled": "AI ओवरव्यू कार्ड छिपे हुए हैं"
+  "ai_overview_cards_disabled": "AI ओवरव्यू कार्ड छिपे हुए हैं",
+  "ai_overview": "AI अवलोकन",
+  "ai_overview_analyzing": "आपके वित्त का विश्लेषण किया जा रहा है",
+  "ai_overview_crunching": "आपके आंकड़ों का विश्लेषण किया जा रहा है",
+  "ai_overview_spotting": "खर्च के पैटर्न देखे जा रहे हैं",
+  "ai_overview_wrapping_up": "आपकी जानकारी तैयार की जा रही है",
+  "ai_overview_refresh": "जानकारी फिर से देखें",
+  "ai_overview_disclaimer": "AI से गलतियाँ हो सकती हैं। महत्वपूर्ण जानकारी की दोबारा जाँच करें।",
+  "ai_overview_on_device": "डिवाइस पर चलने वाला AI",
+  "ai_overview_updated_today": "आज अपडेट किया गया"
 }

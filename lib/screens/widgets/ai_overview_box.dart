@@ -9,6 +9,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../ai/smart_spend_ai.dart';
+import '../../services/langs/localzation_extension.dart';
 import '../../services/privacy/privacy_manager.dart';
 
 // =============================================================================
@@ -203,12 +204,14 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
   final SmartSpendAI _ai = SmartSpendAI.instance;
   final PrivacyManager _privacyManager = PrivacyManager();
 
-  static const _phrases = [
-    'Analyzing your finances',
-    'Crunching your numbers',
-    'Spotting spending patterns',
-    'Wrapping up your insights',
-  ];
+  List<String> _getLoadingPhrases(BuildContext context) {
+    return [
+      context.t('ai_overview_analyzing'),
+      context.t('ai_overview_crunching'),
+      context.t('ai_overview_spotting'),
+      context.t('ai_overview_wrapping_up'),
+    ];
+  }
 
   String? _response;
   DateTime? _generatedAt;
@@ -335,12 +338,18 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
   void _startPhraseCycle() {
     _phraseTimer?.cancel();
     _phraseIndex = 0;
-    _phraseTimer = Timer.periodic(const Duration(milliseconds: 1900), (_) {
-      if (!mounted) return;
-      setState(() {
-        _phraseIndex = (_phraseIndex + 1) % _phrases.length;
-      });
-    });
+
+    _phraseTimer = Timer.periodic(
+      const Duration(milliseconds: 1900),
+          (_) {
+        if (!mounted) return;
+        final phrases = _getLoadingPhrases(context);
+        setState(() {
+          _phraseIndex =
+              (_phraseIndex + 1) % phrases.length;
+        });
+      },
+    );
   }
 
   void _stopPhraseCycle() {
@@ -789,11 +798,10 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
                                       );
                                     },
                                     child: Text(
-                                      _phrases[_phraseIndex],
+                                      _getLoadingPhrases(context)[_phraseIndex],
                                       key: ValueKey(_phraseIndex),
                                       overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
+                                      style: theme.textTheme.bodySmall?.copyWith(
                                         color: colorScheme.onSurfaceVariant,
                                       ),
                                     ),
@@ -1236,23 +1244,53 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
             ),
             if (_generatedAt != null) ...[
               const SizedBox(height: 12),
-              Row(
+              Column(
                 children: [
-                  Icon(
-                    Icons.access_time_rounded,
-                    size: 12,
-                    color: colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.55,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Updated today at ${_formatTime(_generatedAt!)}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.55,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 12,
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.55,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '${context.t('ai_overview_on_device')} · '
+                              '${context.t('ai_overview_disclaimer')}',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.55,
+                            ),
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time_rounded,
+                        size: 12,
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.55,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${context.t('ai_overview_updated_today')} '
+                            '${_formatTime(_generatedAt!)}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.55,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

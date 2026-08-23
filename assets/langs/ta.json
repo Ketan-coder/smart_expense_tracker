@@ -637,5 +637,14 @@
   "currency_changed": "நாணயம் மாற்றப்பட்டது",
   "ai_overview_cards": "AI மேலோட்ட அட்டைகள்",
   "ai_overview_cards_enabled": "ஆதரிக்கப்படும் திரைகளில் AI உருவாக்கிய தகவல்களைக் காட்டவும்",
-  "ai_overview_cards_disabled": "AI மேலோட்ட அட்டைகள் மறைக்கப்பட்டுள்ளன"
+  "ai_overview_cards_disabled": "AI மேலோட்ட அட்டைகள் மறைக்கப்பட்டுள்ளன",
+  "ai_overview": "AI மேலோட்டம்",
+  "ai_overview_analyzing": "உங்கள் நிதி தகவல்கள் பகுப்பாய்வு செய்யப்படுகின்றன",
+  "ai_overview_crunching": "உங்கள் கணக்குகள் பகுப்பாய்வு செய்யப்படுகின்றன",
+  "ai_overview_spotting": "செலவு முறைகள் கண்டறியப்படுகின்றன",
+  "ai_overview_wrapping_up": "உங்கள் தகவல்கள் தயாராகின்றன",
+  "ai_overview_refresh": "தகவல்களைப் புதுப்பிக்கவும்",
+  "ai_overview_disclaimer": "AI தவறுகளைச் செய்யலாம். முக்கியமான தகவல்களைச் சரிபார்க்கவும்.",
+  "ai_overview_on_device": "சாதனத்தில் இயங்கும் AI",
+  "ai_overview_updated_today": "இன்று புதுப்பிக்கப்பட்டது"
 }

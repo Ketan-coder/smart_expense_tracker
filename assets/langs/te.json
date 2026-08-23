@@ -637,6 +637,14 @@
   "currency_changed": "కరెన్సీ మార్చబడింది",
   "ai_overview_cards": "AI ఓవerview కార్డులు",
   "ai_overview_cards_enabled": "మద్దతు ఉన్న స్క్రీన్‌లలో AI రూపొందించిన సమాచారాన్ని చూపించండి",
-  "ai_overview_cards_disabled": "AI ఓవerview కార్డులు దాచబడ్డాయి"
-
+  "ai_overview_cards_disabled": "AI ఓవerview కార్డులు దాచబడ్డాయి",
+  "ai_overview": "AI అవలోకనం",
+  "ai_overview_analyzing": "మీ ఆర్థిక సమాచారాన్ని విశ్లేషిస్తోంది",
+  "ai_overview_crunching": "మీ గణాంకాలను విశ్లేషిస్తోంది",
+  "ai_overview_spotting": "ఖర్చు విధానాలను గుర్తిస్తోంది",
+  "ai_overview_wrapping_up": "మీ సమాచారాన్ని సిద్ధం చేస్తోంది",
+  "ai_overview_refresh": "ఇన్‌సైట్స్‌ను రిఫ్రెష్ చేయండి",
+  "ai_overview_disclaimer": "AI తప్పులు చేయవచ్చు. ముఖ్యమైన సమాచారాన్ని ధృవీకరించండి.",
+  "ai_overview_on_device": "పరికరంలో పనిచేసే AI",
+  "ai_overview_updated_today": "ఈరోజు అప్‌డేట్ చేయబడింది"
 }

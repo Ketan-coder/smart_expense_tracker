@@ -637,5 +637,14 @@
   "currency_changed": "মুদ্রা পরিবর্তিত হয়েছে",
   "ai_overview_cards": "AI ওভারভিউ কার্ড",
   "ai_overview_cards_enabled": "সমর্থিত স্ক্রিনে AI দ্বারা তৈরি অন্তর্দৃষ্টি দেখান",
-  "ai_overview_cards_disabled": "AI ওভারভিউ কার্ড লুকানো আছে"
+  "ai_overview_cards_disabled": "AI ওভারভিউ কার্ড লুকানো আছে",
+  "ai_overview": "AI ওভারভিউ",
+  "ai_overview_analyzing": "আপনার আর্থিক তথ্য বিশ্লেষণ করা হচ্ছে",
+  "ai_overview_crunching": "আপনার সংখ্যাগুলো বিশ্লেষণ করা হচ্ছে",
+  "ai_overview_spotting": "খরচের ধরন শনাক্ত করা হচ্ছে",
+  "ai_overview_wrapping_up": "আপনার অন্তর্দৃষ্টি প্রস্তুত করা হচ্ছে",
+  "ai_overview_refresh": "অন্তর্দৃষ্টি রিফ্রেশ করুন",
+  "ai_overview_disclaimer": "AI ভুল করতে পারে। গুরুত্বপূর্ণ তথ্য যাচাই করে নিন।",
+  "ai_overview_on_device": "ডিভাইসে চলমান AI",
+  "ai_overview_updated_today": "আজ আপডেট করা হয়েছে"
 }

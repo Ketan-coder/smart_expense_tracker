@@ -305,6 +305,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                             children: [
                               // AI Overview
                               AIOverviewBox(
+                                title: context.t('ai_overview'),
                                 prompt: '''
 Give me a 2 line overview of my current financial situation.
 

@@ -108,7 +108,7 @@ class _GoalsPageState extends State<GoalsPage>
 
     return Scaffold(
       body: SimpleCustomAppBar(
-        title: "Goals",
+        title: context.t('goals'),
         hasContent: true,
         expandedHeight: MediaQuery.of(context).size.height * 0.35,
         centerTitle: true,

@@ -637,5 +637,14 @@
   "currency_changed": "കറൻസി മാറ്റി",
   "ai_overview_cards": "AI അവലോകന കാർഡുകൾ",
   "ai_overview_cards_enabled": "പിന്തുണയ്ക്കുന്ന സ്ക്രീനുകളിൽ AI സൃഷ്ടിച്ച വിവരങ്ങൾ കാണിക്കുക",
-  "ai_overview_cards_disabled": "AI അവലോകന കാർഡുകൾ മറച്ചിരിക്കുന്നു"
+  "ai_overview_cards_disabled": "AI അവലോകന കാർഡുകൾ മറച്ചിരിക്കുന്നു",
+  "ai_overview": "AI അവലോകനം",
+  "ai_overview_analyzing": "നിങ്ങളുടെ സാമ്പത്തിക വിവരങ്ങൾ വിശകലനം ചെയ്യുന്നു",
+  "ai_overview_crunching": "നിങ്ങളുടെ കണക്കുകൾ വിശകലനം ചെയ്യുന്നു",
+  "ai_overview_spotting": "ചെലവിന്റെ രീതികൾ കണ്ടെത്തുന്നു",
+  "ai_overview_wrapping_up": "നിങ്ങളുടെ ഉൾക്കാഴ്ചകൾ തയ്യാറാക്കുന്നു",
+  "ai_overview_refresh": "ഇൻസൈറ്റുകൾ പുതുക്കുക",
+  "ai_overview_disclaimer": "AI-യ്ക്ക് തെറ്റുകൾ സംഭവിക്കാം. പ്രധാനപ്പെട്ട വിവരങ്ങൾ പരിശോധിക്കുക.",
+  "ai_overview_on_device": "ഉപകരണത്തിൽ പ്രവർത്തിക്കുന്ന AI",
+  "ai_overview_updated_today": "ഇന്ന് അപ്ഡേറ്റ് ചെയ്തത്"
 }

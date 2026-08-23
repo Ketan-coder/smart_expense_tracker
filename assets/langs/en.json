@@ -637,5 +637,14 @@
   "currency_changed": "Currency changed to",
   "ai_overview_cards": "AI Overview Cards",
   "ai_overview_cards_enabled": "Show AI generated insights on supported screens",
-  "ai_overview_cards_disabled": "AI Overview cards are hidden"
+  "ai_overview_cards_disabled": "AI Overview cards are hidden",
+  "ai_overview": "AI Overview",
+  "ai_overview_analyzing": "Analyzing your finances",
+  "ai_overview_crunching": "Crunching your numbers",
+  "ai_overview_spotting": "Spotting spending patterns",
+  "ai_overview_wrapping_up": "Wrapping up your insights",
+  "ai_overview_refresh": "Refresh insights",
+  "ai_overview_disclaimer": "AI can make mistakes. Please verify important information.",
+  "ai_overview_on_device": "On-device AI",
+  "ai_overview_updated_today": "Updated today at"
 }

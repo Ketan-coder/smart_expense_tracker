@@ -637,6 +637,14 @@
   "currency_changed": "ಕರೆನ್ಸಿಯನ್ನು ಬದಲಾಯಿಸಲಾಗಿದೆ",
   "ai_overview_cards": "AI ಅವಲೋಕನ ಕಾರ್ಡ್‌ಗಳು",
   "ai_overview_cards_enabled": "ಬೆಂಬಲಿತ ಸ್ಕ್ರೀನ್‌ಗಳಲ್ಲಿ AI ರಚಿಸಿದ ಮಾಹಿತಿಯನ್ನು ತೋರಿಸಿ",
-  "ai_overview_cards_disabled": "AI ಅವಲೋಕನ ಕಾರ್ಡ್‌ಗಳನ್ನು ಮರೆಮಾಡಲಾಗಿದೆ"
-
+  "ai_overview_cards_disabled": "AI ಅವಲೋಕನ ಕಾರ್ಡ್‌ಗಳನ್ನು ಮರೆಮಾಡಲಾಗಿದೆ",
+  "ai_overview": "AI ಅವಲೋಕನ",
+  "ai_overview_analyzing": "ನಿಮ್ಮ ಹಣಕಾಸಿನ ಮಾಹಿತಿಯನ್ನು ವಿಶ್ಲೇಷಿಸಲಾಗುತ್ತಿದೆ",
+  "ai_overview_crunching": "ನಿಮ್ಮ ಅಂಕಿಅಂಶಗಳನ್ನು ವಿಶ್ಲೇಷಿಸಲಾಗುತ್ತಿದೆ",
+  "ai_overview_spotting": "ಖರ್ಚಿನ ಮಾದರಿಗಳನ್ನು ಗುರುತಿಸಲಾಗುತ್ತಿದೆ",
+  "ai_overview_wrapping_up": "ನಿಮ್ಮ ಮಾಹಿತಿಯನ್ನು ಸಿದ್ಧಪಡಿಸಲಾಗುತ್ತಿದೆ",
+  "ai_overview_refresh": "ಒಳನೋಟಗಳನ್ನು ರಿಫ್ರೆಶ್ ಮಾಡಿ",
+  "ai_overview_disclaimer": "AI ತಪ್ಪುಗಳನ್ನು ಮಾಡಬಹುದು. ಪ್ರಮುಖ ಮಾಹಿತಿಯನ್ನು ಪರಿಶೀಲಿಸಿ.",
+  "ai_overview_on_device": "ಸಾಧನದಲ್ಲೇ ಕಾರ್ಯನಿರ್ವಹಿಸುವ AI",
+  "ai_overview_updated_today": "ಇಂದು ನವೀಕರಿಸಲಾಗಿದೆ"
 }

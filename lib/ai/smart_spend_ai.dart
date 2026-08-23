@@ -314,9 +314,10 @@ class SmartSpendAI {
   String _buildSystemContext(
       String financialContext, {
         String? userMessage,
+        String? language,
       }) {
     final languageInstruction = _getLanguageInstruction(
-      userMessage ?? '',
+      userMessage ?? '', language ?? ''
     );
 
     return '''
@@ -354,27 +355,27 @@ $financialContext
 
   String _getLanguageInstruction(
       String userMessage,
+      String language,
       ) {
     final message = userMessage.trim();
 
+    // No user message → use the app's selected language.
     if (message.isEmpty) {
       return '''
-Respond in the same language used by the user.
+Respond in the language selected by the app: $language.
 ''';
     }
 
-    // Hindi / Devanagari
+    // Hindi / Marathi — Devanagari
     if (RegExp(r'[\u0900-\u097F]').hasMatch(message)) {
       return '''
-The user is writing in Hindi using Devanagari script.
+The user is writing in Hindi or Marathi using Devanagari script.
 
-Respond in Hindi using Devanagari script.
+Respond in the same language as the user's message.
+If the message is Hindi, respond in Hindi.
+If the message is Marathi, respond in Marathi.
 
 Do NOT answer in English unless the user explicitly asks for English.
-
-Technical terms, product names, financial terms, and numbers may remain
-in English when that sounds natural, but the sentence itself should be
-Hindi.
 ''';
     }
 
@@ -384,7 +385,7 @@ Hindi.
 The user is writing in Bengali.
 
 Respond in Bengali using Bengali script.
-Do NOT answer in English unless the user explicitly asks for English.
+Do NOT answer in English unless explicitly requested.
 ''';
     }
 
@@ -394,17 +395,17 @@ Do NOT answer in English unless the user explicitly asks for English.
 The user is writing in Gujarati.
 
 Respond in Gujarati using Gujarati script.
-Do NOT answer in English unless the user explicitly asks for English.
+Do NOT answer in English unless explicitly requested.
 ''';
     }
 
-    // Gurmukhi / Punjabi
+    // Punjabi / Gurmukhi
     if (RegExp(r'[\u0A00-\u0A7F]').hasMatch(message)) {
       return '''
-The user is writing in Punjabi.
+The user is writing in Punjabi using Gurmukhi script.
 
 Respond in Punjabi using Gurmukhi script.
-Do NOT answer in English unless the user explicitly asks for English.
+Do NOT answer in English unless explicitly requested.
 ''';
     }
 
@@ -414,7 +415,7 @@ Do NOT answer in English unless the user explicitly asks for English.
 The user is writing in Tamil.
 
 Respond in Tamil using Tamil script.
-Do NOT answer in English unless the user explicitly asks for English.
+Do NOT answer in English unless explicitly requested.
 ''';
     }
 
@@ -424,7 +425,7 @@ Do NOT answer in English unless the user explicitly asks for English.
 The user is writing in Telugu.
 
 Respond in Telugu using Telugu script.
-Do NOT answer in English unless the user explicitly asks for English.
+Do NOT answer in English unless explicitly requested.
 ''';
     }
 
@@ -434,7 +435,7 @@ Do NOT answer in English unless the user explicitly asks for English.
 The user is writing in Kannada.
 
 Respond in Kannada using Kannada script.
-Do NOT answer in English unless the user explicitly asks for English.
+Do NOT answer in English unless explicitly requested.
 ''';
     }
 
@@ -444,28 +445,27 @@ Do NOT answer in English unless the user explicitly asks for English.
 The user is writing in Malayalam.
 
 Respond in Malayalam using Malayalam script.
-Do NOT answer in English unless the user explicitly asks for English.
+Do NOT answer in English unless explicitly requested.
 ''';
     }
 
-    // Arabic / Urdu
+    // Urdu / Arabic-derived script
     if (RegExp(r'[\u0600-\u06FF]').hasMatch(message)) {
       return '''
-The user is writing using Arabic-derived script.
+The user is writing using an Arabic-derived script.
 
 Respond in the same language and script used by the user.
 Do NOT switch to English unless explicitly requested.
 ''';
     }
 
-    // Default: English / Latin script
+    // No Indian script detected → use the selected app language.
     return '''
-Respond in the same language used by the user.
+Respond in the language selected by the app: $language.
 
-If the user writes in English, respond in English.
-
-If the user writes in another Latin-script language, respond in that
-same language.
+If the user writes in English while the selected language is another
+language, respond in the selected app language unless the user explicitly
+asks you to respond in English.
 
 Do not unnecessarily translate the user's message.
 ''';
@@ -529,6 +529,7 @@ Do not unnecessarily translate the user's message.
   /// hoping the numbers work out.
   Future<String> _buildPersonalizedSystemContext({
     String? userMessage,
+    String? language,
     bool includeMemories = true,
   }) async {
     final financialContext = await _getContext();
@@ -581,6 +582,7 @@ Do not unnecessarily translate the user's message.
     return _buildSystemContext(
       parts.join('\n\n'),
       userMessage: userMessage,
+        language: language,
     );
   }
 
@@ -855,6 +857,7 @@ Do not use markdown.
   /// Callers MUST check for this and fall back to their own non-AI UX.
   Future<dynamic> ask(
       String prompt, {
+        String? language,
         String? extraContext,
         bool includeMemories = true,
       }) async {
@@ -870,10 +873,15 @@ Do not use markdown.
     }
 
     try {
+      // Get the Language from the Helpers
+      language = await Helpers().getCurrentLanguage();
+      debugPrint('Language ==> $language');
+
       // Reuses the same budget-guarded builder chat() uses, so ask()
       // gets the same "never exceeds this device's actual token limit"
       // guarantee instead of its own unbounded copy of the logic.
       var systemContext = await _buildPersonalizedSystemContext(
+        language: language ?? 'English',
         includeMemories: includeMemories,
       );
 
