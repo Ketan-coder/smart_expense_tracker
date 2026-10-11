@@ -4,10 +4,14 @@
 // ModelConfig is PUBLIC so SmartSpendAI can pass the right tier config.
 // To upgrade model: change one constant below — nothing else changes.
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'ai_provider.dart';
+import 'input_token_budget.dart';
 
 // ─────────────────────────────────────────────────────────────
 // PUBLIC MODEL CONFIG  (used by SmartSpendAI for tier selection)
@@ -34,9 +38,7 @@ class ModelConfig {
 
   String get downloadSizeLabel {
     final mb = sizeBytes ~/ (1024 * 1024);
-    return mb >= 1000
-        ? '${(mb / 1024).toStringAsFixed(1)} GB'
-        : '${mb} MB';
+    return mb >= 1000 ? '${(mb / 1024).toStringAsFixed(1)} GB' : '${mb} MB';
   }
 }
 
@@ -44,7 +46,7 @@ class ModelConfig {
 const kHighTierModel = ModelConfig(
   name: 'Gemma 4 E2B',
   huggingFaceUrl:
-  'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
+      'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
   modelType: ModelType.gemmaIt,
   modelFileName: 'gemma-4-E2B-it.litertlm',
   sizeBytes: 2400 * 1024 * 1024,
@@ -56,7 +58,7 @@ const kHighTierModel = ModelConfig(
 const kMidTierModel = ModelConfig(
   name: 'Gemma 3 1B',
   huggingFaceUrl:
-  'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task',
+      'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task',
   modelType: ModelType.gemmaIt,
   modelFileName: 'gemma3-1b-it-int4.task',
   sizeBytes: 500 * 1024 * 1024,
@@ -75,13 +77,12 @@ class GemmaProvider implements AiProvider {
   InferenceModel? _model;
   bool _isReady = false;
   bool _isInitializing = false;
+  Future<void> _generationQueue = Future<void>.value();
   static bool _pluginInitialized = false;
 
-  GemmaProvider({
-    required ModelConfig config,
-    String? huggingFaceToken,
-  })  : _config = config,
-        _huggingFaceToken = huggingFaceToken;
+  GemmaProvider({required ModelConfig config, String? huggingFaceToken})
+    : _config = config,
+      _huggingFaceToken = huggingFaceToken;
 
   @override
   bool get isReady => _isReady;
@@ -94,13 +95,46 @@ class GemmaProvider implements AiProvider {
 
   Future<void> _ensurePluginInitialized() async {
     if (!_pluginInitialized) {
-      try {
-        // FlutterGemma is initialized globally in main.dart
-        _pluginInitialized = true;
-      } catch (e) {
-        debugPrint('⚠️ [GemmaProvider] initialization error: $e');
+      if (!kIsWeb) {
+        final downloader = FileDownloader()
+          ..configureNotificationForGroup(
+            'smart_downloads',
+            running: const TaskNotification(
+              'Downloading AI model',
+              '{progress} downloaded · {networkSpeed}',
+            ),
+            complete: const TaskNotification(
+              'AI model ready',
+              'Your on-device AI model has finished downloading.',
+            ),
+            error: const TaskNotification(
+              'AI model download failed',
+              'Open the app to retry the model download.',
+            ),
+            progressBar: true,
+          );
+        await downloader.start();
+      }
+      _pluginInitialized = true;
+    }
+  }
+
+  Future<ModelDownloadStatus?> getDownloadStatus() async {
+    if (kIsWeb) return null;
+
+    await _ensurePluginInitialized();
+    final records = await FileDownloader().database.allRecords(
+      group: 'smart_downloads',
+    );
+    for (final record in records.reversed) {
+      if (record.task.filename == _config.modelFileName) {
+        return ModelDownloadStatus(
+          progress: record.progress.clamp(0.0, 1.0).toDouble(),
+          isActive: record.status.isNotFinalState,
+        );
       }
     }
+    return null;
   }
 
   // ── Initialize ─────────────────────────────────────────────
@@ -118,9 +152,7 @@ class GemmaProvider implements AiProvider {
 
       final modelManager = FlutterGemmaPlugin.instance.modelManager;
 
-      debugPrint(
-        '📦 [GemmaProvider] Checking model readiness...',
-      );
+      debugPrint('📦 [GemmaProvider] Checking model readiness...');
 
       // IMPORTANT:
       // ensureModelReady() handles both cases:
@@ -139,13 +171,11 @@ class GemmaProvider implements AiProvider {
         _config.huggingFaceUrl,
       );
 
-      debugPrint(
-        '✅ [GemmaProvider] Model is ready.',
-      );
+      debugPrint('✅ [GemmaProvider] Model is ready.');
 
       debugPrint(
         '🔍 [GemmaProvider] Active model: '
-            '${FlutterGemma.hasActiveModel()}',
+        '${FlutterGemma.hasActiveModel()}',
       );
 
       _model = await FlutterGemma.getActiveModel(
@@ -156,19 +186,13 @@ class GemmaProvider implements AiProvider {
       _isReady = true;
       _isInitializing = false;
 
-      debugPrint(
-        '✅ [GemmaProvider] ${_config.name} ready',
-      );
+      debugPrint('✅ [GemmaProvider] ${_config.name} ready');
     } catch (e, stackTrace) {
       _isInitializing = false;
 
-      debugPrint(
-        '❌ [GemmaProvider] initialize failed: $e',
-      );
+      debugPrint('❌ [GemmaProvider] initialize failed: $e');
 
-      debugPrint(
-        '📍 StackTrace:\n$stackTrace',
-      );
+      debugPrint('📍 StackTrace:\n$stackTrace');
 
       rethrow;
     }
@@ -184,14 +208,43 @@ class GemmaProvider implements AiProvider {
     try {
       await _ensurePluginInitialized();
 
+      if (!kIsWeb) {
+        try {
+          final permission = await FileDownloader().permissions.status(
+            PermissionType.notifications,
+          );
+          if (permission == PermissionStatus.undetermined) {
+            final result = await FileDownloader().permissions.request(
+              PermissionType.notifications,
+            );
+            if (result != PermissionStatus.granted) {
+              debugPrint(
+                '⚠️ [GemmaProvider] Download notifications not granted: '
+                '$result',
+              );
+            }
+          } else if (permission == PermissionStatus.denied) {
+            debugPrint(
+              '⚠️ [GemmaProvider] Download notifications are disabled.',
+            );
+          }
+        } catch (error) {
+          debugPrint(
+            '⚠️ [GemmaProvider] Could not request download notification '
+            'permission; continuing download: $error',
+          );
+        }
+      }
+
       await FlutterGemma.installModel(modelType: _config.modelType)
           .fromNetwork(
-        _config.huggingFaceUrl,
-        token: _huggingFaceToken,
-      )
+            _config.huggingFaceUrl,
+            token: _huggingFaceToken,
+            foreground: true,
+          )
           .withProgress((int percent) {
-        onProgress?.call(percent / 100.0);
-      })
+            onProgress?.call(percent / 100.0);
+          })
           .install();
 
       // Record our own "this device has downloaded this model" flag.
@@ -225,7 +278,9 @@ class GemmaProvider implements AiProvider {
         return true;
       }
 
-      final installed = await FlutterGemma.isModelInstalled(_config.modelFileName);
+      final installed = await FlutterGemma.isModelInstalled(
+        _config.modelFileName,
+      );
       if (installed) {
         await prefs.setBool(_downloadedPrefsKey, true);
         return true;
@@ -250,71 +305,150 @@ class GemmaProvider implements AiProvider {
     required String userMessage,
     required String systemContext,
   }) async* {
+    final previousGeneration = _generationQueue;
+    final generationFinished = Completer<void>();
+    _generationQueue = generationFinished.future;
+    await previousGeneration;
 
+    try {
+      yield* _generateChat(
+        history: history,
+        userMessage: userMessage,
+        systemContext: systemContext,
+      );
+    } finally {
+      generationFinished.complete();
+    }
+  }
+
+  Stream<String> _generateChat({
+    required List<AiMessage> history,
+    required String userMessage,
+    required String systemContext,
+  }) async* {
     int padCount = 0;
-    int totalTextTokens = 0;
-
 
     if (!_isReady || _model == null) {
       yield 'AI is not ready yet.';
       return;
     }
 
+    final recentHistory = history.takeLast(2).toList();
+    final totalInputBudget = (_config.maxTokens * 0.65).floor();
+    final messageOverhead =
+        8 * (recentHistory.length + 1 + (systemContext.isNotEmpty ? 1 : 0));
+    final contentBudget = (totalInputBudget - messageOverhead).clamp(
+      1,
+      totalInputBudget,
+    );
+
+    final userBudget = recentHistory.isEmpty && systemContext.isEmpty
+        ? contentBudget
+        : (contentBudget * 0.25).floor().clamp(1, contentBudget);
+    final boundedUserMessage = limitTextToTokens(
+      userMessage,
+      userBudget,
+      preserveEnds: recentHistory.isEmpty && systemContext.isEmpty,
+    );
+    var remainingBudget =
+        contentBudget - estimateInputTokens(boundedUserMessage);
+
+    final historyBudget = (contentBudget * 0.20).floor();
+    var remainingHistoryBudget = historyBudget;
+    final boundedHistory = <AiMessage>[];
+    for (final message in recentHistory.reversed) {
+      if (remainingHistoryBudget <= 0) break;
+      final content = limitTextToTokens(
+        message.content,
+        remainingHistoryBudget,
+        preserveEnds: true,
+      );
+      final used = estimateInputTokens(content);
+      if (used == 0) continue;
+      boundedHistory.add(
+        AiMessage(
+          content: content,
+          isUser: message.isUser,
+          timestamp: message.timestamp,
+        ),
+      );
+      remainingHistoryBudget -= used;
+      remainingBudget -= used;
+    }
+    final promptHistory = boundedHistory.reversed.toList();
+    final boundedSystemContext = limitTextToTokens(
+      systemContext,
+      remainingBudget,
+    );
+
+    final estimatedInputTokens =
+        messageOverhead +
+        estimateInputTokens(boundedUserMessage) +
+        promptHistory.fold<int>(
+          0,
+          (total, message) => total + estimateInputTokens(message.content),
+        ) +
+        estimateInputTokens(boundedSystemContext);
+    debugPrint(
+      '[GemmaProvider] Estimated input: '
+      '$estimatedInputTokens/$totalInputBudget tokens '
+      '(${promptHistory.length} history messages)',
+    );
+
     try {
-      final chat = await _model!.createChat(
-        systemInstruction: systemContext.isNotEmpty ? systemContext : null,
+      final conversation = await _model!.createChat(
+        systemInstruction: boundedSystemContext.isNotEmpty
+            ? boundedSystemContext
+            : null,
         temperature: 0.7,
         topK: 40,
       );
 
-      // Only the most recent exchange is sent raw — everything older is
-      // now carried by the rolling summary SmartSpendAI injects into
-      // systemContext, so we don't need to keep spending tokens on raw
-      // transcript the further a conversation goes.
-      for (final m in history.takeLast(2)) {
-        await chat.addQueryChunk(
-          Message.text(text: m.content, isUser: m.isUser),
-        );
-      }
-
-      await chat.addQueryChunk(
-        Message.text(text: userMessage, isUser: true),
-      );
-
-      await for (final chunk in chat.generateChatResponseAsync()) {
-        if (chunk is! TextResponse) {
-          continue;
+      try {
+        // The rolling summary carries older turns; these recent messages are
+        // bounded together with the current request and system context above.
+        for (final message in promptHistory) {
+          await conversation.addQueryChunk(
+            Message.text(text: message.content, isUser: message.isUser),
+          );
         }
 
-        final token = chunk.token;
+        await conversation.addQueryChunk(
+          Message.text(text: boundedUserMessage, isUser: true),
+        );
 
-        if (token == '<pad>') {
-          padCount++;
-
-          // The model is clearly stuck in a padding-token loop.
-          if (padCount >= 20) {
-            debugPrint(
-              '⚠️ [GemmaProvider] Detected <pad> generation loop.',
-            );
-
-            break;
+        await for (final chunk in conversation.generateChatResponseAsync()) {
+          if (chunk is! TextResponse) {
+            continue;
           }
 
-          continue;
-        }
+          final token = chunk.token;
 
-        if (token.trim().isEmpty) {
-          continue;
-        }
+          if (token == '<pad>') {
+            padCount++;
 
-        totalTextTokens++;
-        yield token;
+            // The model is clearly stuck in a padding-token loop.
+            if (padCount >= 20) {
+              debugPrint('⚠️ [GemmaProvider] Detected <pad> generation loop.');
+
+              break;
+            }
+
+            continue;
+          }
+
+          if (token.trim().isEmpty) {
+            continue;
+          }
+
+          yield token;
+        }
+      } finally {
+        await conversation.close();
       }
-
-      await chat.close();
     } catch (e) {
       debugPrint('❌ [GemmaProvider] Chat error: $e');
-      yield '\n\nSomething went wrong. Please try again.';
+      rethrow;
     }
   }
 
@@ -326,11 +460,15 @@ class GemmaProvider implements AiProvider {
     required String systemContext,
   }) async {
     if (!_isReady || _model == null) return 'AI is not ready.';
+
+    final analysisPrompt = systemContext.isEmpty
+        ? prompt
+        : '$systemContext\n\nUSER REQUEST:\n$prompt';
     final buf = StringBuffer();
     await for (final token in chat(
       history: [],
-      userMessage: prompt,
-      systemContext: systemContext,
+      userMessage: analysisPrompt,
+      systemContext: '',
     )) {
       buf.write(token);
     }
@@ -350,6 +488,13 @@ class GemmaProvider implements AiProvider {
 }
 
 // ─────────────────────────────────────────────────────────────
+
+class ModelDownloadStatus {
+  final double progress;
+  final bool isActive;
+
+  const ModelDownloadStatus({required this.progress, required this.isActive});
+}
 
 class ModelNotDownloadedException implements Exception {
   final String message;

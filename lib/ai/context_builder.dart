@@ -37,10 +37,12 @@ class ContextBuilder {
     final now = DateTime.now();
     final cutoff = now.subtract(Duration(days: lookbackDays));
 
-    final header = '=== SmartSpend Financial Snapshot ===\n'
+    final header =
+        '=== SmartSpend Financial Snapshot ===\n'
         'Period: last $lookbackDays days\n'
         'Currency: Indian Rupees (₹)\n\n';
-    final footer = '=== IMPORTANT ===\n'
+    final footer =
+        '=== IMPORTANT ===\n'
         'The data above is complete. If asked about something not listed '
         '(a category, specific date, or amount not shown above), '
         'say "I don\'t see that in your data" — never guess or invent numbers.';
@@ -49,7 +51,8 @@ class ContextBuilder {
     // questions and are never dropped. Everything after that is included
     // only while there's still budget left.
     final sections = <String>[
-      await _buildSpendingSection(cutoff, now) ?? 'SPENDING: No expenses recorded.',
+      await _buildSpendingSection(cutoff, now) ??
+          'SPENDING: No expenses recorded.',
       await _buildIncomeSection(cutoff) ?? 'INCOME: No income recorded.',
     ];
     final optionalSections = await Future.wait([
@@ -81,8 +84,9 @@ class ContextBuilder {
 
     if (droppedAny) {
       buffer.writeln(
-          '(Some lower-priority sections were omitted to keep this within '
-              'the model\'s context limit.)');
+        '(Some lower-priority sections were omitted to keep this within '
+        'the model\'s context limit.)',
+      );
       buffer.writeln();
     }
 
@@ -99,14 +103,20 @@ class ContextBuilder {
 
     final total = _sum(recent.map((e) => e.amount));
     final avgDay = total / 30;
-    final thisWeek = _sum(recent
-        .where((e) => e.date.isAfter(now.subtract(const Duration(days: 7))))
-        .map((e) => e.amount));
-    final lastWeek = _sum(recent
-        .where((e) =>
-    e.date.isAfter(now.subtract(const Duration(days: 14))) &&
-        e.date.isBefore(now.subtract(const Duration(days: 7))))
-        .map((e) => e.amount));
+    final thisWeek = _sum(
+      recent
+          .where((e) => e.date.isAfter(now.subtract(const Duration(days: 7))))
+          .map((e) => e.amount),
+    );
+    final lastWeek = _sum(
+      recent
+          .where(
+            (e) =>
+                e.date.isAfter(now.subtract(const Duration(days: 14))) &&
+                e.date.isBefore(now.subtract(const Duration(days: 7))),
+          )
+          .map((e) => e.amount),
+    );
 
     final buf = StringBuffer();
     buf.writeln('SPENDING:');
@@ -117,12 +127,61 @@ class ContextBuilder {
     if (lastWeek > 0) {
       final change = (thisWeek - lastWeek) / lastWeek * 100;
       buf.writeln(
-          '  Week change: ${change >= 0 ? "+" : ""}${change.toStringAsFixed(0)}%');
+        '  Week change: ${change >= 0 ? "+" : ""}${change.toStringAsFixed(0)}%',
+      );
     }
     buf.writeln('  Number of transactions: ${recent.length}');
     final largest = recent.reduce((a, b) => a.amount > b.amount ? a : b);
     buf.writeln(
-        '  Largest single expense: ₹${_fmt(largest.amount)} for "${largest.description}"');
+      '  Largest single expense: ₹${_fmt(largest.amount)} for "${largest.description}"',
+    );
+    buf.write(await _buildWeeklyCategoryBreakdown(recent, now));
+    return buf.toString();
+  }
+
+  Future<String> _buildWeeklyCategoryBreakdown(
+    List<Expense> expenses,
+    DateTime now,
+  ) async {
+    final cutoff = now.subtract(const Duration(days: 7));
+    final categoryBox = Hive.box<Category>(AppConstants.categories);
+    final totals = <String, double>{};
+    final counts = <String, int>{};
+
+    for (final expense in expenses.where((e) => e.date.isAfter(cutoff))) {
+      for (final key in expense.categoryKeys) {
+        final name = categoryBox.get(key)?.name ?? 'Uncategorized';
+        totals[name] = (totals[name] ?? 0) + expense.amount;
+        counts[name] = (counts[name] ?? 0) + 1;
+      }
+    }
+
+    final sorted = totals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final buf = StringBuffer('  This week by category (last 7 days):');
+    if (sorted.isEmpty) {
+      buf.writeln(' No categorized expenses recorded.');
+      return buf.toString();
+    }
+
+    buf.writeln();
+    for (final entry in sorted.take(5)) {
+      buf.writeln(
+        '    • ${entry.key}: ₹${_fmt(entry.value)}, '
+        '${counts[entry.key]} transactions',
+      );
+    }
+    if (sorted.length > 5) {
+      final remaining = sorted.skip(5);
+      final remainingTotal = remaining.fold(
+        0.0,
+        (sum, entry) => sum + entry.value,
+      );
+      buf.writeln(
+        '    • ${sorted.length - 5} smaller categories combined: '
+        '₹${_fmt(remainingTotal)}',
+      );
+    }
     return buf.toString();
   }
 
@@ -141,7 +200,8 @@ class ContextBuilder {
     buf.writeln('  30-day total income: ₹${_fmt(totalIncome)}');
     buf.writeln('  30-day total spending: ₹${_fmt(totalSpend)}');
     buf.writeln(
-        '  Net savings: ₹${_fmt(net)} (${rate.toStringAsFixed(0)}% savings rate)');
+      '  Net savings: ₹${_fmt(net)} (${rate.toStringAsFixed(0)}% savings rate)',
+    );
 
     // Cap the line-by-line list — a frequent freelancer/gig-worker could
     // otherwise have dozens of entries here and blow the model's context
@@ -151,10 +211,14 @@ class ContextBuilder {
       ..sort((a, b) => b.date.compareTo(a.date));
     final shown = sortedByDate.take(maxLines);
     for (final i in shown) {
-      buf.writeln('  • ₹${_fmt(i.amount)} — ${i.description} on ${_date(i.date)}');
+      buf.writeln(
+        '  • ₹${_fmt(i.amount)} — ${i.description} on ${_date(i.date)}',
+      );
     }
     if (sortedByDate.length > maxLines) {
-      buf.writeln('  • +${sortedByDate.length - maxLines} more entries not shown');
+      buf.writeln(
+        '  • +${sortedByDate.length - maxLines} more entries not shown',
+      );
     }
     return buf.toString();
   }
@@ -189,24 +253,29 @@ class ContextBuilder {
     final remaining = sorted.skip(_maxListLines).toList();
 
     final buf = StringBuffer();
-    buf.writeln('SPENDING BY CATEGORY:');
+    buf.writeln('SPENDING BY CATEGORY (last 30 days):');
     buf.writeln('  (Only categories listed here have spending data)');
     for (final entry in shown) {
-      final pct =
-      grand > 0 ? (entry.value / grand * 100).toStringAsFixed(0) : '0';
+      final pct = grand > 0
+          ? (entry.value / grand * 100).toStringAsFixed(0)
+          : '0';
       buf.writeln(
-          '  • ${entry.key}: ₹${_fmt(entry.value)} — $pct% of total, ${counts[entry.key]} transactions');
+        '  • ${entry.key}: ₹${_fmt(entry.value)} — $pct% of total, ${counts[entry.key]} transactions',
+      );
     }
     if (remaining.isNotEmpty) {
       final remainingTotal = remaining.fold(0.0, (s, e) => s + e.value);
-      final remainingTxns =
-      remaining.fold(0, (s, e) => s + (counts[e.key] ?? 0));
+      final remainingTxns = remaining.fold(
+        0,
+        (s, e) => s + (counts[e.key] ?? 0),
+      );
       final pct = grand > 0
           ? (remainingTotal / grand * 100).toStringAsFixed(0)
           : '0';
       buf.writeln(
-          '  • +${remaining.length} smaller categories combined: '
-              '₹${_fmt(remainingTotal)} — $pct% of total, $remainingTxns transactions');
+        '  • +${remaining.length} smaller categories combined: '
+        '₹${_fmt(remainingTotal)} — $pct% of total, $remainingTxns transactions',
+      );
     }
     return buf.toString();
   }
@@ -218,7 +287,12 @@ class ContextBuilder {
 
     final dowTotals = List.filled(7, 0.0);
     const dowNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final timeTotals = {'morning': 0.0, 'afternoon': 0.0, 'evening': 0.0, 'night': 0.0};
+    final timeTotals = {
+      'morning': 0.0,
+      'afternoon': 0.0,
+      'evening': 0.0,
+      'night': 0.0,
+    };
 
     for (final e in recent) {
       dowTotals[e.date.weekday - 1] += e.amount;
@@ -227,9 +301,10 @@ class ContextBuilder {
     }
 
     final peakDow =
-    dowNames[dowTotals.indexOf(dowTotals.reduce((a, b) => a > b ? a : b))];
-    final peakTime =
-        timeTotals.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+        dowNames[dowTotals.indexOf(dowTotals.reduce((a, b) => a > b ? a : b))];
+    final peakTime = timeTotals.entries
+        .reduce((a, b) => a.value > b.value ? a : b)
+        .key;
 
     final buf = StringBuffer();
     buf.writeln('SPENDING PATTERNS:');
@@ -242,7 +317,8 @@ class ContextBuilder {
     final top = ranked.take(3).where((e) => e.value > 0);
     if (top.isNotEmpty) {
       buf.writeln(
-          '  Top 3 days: ${top.map((e) => "${e.key} ₹${_fmt(e.value)}").join(", ")}');
+        '  Top 3 days: ${top.map((e) => "${e.key} ₹${_fmt(e.value)}").join(", ")}',
+      );
     }
     return buf.toString();
   }
@@ -259,7 +335,9 @@ class ContextBuilder {
         buf.writeln('  • ${h.name}: $streak day streak');
       }
       if (habits.length > _maxListLines) {
-        buf.writeln('  • +${habits.length - _maxListLines} more habits not shown');
+        buf.writeln(
+          '  • +${habits.length - _maxListLines} more habits not shown',
+        );
       }
       return buf.toString();
     } catch (_) {
@@ -279,10 +357,13 @@ class ContextBuilder {
             ? (g.currentAmount / g.targetAmount * 100).toStringAsFixed(0)
             : '0';
         buf.writeln(
-            '  • ${g.name}: ₹${_fmt(g.currentAmount)} saved of ₹${_fmt(g.targetAmount)} target ($pct% done)');
+          '  • ${g.name}: ₹${_fmt(g.currentAmount)} saved of ₹${_fmt(g.targetAmount)} target ($pct% done)',
+        );
       }
       if (goals.length > _maxListLines) {
-        buf.writeln('  • +${goals.length - _maxListLines} more goals not shown');
+        buf.writeln(
+          '  • +${goals.length - _maxListLines} more goals not shown',
+        );
       }
       return buf.toString();
     } catch (_) {
@@ -292,8 +373,7 @@ class ContextBuilder {
 
   Future<String?> _buildRecurringSection() async {
     final box = Hive.box<Expense>(AppConstants.expenses);
-    final all = box.values.toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
+    final all = box.values.toList()..sort((a, b) => a.date.compareTo(b.date));
 
     final groups = <String, List<Expense>>{};
     for (final e in all) {
@@ -307,14 +387,14 @@ class ContextBuilder {
       if (txns.length < 2) continue;
       final intervals = <int>[];
       for (int i = 1; i < txns.length; i++) {
-        intervals
-            .add(txns[i].date.difference(txns[i - 1].date).inDays.abs());
+        intervals.add(txns[i].date.difference(txns[i - 1].date).inDays.abs());
       }
       final avg = intervals.reduce((a, b) => a + b) / intervals.length;
       final consistent = intervals.every((d) => (d - avg).abs() <= 3);
       if (consistent && avg >= 7) {
         recurring.add(
-            '  • ${_cap(entry.key)}: ₹${_fmt(txns.last.amount)} every ~${avg.round()} days');
+          '  • ${_cap(entry.key)}: ₹${_fmt(txns.last.amount)} every ~${avg.round()} days',
+        );
       }
     }
 
@@ -334,8 +414,7 @@ class ContextBuilder {
         .fold<double>(0.0, (s, e) => s + e.amount);
   }
 
-  double _sum(Iterable<double> values) =>
-      values.fold(0.0, (s, v) => s + v);
+  double _sum(Iterable<double> values) => values.fold(0.0, (s, v) => s + v);
 
   String _fmt(double v) {
     if (v >= 100000) return '${(v / 100000).toStringAsFixed(1)}L';

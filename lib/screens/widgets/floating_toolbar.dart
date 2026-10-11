@@ -973,13 +973,9 @@ class _FloatingToolbarWithQuickActionsState
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 0.95,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutQuart,
-    ));
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutQuart),
+    );
     _animationController.forward();
     _loadInitialData();
   }
@@ -1002,8 +998,7 @@ class _FloatingToolbarWithQuickActionsState
       mainAxisSize: MainAxisSize.min,
       children: [
         // Quick Actions Toolbar
-        if (widget.showQuickActions)
-          _buildQuickActionsToolbar(context),
+        if (widget.showQuickActions) _buildQuickActionsToolbar(context),
 
         if (widget.showQuickActions)
           SizedBox(height: PlatformHelper.isIOS ? 8 : 0),
@@ -1039,13 +1034,13 @@ class _FloatingToolbarWithQuickActionsState
                   color: isIOS
                       ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.75)
                       : (widget.backgroundColor?.withValues(alpha: 0.8) ??
-                      colorScheme.surfaceContainerHigh.withValues(alpha: 0.9)),
+                            colorScheme.surfaceContainerHigh.withValues(
+                              alpha: 0.9,
+                            )),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(isIOS ? 23 : 21),
                     child: isIOS
-                        ? _buildIOSBackdrop(
-                      child: _buildScrollableContent(),
-                    )
+                        ? _buildIOSBackdrop(child: _buildScrollableContent())
                         : _buildScrollableContent(),
                   ),
                 ),
@@ -1117,16 +1112,17 @@ class _FloatingToolbarWithQuickActionsState
           if (index == widget.quickActions.length) {
             return _buildAddQuickActionButton(context);
           }
-          return _buildQuickActionChip(
-            context,
-            widget.quickActions[index],
-          );
+          return _buildQuickActionChip(context, widget.quickActions[index]);
         },
       ),
     );
   }
 
-  Widget _buildScrollIndicator(BuildContext context, {required bool isLeft, required bool isIOS}) {
+  Widget _buildScrollIndicator(
+    BuildContext context, {
+    required bool isLeft,
+    required bool isIOS,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Positioned(
@@ -1140,15 +1136,23 @@ class _FloatingToolbarWithQuickActionsState
           decoration: BoxDecoration(
             borderRadius: BorderRadius.only(
               topLeft: isLeft ? Radius.circular(isIOS ? 23 : 21) : Radius.zero,
-              bottomLeft: isLeft ? Radius.circular(isIOS ? 23 : 21) : Radius.zero,
-              topRight: !isLeft ? Radius.circular(isIOS ? 23 : 21) : Radius.zero,
-              bottomRight: !isLeft ? Radius.circular(isIOS ? 23 : 21) : Radius.zero,
+              bottomLeft: isLeft
+                  ? Radius.circular(isIOS ? 23 : 21)
+                  : Radius.zero,
+              topRight: !isLeft
+                  ? Radius.circular(isIOS ? 23 : 21)
+                  : Radius.zero,
+              bottomRight: !isLeft
+                  ? Radius.circular(isIOS ? 23 : 21)
+                  : Radius.zero,
             ),
             gradient: LinearGradient(
               begin: isLeft ? Alignment.centerLeft : Alignment.centerRight,
               end: isLeft ? Alignment.centerRight : Alignment.centerLeft,
               colors: [
-                colorScheme.surfaceContainerHigh.withValues(alpha: isIOS ? .75 : .55),
+                colorScheme.surfaceContainerHigh.withValues(
+                  alpha: isIOS ? .75 : .55,
+                ),
                 colorScheme.surfaceContainerHigh.withValues(alpha: 0),
               ],
             ),
@@ -1192,24 +1196,24 @@ class _FloatingToolbarWithQuickActionsState
                 border: isIOS
                     ? null
                     : Border.all(
-                  color: chipColor.withValues(alpha: .4),
-                  width: .5,
-                ),
+                        color: chipColor.withValues(alpha: .4),
+                        width: .5,
+                      ),
                 boxShadow: isIOS
                     ? [
-                  BoxShadow(
-                    color: chipColor.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
+                        BoxShadow(
+                          color: chipColor.withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
                     : [
-                  BoxShadow(
-                    color: chipColor.withValues(alpha: 0.15),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                        BoxShadow(
+                          color: chipColor.withValues(alpha: 0.15),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1222,7 +1226,9 @@ class _FloatingToolbarWithQuickActionsState
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      isExpense ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                      isExpense
+                          ? Icons.arrow_upward_rounded
+                          : Icons.arrow_downward_rounded,
                       size: isIOS ? 12 : 11,
                       color: chipColor,
                     ),
@@ -1237,7 +1243,9 @@ class _FloatingToolbarWithQuickActionsState
                         Text(
                           '$_currentCurrency${NumberFormatterService().formatForDisplay(action.amount)} -',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            fontWeight: isIOS ? FontWeight.w800 : FontWeight.w900,
+                            fontWeight: isIOS
+                                ? FontWeight.w800
+                                : FontWeight.w900,
                             color: chipColor,
                             fontSize: isIOS ? 12 : 11,
                             height: 1.2,
@@ -1248,7 +1256,9 @@ class _FloatingToolbarWithQuickActionsState
                           child: Text(
                             action.label,
                             style: theme.textTheme.labelSmall?.copyWith(
-                              fontWeight: isIOS ? FontWeight.w600 : FontWeight.w500,
+                              fontWeight: isIOS
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
                               color: chipColor,
                               fontSize: isIOS ? 12 : 11,
                               height: 1.2,
@@ -1287,17 +1297,21 @@ class _FloatingToolbarWithQuickActionsState
               vertical: isIOS ? 5 : 4,
             ),
             decoration: BoxDecoration(
-              color: colorScheme.primaryContainer.withValues(alpha: isIOS ? .4 : .35),
+              color: colorScheme.primaryContainer.withValues(
+                alpha: isIOS ? .4 : .35,
+              ),
               borderRadius: BorderRadius.circular(isIOS ? 16 : 15),
               border: isIOS
                   ? null
                   : Border.all(
-                color: colorScheme.primary.withValues(alpha:0.4),
-                width: 1.5,
-              ),
+                      color: colorScheme.primary.withValues(alpha: 0.4),
+                      width: 1.5,
+                    ),
               boxShadow: [
                 BoxShadow(
-                  color: colorScheme.primary.withValues(alpha:isIOS ? 0.15 : 0.1),
+                  color: colorScheme.primary.withValues(
+                    alpha: isIOS ? 0.15 : 0.1,
+                  ),
                   blurRadius: isIOS ? 8 : 4,
                   offset: const Offset(0, 2),
                 ),
@@ -1307,7 +1321,9 @@ class _FloatingToolbarWithQuickActionsState
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isIOS ? Icons.add_circle_rounded : Icons.add_circle_outline_rounded,
+                  isIOS
+                      ? Icons.add_circle_rounded
+                      : Icons.add_circle_outline_rounded,
                   size: isIOS ? 15 : 14,
                   color: colorScheme.primary,
                 ),
@@ -1341,41 +1357,54 @@ class _FloatingToolbarWithQuickActionsState
           scale: _scaleAnimation.value,
           child: Container(
             margin: widget.margin,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Material(
-                  elevation: isIOS ? 0 : widget.elevation!,
-                  borderRadius: widget.borderRadius ??
-                      BorderRadius.circular(widget.height! / 2),
-                  color: isIOS
-                      ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.75)
-                      : (widget.backgroundColor ??
-                      colorScheme.surfaceContainerHigh.withValues(alpha:0.95)),
-                  child: ClipRRect(
-                    borderRadius: widget.borderRadius ??
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Material(
+                    elevation: isIOS ? 0 : widget.elevation!,
+                    borderRadius:
+                        widget.borderRadius ??
                         BorderRadius.circular(widget.height! / 2),
-                    child: isIOS
-                        ? _buildIOSBackdrop(
-                      child: Container(
-                        height: widget.height,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: _buildToolbarItems(),
-                      ),
-                    )
-                        : Container(
-                      height: widget.height,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: _buildToolbarItems(),
+                    color: isIOS
+                        ? colorScheme.surfaceContainerHigh.withValues(
+                            alpha: 0.75,
+                          )
+                        : (widget.backgroundColor ??
+                              colorScheme.surfaceContainerHigh.withValues(
+                                alpha: 0.95,
+                              )),
+                    child: ClipRRect(
+                      borderRadius:
+                          widget.borderRadius ??
+                          BorderRadius.circular(widget.height! / 2),
+                      child: isIOS
+                          ? _buildIOSBackdrop(
+                              child: Container(
+                                height: widget.height,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: _buildToolbarItems(),
+                              ),
+                            )
+                          : Container(
+                              height: widget.height,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              child: _buildToolbarItems(),
+                            ),
                     ),
                   ),
-                ),
-                if (widget.primaryButton != null) ...[
-                  const SizedBox(width: 16),
-                  _buildPrimaryButton(context),
+                  if (widget.primaryButton != null) ...[
+                    const SizedBox(width: 16),
+                    _buildPrimaryButton(context),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         );
@@ -1391,12 +1420,7 @@ class _FloatingToolbarWithQuickActionsState
         final item = entry.value;
         final isSelected = index == widget.selectedIndex;
 
-        return _buildToolbarItem(
-          context,
-          item,
-          index,
-          isSelected,
-        );
+        return _buildToolbarItem(context, item, index, isSelected);
       }).toList(),
     );
   }
@@ -1416,7 +1440,7 @@ class _FloatingToolbarWithQuickActionsState
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: colorScheme.primary.withValues(alpha:isIOS ? 0.5 : 0.4),
+              color: colorScheme.primary.withValues(alpha: isIOS ? 0.5 : 0.4),
               blurRadius: isIOS ? 20 : 16,
               spreadRadius: isIOS ? 1 : 2,
               offset: Offset(0, isIOS ? 4 : 6),
@@ -1448,11 +1472,11 @@ class _FloatingToolbarWithQuickActionsState
   }
 
   Widget _buildToolbarItem(
-      BuildContext context,
-      FloatingToolbarItem item,
-      int index,
-      bool isSelected,
-      ) {
+    BuildContext context,
+    FloatingToolbarItem item,
+    int index,
+    bool isSelected,
+  ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isIOS = PlatformHelper.isIOS;
@@ -1486,7 +1510,7 @@ class _FloatingToolbarWithQuickActionsState
                 decoration: BoxDecoration(
                   color: Color.lerp(
                     Colors.transparent,
-                    selectedColor.withValues(alpha:isIOS ? 0.18 : 0.12),
+                    selectedColor.withValues(alpha: isIOS ? 0.18 : 0.12),
                     value,
                   ),
                   borderRadius: BorderRadius.circular(20),
@@ -1503,7 +1527,11 @@ class _FloatingToolbarWithQuickActionsState
                             ? (item.selectedIcon ?? item.icon)
                             : item.icon,
                         key: ValueKey(isSelected),
-                        color: Color.lerp(unselectedColor, selectedColor, value),
+                        color: Color.lerp(
+                          unselectedColor,
+                          selectedColor,
+                          value,
+                        ),
                         size: 22,
                       ),
                     ),
@@ -1517,7 +1545,9 @@ class _FloatingToolbarWithQuickActionsState
                           item.label!,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: selectedColor,
-                            fontWeight: isIOS ? FontWeight.w600 : FontWeight.w600,
+                            fontWeight: isIOS
+                                ? FontWeight.w600
+                                : FontWeight.w600,
                             fontSize: 12,
                           ),
                         ),
@@ -1559,17 +1589,11 @@ class FloatingToolbarItem {
 class FloatingBottomToolbar extends StatelessWidget {
   final FloatingToolbarWithQuickActions toolbar;
 
-  const FloatingBottomToolbar({
-    super.key,
-    required this.toolbar,
-  });
+  const FloatingBottomToolbar({super.key, required this.toolbar});
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: toolbar,
-    );
+    return Align(alignment: Alignment.bottomCenter, child: toolbar);
   }
 }
 

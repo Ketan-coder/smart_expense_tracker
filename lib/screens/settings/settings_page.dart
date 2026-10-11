@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 // Import your platform utils
 import '../../ai/ai_chat_page.dart';
+import '../../ai/smart_spend_ai.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
 import '../../data/model/category.dart';
@@ -69,7 +70,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _faceDetectionEnabled = false;
   bool _adaptiveBrightnessEnabled = true;
   bool _showQuickActions = true;
-  bool _aiOverviewEnabled = true;
+  bool _aiOverviewEnabled = false;
 
   final List<Map<String, String>> _currencies = [
     {"code": "USD", "name": "US Dollar", "symbol": "\$"},
@@ -102,6 +103,7 @@ class _SettingsPageState extends State<SettingsPage> {
     {"code": "mr", "name": "Marathi", "nativeName": "मराठी"},
     {"code": "pa", "name": "Punjabi", "nativeName": "ਪੰਜਾਬੀ"},
   ];
+  final SmartSpendAI _ai = SmartSpendAI.instance;
 
   @override
   void initState() {
@@ -1279,24 +1281,27 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
 
                 // AI Overview Cards
-                ListTile(
-                  leading: Icon(
-                    Icons.info_outline,
-                    color: _aiOverviewEnabled
-                        ? Colors.orange
-                        : null,
+                if (_ai.state == AiState.ready) ... [
+                  ListTile(
+                    leading: Icon(
+                      Icons.info_outline,
+                      color: _aiOverviewEnabled
+                          ? Colors.orange
+                          : null,
+                    ),
+                    title: Text(context.t('ai_overview_cards')),
+                    subtitle: Text(
+                      _aiOverviewEnabled
+                          ? context.t('ai_overview_cards_enabled')
+                          : context.t('ai_overview_cards_disabled'),
+                    ),
+                    trailing: Switch(
+                      value: _aiOverviewEnabled,
+                      onChanged: _updateAIOverview,
+                    ),
                   ),
-                  title: Text(context.t('ai_overview_cards')),
-                  subtitle: Text(
-                    _aiOverviewEnabled
-                        ? context.t('ai_overview_cards_enabled')
-                        : context.t('ai_overview_cards_disabled'),
-                  ),
-                  trailing: Switch(
-                    value: _aiOverviewEnabled,
-                    onChanged: _updateAIOverview,
-                  ),
-                ),
+                ],
+
 
                 const Divider(),
 

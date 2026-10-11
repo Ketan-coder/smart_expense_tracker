@@ -93,10 +93,11 @@ class _AiChatPageState extends State<AiChatPage> {
   Future<void> _loadLabels() async {
     final label = await DeviceCapabilityChecker.getModelLabel();
     final size = await DeviceCapabilityChecker.getDownloadSizeLabel();
-    if (mounted) setState(() {
-      _modelLabel = label;
-      _downloadSizeLabel = size;
-    });
+    if (mounted)
+      setState(() {
+        _modelLabel = label;
+        _downloadSizeLabel = size;
+      });
   }
 
   void _onAiStateChanged() {
@@ -123,8 +124,13 @@ class _AiChatPageState extends State<AiChatPage> {
     HapticFeedback.lightImpact();
 
     setState(() {
-      _history.add(AiMessage(
-          content: userMessage, isUser: true, timestamp: DateTime.now()));
+      _history.add(
+        AiMessage(
+          content: userMessage,
+          isUser: true,
+          timestamp: DateTime.now(),
+        ),
+      );
       _isStreaming = true;
       _streamingBuffer = '';
       _avatarState = AvatarState.thinking;
@@ -138,26 +144,43 @@ class _AiChatPageState extends State<AiChatPage> {
     final buffer = StringBuffer();
     bool firstToken = true;
 
-    await for (final token in _ai.chat(
-      history: _history,
-      userMessage: userMessage,
-    )) {
-      if (firstToken) {
-        setState(() => _avatarState = AvatarState.talking);
-        firstToken = false;
+    try {
+      await for (final token in _ai.chat(
+        history: _history,
+        userMessage: userMessage,
+      )) {
+        if (firstToken) {
+          if (mounted) {
+            setState(() => _avatarState = AvatarState.talking);
+          }
+          firstToken = false;
+        }
+        buffer.write(token);
+        if (mounted) {
+          setState(() => _streamingBuffer = buffer.toString());
+          _scrollToBottom();
+        }
       }
-      buffer.write(token);
-      setState(() => _streamingBuffer = buffer.toString());
-      _scrollToBottom();
+    } catch (error, stackTrace) {
+      debugPrint(
+        '❌ [AiChatPage] Message generation failed: $error\n$stackTrace',
+      );
+      if (buffer.isEmpty) {
+        buffer.write('I could not complete that response. Please try again.');
+      }
     }
 
+    if (!mounted) return;
     HapticFeedback.mediumImpact();
 
     setState(() {
-      _history.add(AiMessage(
+      _history.add(
+        AiMessage(
           content: buffer.toString(),
           isUser: false,
-          timestamp: DateTime.now()));
+          timestamp: DateTime.now(),
+        ),
+      );
       _isStreaming = false;
       _streamingBuffer = '';
       _avatarState = AvatarState.idle;
@@ -197,20 +220,23 @@ class _AiChatPageState extends State<AiChatPage> {
                 color: cs.primaryContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(Icons.auto_awesome_rounded,
-                  size: 18, color: cs.onPrimaryContainer),
+              child: Icon(
+                Icons.auto_awesome_rounded,
+                size: 18,
+                color: cs.onPrimaryContainer,
+              ),
             ),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Fin',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Fin',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
                 Text(
                   _modelLabel.isNotEmpty ? _modelLabel : _ai.modelName,
-                  style:
-                  TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                 ),
               ],
             ),
@@ -231,10 +257,7 @@ class _AiChatPageState extends State<AiChatPage> {
                 value: 'memories',
                 child: Text('What Fin remembers'),
               ),
-              PopupMenuItem(
-                value: 'clear',
-                child: Text('Clear conversation'),
-              ),
+              PopupMenuItem(value: 'clear', child: Text('Clear conversation')),
             ],
           ),
         ],
@@ -292,22 +315,22 @@ class _AiChatPageState extends State<AiChatPage> {
           decoration: BoxDecoration(
             color: cs.primaryContainer.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(16),
-            border:
-            Border.all(color: cs.primary.withValues(alpha: 0.2)),
+            border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
           ),
           child: Column(
             children: [
               Icon(Icons.insights_rounded, size: 48, color: cs.primary),
               const SizedBox(height: 12),
-              Text('Smart Insights Mode',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold)),
+              Text(
+                'Smart Insights Mode',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
               Text(
                 'Your device runs Fin in Insights Mode — spending patterns, '
-                    'habits, and goals are analysed locally without a heavy AI model.',
+                'habits, and goals are analysed locally without a heavy AI model.',
                 style: TextStyle(color: cs.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
@@ -338,8 +361,7 @@ class _AiChatPageState extends State<AiChatPage> {
         const SizedBox(height: 24),
         Text(
           'AI chat requires a device with 4GB+ RAM.',
-          style:
-          TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
       ],
@@ -349,13 +371,15 @@ class _AiChatPageState extends State<AiChatPage> {
   // ── Download prompt ─────────────────────────────────────────
 
   Widget _buildDownloadPrompt(ColorScheme cs) {
-    final sizeLabel =
-    _downloadSizeLabel.isNotEmpty ? _downloadSizeLabel : '~500MB';
+    final sizeLabel = _downloadSizeLabel.isNotEmpty
+        ? _downloadSizeLabel
+        : '~500MB';
     return _CenteredMessage(
       icon: Icons.download_rounded,
       iconColor: cs.primary,
       title: 'Set Up Your AI Assistant',
-      body: 'Download the AI model once ($sizeLabel), then get personalised '
+      body:
+          'Download the AI model once ($sizeLabel), then get personalised '
           'financial insights completely offline. Your data never leaves your device.',
       action: FilledButton.icon(
         onPressed: () {
@@ -376,21 +400,27 @@ class _AiChatPageState extends State<AiChatPage> {
         children: [
           Icon(Icons.download_rounded, size: 48, color: cs.primary),
           const SizedBox(height: 24),
-          Text('Downloading AI Model',
-              style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            'Downloading AI Model',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 8),
           Text(
-            'This happens once. Your data stays private on your device.',
+            'This happens once and continues in the background. '
+            'Your data stays private on your device.',
             style: TextStyle(color: cs.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          LinearProgressIndicator(value: _ai.downloadProgress),
+          LinearProgressIndicator(
+            value: _ai.downloadProgress > 0 ? _ai.downloadProgress : null,
+          ),
           const SizedBox(height: 8),
           Text(
-            '${(_ai.downloadProgress * 100).toStringAsFixed(0)}%',
-            style: TextStyle(
-                color: cs.primary, fontWeight: FontWeight.bold),
+            _ai.downloadProgress > 0
+                ? '${(_ai.downloadProgress * 100).toStringAsFixed(0)}%'
+                : 'Starting download...',
+            style: TextStyle(color: cs.primary, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -403,8 +433,7 @@ class _AiChatPageState extends State<AiChatPage> {
       children: [
         CircularProgressIndicator(color: cs.primary),
         const SizedBox(height: 16),
-        Text('Warming up Fin...',
-            style: TextStyle(color: cs.onSurfaceVariant)),
+        Text('Warming up Fin...', style: TextStyle(color: cs.onSurfaceVariant)),
       ],
     ),
   );
@@ -426,31 +455,29 @@ class _AiChatPageState extends State<AiChatPage> {
         child: _history.isEmpty && !_isStreaming
             ? _buildEmptyState(cs)
             : ListView.builder(
-          controller: _scrollCtrl,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          itemCount:
-          _history.length + (_isStreaming ? 1 : 0),
-          itemBuilder: (_, i) {
-            if (i == _history.length && _isStreaming) {
-              return _MessageBubble(
-                key: const ValueKey('streaming_bubble'),
-                message: AiMessage(
-                  content: _streamingBuffer,
-                  isUser: false,
-                  timestamp: DateTime.now(),
-                ),
-                isStreaming: true,
-                cs: cs,
-              );
-            }
-            return _MessageBubble(
-              key: ValueKey(
-                  _history[i].timestamp.toIso8601String()),
-              message: _history[i],
-              cs: cs,
-            );
-          },
-        ),
+                controller: _scrollCtrl,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                itemCount: _history.length + (_isStreaming ? 1 : 0),
+                itemBuilder: (_, i) {
+                  if (i == _history.length && _isStreaming) {
+                    return _MessageBubble(
+                      key: const ValueKey('streaming_bubble'),
+                      message: AiMessage(
+                        content: _streamingBuffer,
+                        isUser: false,
+                        timestamp: DateTime.now(),
+                      ),
+                      isStreaming: true,
+                      cs: cs,
+                    );
+                  }
+                  return _MessageBubble(
+                    key: ValueKey(_history[i].timestamp.toIso8601String()),
+                    message: _history[i],
+                    cs: cs,
+                  );
+                },
+              ),
       ),
 
       _buildInputBar(context, cs),
@@ -464,38 +491,42 @@ class _AiChatPageState extends State<AiChatPage> {
         const SizedBox(height: 24),
         Text(
           'Hi! I\'m Fin 👋',
-          style: Theme.of(context)
-              .textTheme
-              .headlineSmall
-              ?.copyWith(fontWeight: FontWeight.bold),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Text(
           'Ask me anything about your finances. '
-              'I can see your spending patterns, habits, and goals.',
+          'I can see your spending patterns, habits, and goals.',
           style: TextStyle(color: cs.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 28),
-        Text('Try asking:',
-            style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: cs.onSurfaceVariant,
-                fontSize: 12)),
+        Text(
+          'Try asking:',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: cs.onSurfaceVariant,
+            fontSize: 12,
+          ),
+        ),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           alignment: WrapAlignment.center,
           children: _suggestions
-              .map((s) => _SuggestionChip(
-            text: s,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              _sendMessage(s);
-            },
-            cs: cs,
-          ))
+              .map(
+                (s) => _SuggestionChip(
+                  text: s,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    _sendMessage(s);
+                  },
+                  cs: cs,
+                ),
+              )
               .toList(),
         ),
       ],
@@ -535,7 +566,9 @@ class _AiChatPageState extends State<AiChatPage> {
                       filled: true,
                       fillColor: cs.surfaceContainerHighest,
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       isDense: true,
                     ),
                   ),
@@ -545,27 +578,27 @@ class _AiChatPageState extends State<AiChatPage> {
                   duration: const Duration(milliseconds: 200),
                   child: _isStreaming
                       ? SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: cs.primary),
-                      ),
-                    ),
-                  )
+                          width: 44,
+                          height: 44,
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: cs.primary,
+                              ),
+                            ),
+                          ),
+                        )
                       : IconButton.filled(
-                    onPressed: () =>
-                        _sendMessage(_inputCtrl.text),
-                    icon:
-                    const Icon(Icons.send_rounded, size: 18),
-                    style: IconButton.styleFrom(
-                        backgroundColor: cs.primary,
-                        foregroundColor: cs.onPrimary),
-                  ),
+                          onPressed: () => _sendMessage(_inputCtrl.text),
+                          icon: const Icon(Icons.send_rounded, size: 18),
+                          style: IconButton.styleFrom(
+                            backgroundColor: cs.primary,
+                            foregroundColor: cs.onPrimary,
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -643,11 +676,12 @@ class _MemoriesSheetState extends State<_MemoriesSheet> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text('What Fin remembers',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'What Fin remembers',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 if (memories != null && memories.isNotEmpty)
                   TextButton(
@@ -665,7 +699,7 @@ class _MemoriesSheetState extends State<_MemoriesSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Text(
               'Learned on-device from your conversations, and never leaves '
-                  'your phone. Fin uses these to personalize its answers.',
+              'your phone. Fin uses these to personalize its answers.',
               style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
             ),
           ),
@@ -675,33 +709,41 @@ class _MemoriesSheetState extends State<_MemoriesSheet> {
                 ? const Center(child: CircularProgressIndicator())
                 : memories.isEmpty
                 ? Center(
-              child: Text(
-                'Nothing yet — keep chatting with Fin and it\'ll '
-                    'pick up on things over time.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: cs.onSurfaceVariant),
-              ),
-            )
+                    child: Text(
+                      'Nothing yet — keep chatting with Fin and it\'ll '
+                      'pick up on things over time.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: cs.onSurfaceVariant),
+                    ),
+                  )
                 : ListView.builder(
-              controller: scrollCtrl,
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
-              itemCount: memories.length,
-              itemBuilder: (_, i) {
-                final m = memories[i];
-                return ListTile(
-                  dense: true,
-                  leading: Icon(Icons.psychology_alt_rounded,
-                      size: 18, color: cs.primary),
-                  title: Text(m.fact,
-                      style: const TextStyle(fontSize: 13)),
-                  trailing: IconButton(
-                    icon: Icon(Icons.close_rounded,
-                        size: 16, color: cs.onSurfaceVariant),
-                    onPressed: () => _forget(m.id),
+                    controller: scrollCtrl,
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
+                    itemCount: memories.length,
+                    itemBuilder: (_, i) {
+                      final m = memories[i];
+                      return ListTile(
+                        dense: true,
+                        leading: Icon(
+                          Icons.psychology_alt_rounded,
+                          size: 18,
+                          color: cs.primary,
+                        ),
+                        title: Text(
+                          m.fact,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        trailing: IconButton(
+                          icon: Icon(
+                            Icons.close_rounded,
+                            size: 16,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          onPressed: () => _forget(m.id),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -721,17 +763,13 @@ class _FinAvatar extends StatefulWidget {
   final AvatarState state;
   final ColorScheme cs;
 
-  const _FinAvatar({
-    required this.state,
-    required this.cs,
-  });
+  const _FinAvatar({required this.state, required this.cs});
 
   @override
   State<_FinAvatar> createState() => _FinAvatarState();
 }
 
-class _FinAvatarState extends State<_FinAvatar>
-    with TickerProviderStateMixin {
+class _FinAvatarState extends State<_FinAvatar> with TickerProviderStateMixin {
   // ─────────────────────────────────────────────────────────
   // ANIMATION CONTROLLERS
   // ─────────────────────────────────────────────────────────
@@ -850,17 +888,15 @@ class _FinAvatarState extends State<_FinAvatar>
     while (mounted) {
       final delay = 2000 + _rand.nextInt(4000);
 
-      await Future.delayed(
-        Duration(milliseconds: delay),
-      );
+      await Future.delayed(Duration(milliseconds: delay));
 
       if (!mounted) break;
 
       final canBlink =
           widget.state == AvatarState.idle ||
-              widget.state == AvatarState.listening ||
-              widget.state == AvatarState.thinking ||
-              widget.state == AvatarState.talking;
+          widget.state == AvatarState.listening ||
+          widget.state == AvatarState.thinking ||
+          widget.state == AvatarState.talking;
 
       if (!canBlink) continue;
 
@@ -870,17 +906,15 @@ class _FinAvatarState extends State<_FinAvatar>
 
       // Occasionally perform a natural-looking double blink.
       if (_rand.nextDouble() < 0.22) {
-        await Future.delayed(
-          const Duration(milliseconds: 120),
-        );
+        await Future.delayed(const Duration(milliseconds: 120));
 
         if (!mounted) break;
 
         final canDoubleBlink =
             widget.state == AvatarState.idle ||
-                widget.state == AvatarState.listening ||
-                widget.state == AvatarState.thinking ||
-                widget.state == AvatarState.talking;
+            widget.state == AvatarState.listening ||
+            widget.state == AvatarState.thinking ||
+            widget.state == AvatarState.talking;
 
         if (canDoubleBlink) {
           await _blink();
@@ -896,9 +930,7 @@ class _FinAvatarState extends State<_FinAvatar>
       _eyeOpen = false;
     });
 
-    await _blinkCtrl.forward(
-      from: 0,
-    );
+    await _blinkCtrl.forward(from: 0);
 
     if (!mounted) return;
 
@@ -926,32 +958,24 @@ class _FinAvatarState extends State<_FinAvatar>
   /// The movement is deliberately very small.
   void _scheduleGaze() async {
     while (mounted) {
-      await Future.delayed(
-        Duration(
-          milliseconds: 1200 + _rand.nextInt(2800),
-        ),
-      );
+      await Future.delayed(Duration(milliseconds: 1200 + _rand.nextInt(2800)));
 
       if (!mounted) break;
 
       final active =
           widget.state == AvatarState.idle ||
-              widget.state == AvatarState.listening ||
-              widget.state == AvatarState.talking;
+          widget.state == AvatarState.listening ||
+          widget.state == AvatarState.talking;
 
       if (!active) continue;
 
-      _targetGazeX =
-          (_rand.nextDouble() * 2.0 - 1.0) * 0.12;
+      _targetGazeX = (_rand.nextDouble() * 2.0 - 1.0) * 0.12;
 
-      _targetGazeY =
-          (_rand.nextDouble() * 2.0 - 1.0) * 0.08;
+      _targetGazeY = (_rand.nextDouble() * 2.0 - 1.0) * 0.08;
 
       await _gazeCtrl.animateTo(
         1.0,
-        duration: Duration(
-          milliseconds: 250 + _rand.nextInt(350),
-        ),
+        duration: Duration(milliseconds: 250 + _rand.nextInt(350)),
         curve: Curves.easeInOutCubic,
       );
 
@@ -979,27 +1003,21 @@ class _FinAvatarState extends State<_FinAvatar>
   void _animateSpeech() async {
     while (mounted) {
       if (widget.state == AvatarState.talking) {
-        final target =
-            0.20 + _rand.nextDouble() * 0.80;
+        final target = 0.20 + _rand.nextDouble() * 0.80;
 
         await _speechCtrl.animateTo(
           target,
-          duration: Duration(
-            milliseconds: 60 + _rand.nextInt(120),
-          ),
+          duration: Duration(milliseconds: 60 + _rand.nextInt(120)),
           curve: Curves.easeOutCubic,
         );
 
         if (!mounted) break;
 
-        final secondTarget =
-            0.05 + _rand.nextDouble() * 0.45;
+        final secondTarget = 0.05 + _rand.nextDouble() * 0.45;
 
         await _speechCtrl.animateTo(
           secondTarget,
-          duration: Duration(
-            milliseconds: 50 + _rand.nextInt(110),
-          ),
+          duration: Duration(milliseconds: 50 + _rand.nextInt(110)),
           curve: Curves.easeInOut,
         );
       } else {
@@ -1009,9 +1027,7 @@ class _FinAvatarState extends State<_FinAvatar>
           curve: Curves.easeOut,
         );
 
-        await Future.delayed(
-          const Duration(milliseconds: 100),
-        );
+        await Future.delayed(const Duration(milliseconds: 100));
       }
     }
   }
@@ -1032,19 +1048,13 @@ class _FinAvatarState extends State<_FinAvatar>
 
         await _thinkCtrl.animateTo(
           target,
-          duration: Duration(
-            milliseconds: 300 + _rand.nextInt(500),
-          ),
+          duration: Duration(milliseconds: 300 + _rand.nextInt(500)),
           curve: Curves.easeInOutCubic,
         );
 
         if (!mounted) break;
 
-        await Future.delayed(
-          Duration(
-            milliseconds: 120 + _rand.nextInt(400),
-          ),
-        );
+        await Future.delayed(Duration(milliseconds: 120 + _rand.nextInt(400)));
       } else {
         await _thinkCtrl.animateTo(
           0.5,
@@ -1052,9 +1062,7 @@ class _FinAvatarState extends State<_FinAvatar>
           curve: Curves.easeOut,
         );
 
-        await Future.delayed(
-          const Duration(milliseconds: 100),
-        );
+        await Future.delayed(const Duration(milliseconds: 100));
       }
     }
   }
@@ -1064,9 +1072,7 @@ class _FinAvatarState extends State<_FinAvatar>
   // ─────────────────────────────────────────────────────────
 
   @override
-  void didUpdateWidget(
-      covariant _FinAvatar oldWidget,
-      ) {
+  void didUpdateWidget(covariant _FinAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
 
     if (widget.state == oldWidget.state) {
@@ -1104,49 +1110,30 @@ class _FinAvatarState extends State<_FinAvatar>
 
     switch (widget.state) {
       case AvatarState.idle:
-        base = const Alignment(
-          0.0,
-          -0.1,
-        );
+        base = const Alignment(0.0, -0.1);
         break;
 
       case AvatarState.listening:
-        base = const Alignment(
-          0.0,
-          0.45,
-        );
+        base = const Alignment(0.0, 0.45);
         break;
 
       case AvatarState.thinking:
-        base = const Alignment(
-          0.0,
-          -0.05,
-        );
+        base = const Alignment(0.0, -0.05);
         break;
 
       case AvatarState.talking:
-        base = const Alignment(
-          0.0,
-          -0.05,
-        );
+        base = const Alignment(0.0, -0.05);
         break;
     }
 
     // Smoothly blend the current gaze toward the target.
-    final gazeProgress = Curves.easeInOut.transform(
-      _gazeCtrl.value,
-    );
+    final gazeProgress = Curves.easeInOut.transform(_gazeCtrl.value);
 
-    _gazeX +=
-        (_targetGazeX - _gazeX) * gazeProgress * 0.25;
+    _gazeX += (_targetGazeX - _gazeX) * gazeProgress * 0.25;
 
-    _gazeY +=
-        (_targetGazeY - _gazeY) * gazeProgress * 0.25;
+    _gazeY += (_targetGazeY - _gazeY) * gazeProgress * 0.25;
 
-    return Alignment(
-      base.x + _gazeX,
-      base.y + _gazeY,
-    );
+    return Alignment(base.x + _gazeX, base.y + _gazeY);
   }
 
   // ─────────────────────────────────────────────────────────
@@ -1159,7 +1146,7 @@ class _FinAvatarState extends State<_FinAvatar>
         return 0.0;
 
       case AvatarState.listening:
-      // Slightly leans toward the user.
+        // Slightly leans toward the user.
         return -0.05;
 
       case AvatarState.thinking:
@@ -1179,19 +1166,10 @@ class _FinAvatarState extends State<_FinAvatar>
     return ScaleTransition(
       scale: _entryAnim,
       child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(
-          begin: 0.0,
-          end: _tiltAngle,
-        ),
-        duration: const Duration(
-          milliseconds: 400,
-        ),
+        tween: Tween<double>(begin: 0.0, end: _tiltAngle),
+        duration: const Duration(milliseconds: 400),
         curve: Curves.easeOutCubic,
-        builder: (
-            context,
-            baseTilt,
-            child,
-            ) {
+        builder: (context, baseTilt, child) {
           return AnimatedBuilder(
             animation: Listenable.merge([
               _floatCtrl,
@@ -1199,12 +1177,8 @@ class _FinAvatarState extends State<_FinAvatar>
               _speechCtrl,
               _gazeCtrl,
             ]),
-            builder: (
-                context,
-                child,
-                ) {
-              final t =
-                  _floatCtrl.value * math.pi * 2;
+            builder: (context, child) {
+              final t = _floatCtrl.value * math.pi * 2;
 
               // ─────────────────────────────────────────
               // ORGANIC FLOAT
@@ -1240,8 +1214,7 @@ class _FinAvatarState extends State<_FinAvatar>
               // sin(), so the head eases smoothly between actual
               // positions instead of jittering.
 
-              final thinkTilt =
-              widget.state == AvatarState.thinking
+              final thinkTilt = widget.state == AvatarState.thinking
                   ? (_thinkCtrl.value - 0.5) * 0.07
                   : 0.0;
 
@@ -1249,25 +1222,15 @@ class _FinAvatarState extends State<_FinAvatar>
               // LISTENING MICRO-MOVEMENT
               // ─────────────────────────────────────────
 
-              final listeningTilt =
-              widget.state == AvatarState.listening
+              final listeningTilt = widget.state == AvatarState.listening
                   ? math.sin(t) * 0.006
                   : 0.0;
 
               return Transform.translate(
-                offset: Offset(
-                  swayX,
-                  floatY,
-                ),
+                offset: Offset(swayX, floatY),
                 child: Transform.rotate(
-                  angle:
-                  baseTilt +
-                      thinkTilt +
-                      listeningTilt,
-                  child: Transform.scale(
-                    scale: breathe,
-                    child: child,
-                  ),
+                  angle: baseTilt + thinkTilt + listeningTilt,
+                  child: Transform.scale(scale: breathe, child: child),
                 ),
               );
             },
@@ -1287,22 +1250,15 @@ class _FinAvatarState extends State<_FinAvatar>
     return Container(
       width: 60,
       height: 50,
-      margin: const EdgeInsets.only(
-        top: 12,
-      ),
+      margin: const EdgeInsets.only(top: 12),
       decoration: BoxDecoration(
         color: widget.cs.primaryContainer,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: widget.cs.primary.withValues(
-              alpha: 0.15,
-            ),
+            color: widget.cs.primary.withValues(alpha: 0.15),
             blurRadius: 12,
-            offset: const Offset(
-              0,
-              4,
-            ),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1312,23 +1268,16 @@ class _FinAvatarState extends State<_FinAvatar>
           // ─────────────────────────────────────────────
           // ANTENNA STEM
           // ─────────────────────────────────────────────
-
           Align(
             alignment: Alignment.topCenter,
             child: FractionalTranslation(
-              translation: const Offset(
-                0,
-                -0.65,
-              ),
+              translation: const Offset(0, -0.65),
               child: Container(
                 width: 3,
                 height: 11,
                 decoration: BoxDecoration(
-                  color: widget.cs.primary.withValues(
-                    alpha: 0.5,
-                  ),
-                  borderRadius:
-                  BorderRadius.circular(2),
+                  color: widget.cs.primary.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
@@ -1337,52 +1286,32 @@ class _FinAvatarState extends State<_FinAvatar>
           // ─────────────────────────────────────────────
           // ANTENNA BULB
           // ─────────────────────────────────────────────
-
           Align(
             alignment: Alignment.topCenter,
             child: FractionalTranslation(
-              translation: const Offset(
-                0,
-                -1.5,
-              ),
+              translation: const Offset(0, -1.5),
               child: AnimatedBuilder(
                 animation: Listenable.merge([
                   _talkCtrl,
                   _dotsCtrl,
                   _speechCtrl,
                 ]),
-                builder: (
-                    context,
-                    _,
-                    ) {
+                builder: (context, _) {
                   double glow;
 
-                  if (widget.state ==
-                      AvatarState.talking) {
+                  if (widget.state == AvatarState.talking) {
                     // Slight speech-related variation.
-                    glow =
-                        0.75 +
-                            (_speechCtrl.value *
-                                0.25);
-                  } else if (widget.state ==
-                      AvatarState.thinking) {
+                    glow = 0.75 + (_speechCtrl.value * 0.25);
+                  } else if (widget.state == AvatarState.thinking) {
                     // Soft thinking pulse — driven by the smooth,
                     // continuously-looping _dotsCtrl (not the erratic
                     // random-target _thinkCtrl), so it breathes evenly
                     // instead of flickering.
                     glow =
                         0.35 +
-                            (0.5 +
-                                0.5 *
-                                    math.sin(
-                                      _dotsCtrl
-                                          .value *
-                                          math.pi *
-                                          2,
-                                    )) *
-                                0.4;
-                  } else if (widget.state ==
-                      AvatarState.listening) {
+                        (0.5 + 0.5 * math.sin(_dotsCtrl.value * math.pi * 2)) *
+                            0.4;
+                  } else if (widget.state == AvatarState.listening) {
                     // Listening = gentle active glow.
                     glow = 0.45;
                   } else {
@@ -1390,9 +1319,7 @@ class _FinAvatarState extends State<_FinAvatar>
                   }
 
                   return AnimatedContainer(
-                    duration: const Duration(
-                      milliseconds: 120,
-                    ),
+                    duration: const Duration(milliseconds: 120),
                     width: 9,
                     height: 9,
                     decoration: BoxDecoration(
@@ -1402,22 +1329,16 @@ class _FinAvatarState extends State<_FinAvatar>
                         glow,
                       ),
                       shape: BoxShape.circle,
-                      boxShadow:
-                      glow > 0.05
+                      boxShadow: glow > 0.05
                           ? [
-                        BoxShadow(
-                          color: widget
-                              .cs
-                              .primary
-                              .withValues(
-                            alpha:
-                            0.6 *
-                                glow,
-                          ),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ]
+                              BoxShadow(
+                                color: widget.cs.primary.withValues(
+                                  alpha: 0.6 * glow,
+                                ),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ]
                           : null,
                     ),
                   );
@@ -1429,32 +1350,18 @@ class _FinAvatarState extends State<_FinAvatar>
           // ─────────────────────────────────────────────
           // EYES
           // ─────────────────────────────────────────────
-
           AnimatedAlign(
-            duration: const Duration(
-              milliseconds: 350,
-            ),
+            duration: const Duration(milliseconds: 350),
             curve: Curves.easeOutCubic,
             alignment: _eyeAlignment,
             child: Padding(
-              padding:
-              const EdgeInsets.symmetric(
-                horizontal: 13,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
               child: Row(
-                mainAxisSize:
-                MainAxisSize.min,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildEye(
-                    isLeft: true,
-                  ),
-                  const SizedBox(
-                    width: 14,
-                  ),
-                  _buildEye(
-                    isLeft: false,
-                  ),
+                  _buildEye(isLeft: true),
+                  const SizedBox(width: 14),
+                  _buildEye(isLeft: false),
                 ],
               ),
             ),
@@ -1463,53 +1370,28 @@ class _FinAvatarState extends State<_FinAvatar>
           // ─────────────────────────────────────────────
           // MOUTH
           // ─────────────────────────────────────────────
-
           AnimatedOpacity(
-            duration: const Duration(
-              milliseconds: 120,
-            ),
-            opacity:
-            widget.state ==
-                AvatarState.talking
-                ? 1.0
-                : 0.0,
+            duration: const Duration(milliseconds: 120),
+            opacity: widget.state == AvatarState.talking ? 1.0 : 0.0,
             child: Align(
-              alignment:
-              const Alignment(
-                0,
-                0.65,
-              ),
+              alignment: const Alignment(0, 0.65),
               child: AnimatedBuilder(
                 animation: _speechCtrl,
-                builder: (
-                    context,
-                    _,
-                    ) {
-                  final openness =
-                      _speechCtrl.value;
+                builder: (context, _) {
+                  final openness = _speechCtrl.value;
 
-                  final width =
-                      7.0 +
-                          (openness * 12.0);
+                  final width = 7.0 + (openness * 12.0);
 
-                  final height =
-                      3.0 +
-                          (openness * 3.5);
+                  final height = 3.0 + (openness * 3.5);
 
                   return Container(
                     width: width,
                     height: height,
                     decoration: BoxDecoration(
-                      color: widget
-                          .cs
-                          .onPrimaryContainer
-                          .withValues(
+                      color: widget.cs.onPrimaryContainer.withValues(
                         alpha: 0.8,
                       ),
-                      borderRadius:
-                      BorderRadius.circular(
-                        2,
-                      ),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   );
                 },
@@ -1520,78 +1402,34 @@ class _FinAvatarState extends State<_FinAvatar>
           // ─────────────────────────────────────────────
           // THINKING DOTS
           // ─────────────────────────────────────────────
-
           AnimatedOpacity(
-            duration: const Duration(
-              milliseconds: 200,
-            ),
-            opacity:
-            widget.state ==
-                AvatarState.thinking
-                ? 1.0
-                : 0.0,
+            duration: const Duration(milliseconds: 200),
+            opacity: widget.state == AvatarState.thinking ? 1.0 : 0.0,
             child: Align(
-              alignment:
-              const Alignment(
-                0,
-                0.3,
-              ),
+              alignment: const Alignment(0, 0.3),
               child: AnimatedBuilder(
                 animation: _dotsCtrl,
-                builder: (
-                    context,
-                    _,
-                    ) {
+                builder: (context, _) {
                   return Row(
-                    mainAxisSize:
-                    MainAxisSize.min,
-                    children:
-                    List.generate(
-                      3,
-                          (i) {
-                        final delay =
-                            i * 0.33;
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(3, (i) {
+                      final delay = i * 0.33;
 
-                        final v =
-                        (_dotsCtrl.value -
-                            delay)
-                            .clamp(
-                          0.0,
-                          1.0,
-                        );
+                      final v = (_dotsCtrl.value - delay).clamp(0.0, 1.0);
 
-                        return Container(
-                          margin:
-                          const EdgeInsets
-                              .symmetric(
-                            horizontal: 2,
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        width: 4,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: widget.cs.primary.withValues(
+                            alpha:
+                                (math.sin(v * math.pi)).clamp(0.0, 1.0) * 0.6,
                           ),
-                          width: 4,
-                          height: 4,
-                          decoration:
-                          BoxDecoration(
-                            color: widget
-                                .cs
-                                .primary
-                                .withValues(
-                              alpha:
-                              (math.sin(
-                                v *
-                                    math
-                                        .pi,
-                              ))
-                                  .clamp(
-                                0.0,
-                                1.0,
-                              ) *
-                                  0.6,
-                            ),
-                            shape:
-                            BoxShape.circle,
-                          ),
-                        );
-                      },
-                    ),
+                          shape: BoxShape.circle,
+                        ),
+                      );
+                    }),
                   );
                 },
               ),
@@ -1606,18 +1444,10 @@ class _FinAvatarState extends State<_FinAvatar>
   // INDIVIDUAL EYE
   // ─────────────────────────────────────────────────────────
 
-  Widget _buildEye({
-    required bool isLeft,
-  }) {
+  Widget _buildEye({required bool isLeft}) {
     return AnimatedBuilder(
-      animation: Listenable.merge([
-        _thinkCtrl,
-        _blinkCtrl,
-      ]),
-      builder: (
-          context,
-          child,
-          ) {
+      animation: Listenable.merge([_thinkCtrl, _blinkCtrl]),
+      builder: (context, child) {
         double xOffset = 0.0;
 
         // Thinking eye movement — _thinkCtrl's value is used directly
@@ -1627,46 +1457,28 @@ class _FinAvatarState extends State<_FinAvatar>
         // looking at one point, rather than diverging apart — using
         // opposite signs here was what made the thinking expression
         // look broken/cross-eyed.
-        if (widget.state ==
-            AvatarState.thinking) {
-          xOffset =
-              (_thinkCtrl.value - 0.5) * 7.0;
+        if (widget.state == AvatarState.thinking) {
+          xOffset = (_thinkCtrl.value - 0.5) * 7.0;
         }
 
         // Slight independent eye movement during
         // normal gaze.
-        if (widget.state !=
-            AvatarState.thinking) {
-          xOffset +=
-              _gazeX *
-                  (isLeft ? 5.0 : 5.0);
+        if (widget.state != AvatarState.thinking) {
+          xOffset += _gazeX * (isLeft ? 5.0 : 5.0);
         }
 
         // Blink squashes the eye vertically.
-        final scaleY =
-        _eyeOpen ? 1.0 : 0.05;
+        final scaleY = _eyeOpen ? 1.0 : 0.05;
 
         return Transform.translate(
-          offset: Offset(
-            xOffset,
-            0,
-          ),
+          offset: Offset(xOffset, 0),
           child: AnimatedContainer(
-            duration: const Duration(
-              milliseconds: 60,
-            ),
+            duration: const Duration(milliseconds: 60),
             width: 9,
-            height:
-            9 * scaleY,
-            decoration:
-            BoxDecoration(
-              color: widget
-                  .cs
-                  .onPrimaryContainer,
-              borderRadius:
-              BorderRadius.circular(
-                5,
-              ),
+            height: 9 * scaleY,
+            decoration: BoxDecoration(
+              color: widget.cs.onPrimaryContainer,
+              borderRadius: BorderRadius.circular(5),
             ),
           ),
         );
@@ -1703,11 +1515,13 @@ class _MessageBubbleState extends State<_MessageBubble>
   )..forward();
 
   late final Animation<double> _scaleAnim = CurvedAnimation(
-    parent: _enterCtrl, curve: Curves.easeOutBack,
+    parent: _enterCtrl,
+    curve: Curves.easeOutBack,
   );
 
   late final Animation<double> _fadeAnim = CurvedAnimation(
-    parent: _enterCtrl, curve: Curves.easeIn,
+    parent: _enterCtrl,
+    curve: Curves.easeIn,
   );
 
   @override
@@ -1727,61 +1541,55 @@ class _MessageBubbleState extends State<_MessageBubble>
         Flexible(
           child: widget.isStreaming && widget.message.content.isEmpty
               ? _TypingIndicator(
-              color: isUser
-                  ? widget.cs.onPrimary
-                  : widget.cs.onSurface)
+                  color: isUser ? widget.cs.onPrimary : widget.cs.onSurface,
+                )
               : Text(
-            widget.message.content,
-            style: TextStyle(
-              color: isUser
-                  ? widget.cs.onPrimary
-                  : widget.cs.onSurface,
-              height: 1.4,
-            ),
-          ),
+                  widget.message.content,
+                  style: TextStyle(
+                    color: isUser ? widget.cs.onPrimary : widget.cs.onSurface,
+                    height: 1.4,
+                  ),
+                ),
         ),
         if (widget.isStreaming && widget.message.content.isNotEmpty) ...[
           const SizedBox(width: 6),
           _BlinkingCursor(
-              color: isUser
-                  ? widget.cs.onPrimary
-                  : widget.cs.onSurface),
+            color: isUser ? widget.cs.onPrimary : widget.cs.onSurface,
+          ),
         ],
       ],
     );
 
     Widget bubble = widget.isStreaming
         ? _PulsingBubble(
-      baseColor: isUser
-          ? widget.cs.primary
-          : widget.cs.surfaceContainerHighest,
-      cs: widget.cs,
-      isUser: isUser,
-      child: bubbleContent,
-    )
+            baseColor: isUser
+                ? widget.cs.primary
+                : widget.cs.surfaceContainerHighest,
+            cs: widget.cs,
+            isUser: isUser,
+            child: bubbleContent,
+          )
         : Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: isUser
-            ? widget.cs.primary
-            : widget.cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(16),
-          topRight: const Radius.circular(16),
-          bottomLeft: Radius.circular(isUser ? 16 : 4),
-          bottomRight: Radius.circular(isUser ? 4 : 16),
-        ),
-      ),
-      child: bubbleContent,
-    );
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isUser
+                  ? widget.cs.primary
+                  : widget.cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(16),
+                topRight: const Radius.circular(16),
+                bottomLeft: Radius.circular(isUser ? 16 : 4),
+                bottomRight: Radius.circular(isUser ? 4 : 16),
+              ),
+            ),
+            child: bubbleContent,
+          );
 
     return FadeTransition(
       opacity: _fadeAnim,
       child: ScaleTransition(
         scale: _scaleAnim,
-        alignment:
-        isUser ? Alignment.centerRight : Alignment.centerLeft,
+        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
         child: Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
@@ -1799,9 +1607,11 @@ class _MessageBubbleState extends State<_MessageBubble>
                     color: widget.cs.primaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.auto_awesome_rounded,
-                      size: 14,
-                      color: widget.cs.onPrimaryContainer),
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 14,
+                    color: widget.cs.onPrimaryContainer,
+                  ),
                 ),
               ],
               Flexible(child: bubble),
@@ -1856,17 +1666,15 @@ class _PulsingBubbleState extends State<_PulsingBubble>
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _colorAnim,
     builder: (context, child) => Container(
-      padding:
-      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: _colorAnim.value,
         boxShadow: [
           BoxShadow(
-            color: widget.cs.primary
-                .withValues(alpha: _ctrl.value * 0.12),
+            color: widget.cs.primary.withValues(alpha: _ctrl.value * 0.12),
             blurRadius: 10,
             spreadRadius: 1,
-          )
+          ),
         ],
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(16),
@@ -1946,7 +1754,8 @@ class _BlinkingCursor extends StatefulWidget {
 class _BlinkingCursorState extends State<_BlinkingCursor>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl = AnimationController(
-    vsync: this, duration: const Duration(milliseconds: 500),
+    vsync: this,
+    duration: const Duration(milliseconds: 500),
   )..repeat(reverse: true);
 
   @override
@@ -1983,10 +1792,10 @@ class _StatusDot extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Container(
-          width: 8,
-          height: 8,
-          decoration:
-          BoxDecoration(color: color, shape: BoxShape.circle)),
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
     );
   }
 }
@@ -1996,26 +1805,30 @@ class _SuggestionChip extends StatelessWidget {
   final VoidCallback onTap;
   final ColorScheme cs;
 
-  const _SuggestionChip(
-      {required this.text, required this.onTap, required this.cs});
+  const _SuggestionChip({
+    required this.text,
+    required this.onTap,
+    required this.cs,
+  });
 
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
     child: Container(
-      padding:
-      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-            color: cs.primary.withValues(alpha: 0.4)),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(20),
         color: cs.primaryContainer.withValues(alpha: 0.15),
       ),
-      child: Text(text,
-          style: TextStyle(
-              fontSize: 13,
-              color: cs.primary,
-              fontWeight: FontWeight.w500)),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 13,
+          color: cs.primary,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     ),
   );
 }
@@ -2046,20 +1859,20 @@ class _CenteredMessage extends StatelessWidget {
           children: [
             Icon(icon, size: 56, color: iconColor),
             const SizedBox(height: 16),
-            Text(title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center),
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 8),
-            Text(body,
-                style: TextStyle(color: cs.onSurfaceVariant),
-                textAlign: TextAlign.center),
-            if (action != null) ...[
-              const SizedBox(height: 24),
-              action!,
-            ],
+            Text(
+              body,
+              style: TextStyle(color: cs.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+            if (action != null) ...[const SizedBox(height: 24), action!],
           ],
         ),
       ),
@@ -2082,8 +1895,7 @@ class _PerformanceHintState extends State<_PerformanceHint> {
   @override
   void initState() {
     super.initState();
-    DeviceCapabilityChecker.getFriendlyPerformanceMessage()
-        .then((msg) {
+    DeviceCapabilityChecker.getFriendlyPerformanceMessage().then((msg) {
       if (mounted) setState(() => _message = msg);
     });
   }
@@ -2093,8 +1905,7 @@ class _PerformanceHintState extends State<_PerformanceHint> {
     if (_dismissed || _message == null) return const SizedBox.shrink();
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-      padding:
-      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: widget.cs.secondaryContainer.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
@@ -2102,17 +1913,24 @@ class _PerformanceHintState extends State<_PerformanceHint> {
       child: Row(
         children: [
           Expanded(
-              child: Text(_message!,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: widget.cs.onSecondaryContainer))),
+            child: Text(
+              _message!,
+              style: TextStyle(
+                fontSize: 12,
+                color: widget.cs.onSecondaryContainer,
+              ),
+            ),
+          ),
           GestureDetector(
             onTap: () {
               HapticFeedback.selectionClick();
               setState(() => _dismissed = true);
             },
-            child: Icon(Icons.close_rounded,
-                size: 16, color: widget.cs.onSecondaryContainer),
+            child: Icon(
+              Icons.close_rounded,
+              size: 16,
+              color: widget.cs.onSecondaryContainer,
+            ),
           ),
         ],
       ),
@@ -2161,12 +1979,9 @@ class _InsightCard extends StatelessWidget {
               child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(width: 14),
-            Text(title,
-                style:
-                const TextStyle(fontWeight: FontWeight.w600)),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
             const Spacer(),
-            Icon(Icons.chevron_right_rounded,
-                color: cs.onSurfaceVariant),
+            Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
           ],
         ),
       ),

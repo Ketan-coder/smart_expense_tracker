@@ -40,8 +40,9 @@ class DeviceCapabilityChecker {
 
       final android = await DeviceInfoPlugin().androidInfo;
       final sdk = android.version.sdkInt;
-      final isLowRam =
-      android.systemFeatures.contains('android.hardware.ram.low');
+      final isLowRam = android.systemFeatures.contains(
+        'android.hardware.ram.low',
+      );
 
       if (isLowRam) {
         _cached = DeviceTier.low;
@@ -108,13 +109,13 @@ class DeviceCapabilityChecker {
 // ─────────────────────────────────────────────────────────────
 
 enum AiState {
-  disabled,       // User toggled AI off
-  unsupported,    // LOW tier device — InsightsOnly mode
-  notDownloaded,  // Model not on device yet
-  downloading,    // Download in progress
-  loading,        // Model on disk, loading into memory
-  ready,          // Full AI chat available
-  error,          // Something went wrong
+  disabled, // User toggled AI off
+  unsupported, // LOW tier device — InsightsOnly mode
+  notDownloaded, // Model not on device yet
+  downloading, // Download in progress
+  loading, // Model on disk, loading into memory
+  ready, // Full AI chat available
+  error, // Something went wrong
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -135,6 +136,9 @@ class SmartSpendAI {
 
   double _downloadProgress = 0.0;
   double get downloadProgress => _downloadProgress;
+
+  Timer? _downloadProgressTimer;
+  bool _isRefreshingDownloadProgress = false;
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
@@ -238,14 +242,16 @@ class SmartSpendAI {
 
     final token = await Helpers().getEnvValue('HUGGING_FACE_TOKEN');
 
-    _provider = GemmaProvider(
-      config: _activeConfig!,
-      huggingFaceToken: token,
-    );
+    _provider = GemmaProvider(config: _activeConfig!, huggingFaceToken: token);
     final gemma = _provider as GemmaProvider;
 
     final downloaded = await gemma.isDownloaded();
     if (!downloaded) {
+      final status = await gemma.getDownloadStatus();
+      if (status != null && (status.isActive || status.progress >= 1.0)) {
+        await _downloadAndLoad(gemma, initialProgress: status.progress);
+        return;
+      }
       _state = AiState.notDownloaded;
       _notify();
       return;
@@ -280,20 +286,30 @@ class SmartSpendAI {
     );
     final gemma = _provider as GemmaProvider;
 
+    await _downloadAndLoad(gemma, onProgress: onProgress);
+  }
+
+  Future<void> _downloadAndLoad(
+    GemmaProvider gemma, {
+    void Function(double)? onProgress,
+    double initialProgress = 0.0,
+  }) async {
     _state = AiState.downloading;
-    _downloadProgress = 0.0;
+    _downloadProgress = initialProgress.clamp(0.0, 1.0).toDouble();
     _notify();
+    _startDownloadProgressMonitor(gemma);
 
     try {
       await gemma.downloadModel(
-        onProgress: (p) {
-          _downloadProgress = p;
-          onProgress?.call(p);
+        onProgress: (progress) {
+          _downloadProgress = progress;
+          onProgress?.call(progress);
           _notify();
         },
-        onError: (err) {
+        onError: (error) {
           _state = AiState.error;
-          _errorMessage = err;
+          _errorMessage = error;
+          _stopDownloadProgressMonitor();
           _notify();
         },
       );
@@ -302,11 +318,46 @@ class SmartSpendAI {
       _notify();
       await gemma.initialize();
       _state = AiState.ready;
-    } catch (e) {
+    } catch (error) {
       _state = AiState.error;
-      _errorMessage = e.toString();
+      _errorMessage = error.toString();
+    } finally {
+      _stopDownloadProgressMonitor();
     }
     _notify();
+  }
+
+  void _startDownloadProgressMonitor(GemmaProvider gemma) {
+    _stopDownloadProgressMonitor();
+    _downloadProgressTimer = Timer.periodic(const Duration(seconds: 1), (
+      _,
+    ) async {
+      if (_isRefreshingDownloadProgress || _state != AiState.downloading) {
+        return;
+      }
+
+      _isRefreshingDownloadProgress = true;
+      try {
+        final status = await gemma.getDownloadStatus();
+        if (status != null &&
+            status.isActive &&
+            status.progress != _downloadProgress) {
+          _downloadProgress = status.progress;
+          _notify();
+        }
+      } catch (error) {
+        debugPrint(
+          '⚠️ [SmartSpendAI] Could not refresh download progress: $error',
+        );
+      } finally {
+        _isRefreshingDownloadProgress = false;
+      }
+    });
+  }
+
+  void _stopDownloadProgressMonitor() {
+    _downloadProgressTimer?.cancel();
+    _downloadProgressTimer = null;
   }
 
   // ── Context ────────────────────────────────────────────────
@@ -324,12 +375,13 @@ class SmartSpendAI {
   }
 
   String _buildSystemContext(
-      String financialContext, {
-        String? userMessage,
-        String? language,
-      }) {
+    String financialContext, {
+    String? userMessage,
+    String? language,
+  }) {
     final languageInstruction = _getLanguageInstruction(
-        userMessage ?? '', language ?? ''
+      userMessage ?? '',
+      language ?? '',
     );
 
     return '''
@@ -360,15 +412,28 @@ RULES:
 8. Answer naturally in the requested language.
    Do not mention that you detected the language.
 
+9. Treat the recent conversation as context. Resolve short follow-ups such as
+   "yes", "show me", and "tell me more" against the immediately preceding
+   messages. If the user accepts an offer you made, do exactly what you offered
+   instead of repeating the previous answer or making the offer again.
+
+10. When asked for a spending breakdown, give the actual categories and
+    amounts from the matching period in the financial data. Do not repeat
+    only the total. If the data does not contain that breakdown, say so
+    clearly rather than inventing categories or amounts.
+
+11. A category's total is different from the largest single transaction.
+    When asked which category had the highest spending, compare the category
+    totals for the requested period and answer with the top category first.
+    Do not substitute the largest individual expense or repeat the full
+    breakdown unless the user asks for it.
+
 FINANCIAL DATA:
 $financialContext
 ''';
   }
 
-  String _getLanguageInstruction(
-      String userMessage,
-      String language,
-      ) {
+  String _getLanguageInstruction(String userMessage, String language) {
     final message = userMessage.trim();
 
     // No user message → use the app's selected language.
@@ -471,15 +536,12 @@ Do NOT switch to English unless explicitly requested.
 ''';
     }
 
-    // No Indian script detected → use the selected app language.
+    // Latin-script messages should stay in English rather than inheriting a
+    // different app locale. This also keeps short English follow-ups stable.
     return '''
-Respond in the language selected by the app: $language.
-
-If the user writes in English while the selected language is another
-language, respond in the selected app language unless the user explicitly
-asks you to respond in English.
-
-Do not unnecessarily translate the user's message.
+The current user message is in English using Latin script.
+Respond in English, regardless of the app's selected language.
+Do not switch languages during this conversation unless the user asks you to.
 ''';
   }
 
@@ -501,31 +563,37 @@ Do not unnecessarily translate the user's message.
 
     // The UI already adds the current user message to history.
     // The provider receives the current message separately.
-    final previousHistory = history.length > 1
-        ? history.sublist(0, history.length - 1)
-        : <AiMessage>[];
-
-    final systemContext = await _buildPersonalizedSystemContext(
-      userMessage: userMessage,
-    );
-
     final buffer = StringBuffer();
 
-    await for (final token in _provider!.chat(
-      history: previousHistory,
-      userMessage: userMessage,
-      systemContext: systemContext,
-    )) {
-      buffer.write(token);
-      yield token;
+    try {
+      final previousHistory = history.length > 1
+          ? history.sublist(0, history.length - 1)
+          : <AiMessage>[];
+
+      final systemContext = await _buildPersonalizedSystemContext(
+        userMessage: userMessage,
+      );
+
+      await for (final token in _provider!.chat(
+        history: previousHistory,
+        userMessage: userMessage,
+        systemContext: systemContext,
+      )) {
+        buffer.write(token);
+        yield token;
+      }
+    } catch (error, stackTrace) {
+      debugPrint('❌ [SmartSpendAI] Chat request failed: $error\n$stackTrace');
+      final message = error.toString().contains('Input token ids are too long')
+          ? 'That request and chat history are still too long for the on-device '
+                'model. Please try a shorter message or clear the conversation.'
+          : 'I could not complete that response. Please try again.';
+      buffer.write(message);
+      yield message;
+      return;
     }
 
-    unawaited(
-      _maybeExtractMemories(
-        userMessage,
-        buffer.toString(),
-      ),
-    );
+    unawaited(_maybeExtractMemories(userMessage, buffer.toString()));
   }
 
   /// Builds the financial-data + memories + rolling-summary system prompt
@@ -546,7 +614,9 @@ Do not unnecessarily translate the user's message.
   }) async {
     final financialContext = await _getContext();
 
-    final allMemories = includeMemories ? await _memoryStore.load() : <UserMemory>[];
+    final allMemories = includeMemories
+        ? await _memoryStore.load()
+        : <UserMemory>[];
     final summary = await _historyStore.loadSummary();
 
     // Reserve room for the system rules themselves, the current message,
@@ -558,9 +628,11 @@ Do not unnecessarily translate the user's message.
     final modelBudget = _activeConfig?.maxTokens ?? 1024;
     // ~4 chars per token for this kind of prose.
     var charsLeft =
-        ((modelBudget - reservedForRulesHistoryAndResponse) * 4)
-            .clamp(400, 6000) -
-            financialContext.length;
+        ((modelBudget - reservedForRulesHistoryAndResponse) * 4).clamp(
+          400,
+          6000,
+        ) -
+        financialContext.length;
 
     String memoryBlock = '';
     if (charsLeft > 0) {
@@ -569,8 +641,10 @@ Do not unnecessarily translate the user's message.
       // — a few of the most important memories is still much better
       // than none.
       for (final limit in [12, 8, 5, 3]) {
-        final relevant =
-        _memoryStore.getRelevantMemories(allMemories, limit: limit);
+        final relevant = _memoryStore.getRelevantMemories(
+          allMemories,
+          limit: limit,
+        );
         final candidate = _memoryStore.toContextBlock(relevant);
         if (candidate.length <= charsLeft) {
           memoryBlock = candidate;
@@ -582,9 +656,11 @@ Do not unnecessarily translate the user's message.
 
     String summaryBlock = '';
     if (summary.isNotEmpty && charsLeft > 60) {
-      final capped =
-      summary.length > charsLeft ? summary.substring(0, charsLeft) : summary;
-      summaryBlock = 'CONVERSATION SO FAR (summary of earlier turns):\n  $capped';
+      final capped = summary.length > charsLeft
+          ? summary.substring(0, charsLeft)
+          : summary;
+      summaryBlock =
+          'CONVERSATION SO FAR (summary of earlier turns):\n  $capped';
     }
 
     final parts = <String>[financialContext];
@@ -606,31 +682,31 @@ Do not unnecessarily translate the user's message.
   /// what actually keeps token usage flat as a conversation gets long
   /// instead of climbing turn after turn.
   Future<void> _maybeExtractMemories(
-      String userMessage,
-      String assistantReply,
-      ) async {
+    String userMessage,
+    String assistantReply,
+  ) async {
     try {
       // Don't run memory extraction for empty conversations.
       if (userMessage.trim().isEmpty) {
         return;
       }
 
-      final existingMemories =
-      await _memoryStore.load();
+      final existingMemories = await _memoryStore.load();
 
       final existingList = existingMemories.isEmpty
           ? 'None'
           : existingMemories
-          .map(
-            (m) =>
-        '- ${m.key}: ${m.fact} '
-            '(type: ${m.type.name})',
-      )
-          .join('\n');
+                .map(
+                  (m) =>
+                      '- ${m.key}: ${m.fact} '
+                      '(type: ${m.type.name})',
+                )
+                .join('\n');
 
       final existingSummary = await _historyStore.loadSummary();
 
-      final prompt = '''
+      final prompt =
+          '''
 You maintain durable memory AND a running summary for this conversation.
 
 PART 1 — MEMORY:
@@ -718,14 +794,14 @@ Rules:
 ''';
 
       final result = await _provider?.analyze(
-          prompt: prompt,
-          systemContext: '''
+        prompt: prompt,
+        systemContext: '''
 You are a memory + summary maintenance system.
 
 Return ONLY JSON.
 Do not explain your answer.
 Do not use markdown.
-'''
+''',
       );
 
       if (result!.trim().isEmpty) {
@@ -740,14 +816,8 @@ Do not use markdown.
 
       if (cleaned.startsWith('```')) {
         cleaned = cleaned
-            .replaceFirst(
-          RegExp(r'^```(?:json)?\s*'),
-          '',
-        )
-            .replaceFirst(
-          RegExp(r'\s*```$'),
-          '',
-        )
+            .replaceFirst(RegExp(r'^```(?:json)?\s*'), '')
+            .replaceFirst(RegExp(r'\s*```$'), '')
             .trim();
       }
 
@@ -793,26 +863,18 @@ Do not use markdown.
         final typeName = item['type'];
         final fact = item['fact'];
 
-        if (key is! String ||
-            typeName is! String ||
-            fact is! String) {
+        if (key is! String || typeName is! String || fact is! String) {
           continue;
         }
 
         final type = MemoryType.values.firstWhere(
-              (type) => type.name == typeName,
+          (type) => type.name == typeName,
           orElse: () => MemoryType.profile,
         );
 
-        final confidence =
-            (item['confidence'] as num?)
-                ?.toDouble() ??
-                0.5;
+        final confidence = (item['confidence'] as num?)?.toDouble() ?? 0.5;
 
-        final importance =
-            (item['importance'] as num?)
-                ?.toDouble() ??
-                0.5;
+        final importance = (item['importance'] as num?)?.toDouble() ?? 0.5;
 
         // -------------------------------------------------------
         // Ignore weak memories.
@@ -840,9 +902,7 @@ Do not use markdown.
       }
     } catch (e) {
       // Memory extraction should NEVER break the main AI chat.
-      debugPrint(
-        '[Memory] Extraction failed: $e',
-      );
+      debugPrint('[Memory] Extraction failed: $e');
     }
   }
 
@@ -868,12 +928,11 @@ Do not use markdown.
   /// tier device, model not downloaded yet, AI disabled, etc.
   /// Callers MUST check for this and fall back to their own non-AI UX.
   Future<dynamic> ask(
-      String prompt, {
-        String? language,
-        String? extraContext,
-        bool includeMemories = true,
-      }) async {
-
+    String prompt, {
+    String? language,
+    String? extraContext,
+    bool includeMemories = true,
+  }) async {
     // Fast fail if disabled or low-tier device
     if (!_enabled || !isAiCapable) {
       return false;

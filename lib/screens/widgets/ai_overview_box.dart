@@ -65,7 +65,7 @@ class _AIOverviewEntry {
 class _AIOverviewCache {
   _AIOverviewCache._();
 
-  static const _prefsPrefix = 'ai_overview_cache_v1_';
+  static const _prefsPrefix = 'ai_overview_cache_v2_';
 
   static final Map<String, _AIOverviewEntry> _memory = {};
   static final Map<String, Future<String?>> _inFlight = {};
@@ -332,6 +332,12 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
 
     if (_ai.state == AiState.ready) {
       _loadOrGenerate();
+    } else {
+      _stopPhraseCycle();
+      setState(() {
+        _isGenerating = false;
+        _hidden = true;
+      });
     }
   }
 
@@ -364,7 +370,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
     if (!mounted) return;
 
     // Unsupported device / AI disabled — nothing to show, ever.
-    if (!_ai.isAiCapable || !_ai.isEnabled || !_isOverviewEnabled) return;
+    if (!_ai.isAiCapable || !_ai.isEnabled || !_isOverviewEnabled || _ai.state != AiState.ready) return;
 
     final bypassCache = _debug || forceRefresh;
 
@@ -1312,7 +1318,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
 
     // Device cannot run the on-device AI, AI disabled, or today's attempt
     // already failed once — nothing to show.
-    if (!_ai.isAiCapable || !_ai.isEnabled || _hidden) {
+    if (!_ai.isAiCapable || !_ai.isEnabled || _hidden || _ai.state != AiState.ready) {
       return const SizedBox.shrink();
     }
 
