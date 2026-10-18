@@ -22,10 +22,12 @@ import '../../data/model/recurring.dart' show Recurring;
 import '../../data/model/wallet.dart';
 import '../../services/langs/localzation_extension.dart';
 import '../../services/number_formatter_service.dart';
+import '../../services/profile_service.dart';
 import '../../services/platform_utils.dart';
 import '../../services/wallpaper_scheduler_service.dart';
 import '../progress_calendar_page.dart';
 import '../wallpaper_settings_page.dart';
+import '../financial_guide_page.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/dialog.dart';
 import '../widgets/snack_bar.dart';
@@ -42,12 +44,27 @@ import '../../services/privacy/privacy_manager.dart'
 import '../../services/privacy/secure_window_manager.dart'
     if (dart.library.html) '../../services/privacy/secure_window_manager_stub.dart';
 import '../widgets/transaction_widget.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
+}
+
+sealed class _FinancialProfilePickerResult {
+  const _FinancialProfilePickerResult();
+}
+
+final class _SelectedFinancialProfile extends _FinancialProfilePickerResult {
+  const _SelectedFinancialProfile(this.profile);
+
+  final FinancialProfile profile;
+}
+
+final class _CreateFinancialProfile extends _FinancialProfilePickerResult {
+  const _CreateFinancialProfile();
 }
 
 class _SettingsPageState extends State<SettingsPage> {
@@ -124,13 +141,14 @@ class _SettingsPageState extends State<SettingsPage> {
     final autoThemeState = await Helpers().getCurrentAutoThemeState() ?? true;
     final biometricState = await Helpers().getCurrentBiometricState() ?? false;
     final smsParsingState = await Helpers().getCurrentSmsParsingState() ?? true;
-    final currency = await Helpers().getCurrentCurrency() ?? '₹';
+    final currency = await Helpers().getCurrentCurrencyCode() ?? 'INR';
     final language = await Helpers().getCurrentLanguage() ?? 'English';
     final dynamicColorState =
         await Helpers().getCurrentDynamicColorState() ?? true;
     final showQuickActions =
         await Helpers().getCurrentShowQuickActions() ?? true;
-    final aiOverviewEnabled = await Helpers().getCurrentAIOverviewBoxes() ?? true;
+    final aiOverviewEnabled =
+        await Helpers().getCurrentAIOverviewBoxes() ?? true;
     await NumberFormatterService().initialize();
 
     if (mounted) {
@@ -276,9 +294,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       SnackBars.show(
         context,
-        message: value
-            ? 'AI Overview enabled'
-            : 'AI Overview disabled',
+        message: value ? 'AI Overview enabled' : 'AI Overview disabled',
         type: SnackBarType.info,
         behavior: SnackBarBehavior.floating,
       );
@@ -1158,6 +1174,29 @@ class _SettingsPageState extends State<SettingsPage> {
                 // Currency and Language (always available)
                 const SizedBox(height: 8),
                 ListTile(
+                  leading: const Icon(Icons.people_alt_outlined),
+                  title: Text(context.t('financial_profile')),
+                  subtitle: Text(
+                    '${ProfileService.instance.activeProfile.name} • '
+                    '${ProfileService.instance.activeProfile.currencyCode}',
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: _showFinancialProfiles,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.menu_book_outlined),
+                  title: Text(context.t('financial_guide')),
+                  subtitle: Text(context.t('financial_guide_subtitle')),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const FinancialGuidePage(),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.currency_exchange),
                   title: Text(context.t('currency')),
                   subtitle: Text(
@@ -1193,7 +1232,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   onTap: () => _showLanguageSearchSheet(),
                 ),
 
-                if (!kIsWeb && kDebugMode)...[
+                if (!kIsWeb && kDebugMode) ...[
                   const Divider(),
                   const SizedBox(height: 8),
                   Row(
@@ -1220,24 +1259,34 @@ class _SettingsPageState extends State<SettingsPage> {
                   ListTile(
                     leading: const Icon(Icons.bug_report, color: Colors.orange),
                     title: const Text('Test Wallpaper Update'),
-                    subtitle: const Text('Trigger wallpaper update in 5 seconds'),
+                    subtitle: const Text(
+                      'Trigger wallpaper update in 5 seconds',
+                    ),
                     onTap: () async {
                       await WallpaperSchedulerService().runImmediately();
                       if (mounted) {
                         SnackBars.show(
                           context,
-                          message: "Wallpaper update will run in 5 seconds. Check debug logs.",
+                          message:
+                              "Wallpaper update will run in 5 seconds. Check debug logs.",
                           type: SnackBarType.info,
                         );
                       }
                     },
                   ),
                   ListTile(
-                    leading: const Icon(Icons.data_object, color: Colors.orange),
+                    leading: const Icon(
+                      Icons.data_object,
+                      color: Colors.orange,
+                    ),
                     title: const Text('Generate Random Data'),
-                    subtitle: const Text('Generates 30 days of random Expense and Income'),
+                    subtitle: const Text(
+                      'Generates 30 days of random Expense and Income',
+                    ),
                     onTap: () async {
-                      final results = await Dialogs.showConfirmation(context: context) ?? false;
+                      final results =
+                          await Dialogs.showConfirmation(context: context) ??
+                          false;
                       if (results) {
                         generateTestData(context);
                       }
@@ -1281,13 +1330,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
 
                 // AI Overview Cards
-                if (_ai.state == AiState.ready) ... [
+                if (_ai.state == AiState.ready) ...[
                   ListTile(
                     leading: Icon(
                       Icons.info_outline,
-                      color: _aiOverviewEnabled
-                          ? Colors.orange
-                          : null,
+                      color: _aiOverviewEnabled ? Colors.orange : null,
                     ),
                     title: Text(context.t('ai_overview_cards')),
                     subtitle: Text(
@@ -1301,7 +1348,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                 ],
-
 
                 const Divider(),
 
@@ -1359,7 +1405,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
           if (confirmed == true) {
             setState(() => _selectedCurrency = currencyCode);
-            await Helpers().setCurrentCurrency(currencySymbol);
+            await Helpers().setCurrentCurrency(
+              currencySymbol,
+              code: currencyCode,
+            );
             if (mounted) {
               Navigator.pop(context);
               SnackBars.show(
@@ -1369,10 +1418,83 @@ class _SettingsPageState extends State<SettingsPage> {
                 type: SnackBarType.success,
               );
             }
+
             _restartApp();
           }
         },
       ),
+    );
+  }
+
+  Future<void> _showFinancialProfiles() async {
+    final service = ProfileService.instance;
+    final selected = await BottomSheetUtil.show<_FinancialProfilePickerResult>(
+      context: context,
+      title: context.t('financial_profiles'),
+      height: MediaQuery.sizeOf(context).height * 0.55,
+      child: Builder(
+        builder: (sheetContext) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...service.profiles.map(
+              (profile) => ListTile(
+                leading: Icon(
+                  profile.id == service.activeProfileId
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                ),
+                title: Text(profile.name),
+                subtitle: Text(
+                  '${profile.currencyCode} (${profile.currencySymbol})',
+                ),
+                onTap: () => Navigator.pop(
+                  sheetContext,
+                  _SelectedFinancialProfile(profile),
+                ),
+              ),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.person_add_alt_1),
+              title: Text(context.t('create_profile')),
+              onTap: () =>
+                  Navigator.pop(sheetContext, const _CreateFinancialProfile()),
+            ),
+          ],
+        ),
+      ),
+    );
+    switch (selected) {
+      case _SelectedFinancialProfile(:final profile):
+        await _activateProfile(profile);
+      case _CreateFinancialProfile():
+        final profile = await _showCreateProfileDialog();
+        if (profile != null && mounted) {
+          await _activateProfile(profile);
+        }
+      case null:
+        return;
+    }
+  }
+
+  Future<void> _activateProfile(FinancialProfile profile) async {
+    final service = ProfileService.instance;
+    if (profile.id != service.activeProfileId) {
+      await service.switchProfile(profile.id);
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const BottomNavBar(currentIndex: 0)),
+      (_) => false,
+    );
+  }
+
+  Future<FinancialProfile?> _showCreateProfileDialog() async {
+    return Dialogs.showCustomDialog<FinancialProfile>(
+      context: context,
+      title: context.t('create_profile_title'),
+      isFullScreenDialog: false,
+      child: _CreateFinancialProfileForm(currencies: _currencies),
     );
   }
 
@@ -1391,7 +1513,8 @@ class _SettingsPageState extends State<SettingsPage> {
             Navigator.pop(context);
             SnackBars.show(
               context,
-              message: "${context.t('number_format_changed_to')} ${NumberFormatterService().getFormatName(format)}",
+              message:
+                  "${context.t('number_format_changed_to')} ${NumberFormatterService().getFormatName(format)}",
               type: SnackBarType.success,
             );
           }
@@ -1513,6 +1636,124 @@ class _SettingsPageState extends State<SettingsPage> {
       orElse: () => _languages.first,
     );
     return language["nativeName"]!;
+  }
+}
+
+class _CreateFinancialProfileForm extends StatefulWidget {
+  const _CreateFinancialProfileForm({required this.currencies});
+
+  final List<Map<String, String>> currencies;
+
+  @override
+  State<_CreateFinancialProfileForm> createState() =>
+      _CreateFinancialProfileFormState();
+}
+
+class _CreateFinancialProfileFormState
+    extends State<_CreateFinancialProfileForm> {
+  final _nameController = TextEditingController();
+  String _selectedCode = 'INR';
+  bool _isCreating = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _createProfile() async {
+    if (_isCreating) return;
+    setState(() => _isCreating = true);
+    final currency = widget.currencies.firstWhere(
+      (entry) => entry['code'] == _selectedCode,
+    );
+    try {
+      final profile = await ProfileService.instance.createProfile(
+        name: _nameController.text,
+        currencyCode: _selectedCode,
+        currencySymbol: currency['symbol']!,
+      );
+      if (mounted) {
+        Navigator.of(context).pop<FinancialProfile>(profile);
+      }
+    } on ArgumentError catch (error) {
+      if (mounted) {
+        SnackBars.show(
+          context,
+          message:
+              error.message?.toString() ?? context.t('profile_name_required'),
+          type: SnackBarType.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCreating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: _nameController,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: context.t('profile_name'),
+            hintText: context.t('profile_name_hint'),
+          ),
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedCode,
+          decoration: InputDecoration(
+            labelText: context.t('base_currency'),
+            border: const OutlineInputBorder(),
+          ),
+          items: widget.currencies
+              .map(
+                (currency) => DropdownMenuItem(
+                  value: currency['code'],
+                  child: Text(
+                    '${currency['code']} - ${currency['name']} '
+                    '(${currency['symbol']})',
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: _isCreating
+              ? null
+              : (value) {
+                  if (value != null) {
+                    setState(() => _selectedCode = value);
+                  }
+                },
+        ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: _isCreating
+                  ? null
+                  : () => Navigator.of(context).pop<FinancialProfile>(),
+              child: Text(context.loc.cancel),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _isCreating ? null : _createProfile,
+              child: _isCreating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(context.t('create')),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 
@@ -1805,7 +2046,6 @@ class _LanguageSearchSheetState extends State<LanguageSearchSheet> {
   }
 }
 
-
 class NumberFormatSheet extends StatefulWidget {
   final NumberFormatType selectedFormat;
   final Function(NumberFormatType) onFormatSelected;
@@ -1868,7 +2108,9 @@ class _NumberFormatSheetState extends State<NumberFormatSheet> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Theme.of(context).colorScheme.primary),
             ),
@@ -1911,8 +2153,12 @@ class _NumberFormatSheetState extends State<NumberFormatSheet> {
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
-                        : (isLightMode ? Colors.grey.shade100 : Colors.grey.shade900),
+                        ? Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.1)
+                        : (isLightMode
+                              ? Colors.grey.shade100
+                              : Colors.grey.shade900),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected
@@ -1924,24 +2170,35 @@ class _NumberFormatSheetState extends State<NumberFormatSheet> {
                   child: ListTile(
                     leading: Icon(
                       Icons.format_list_numbered,
-                      color: isSelected ? Theme.of(context).colorScheme.primary : null,
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
                     ),
                     title: Text(
                       _getFormatName(format),
                       style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? Theme.of(context).colorScheme.primary : null,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
                       ),
                     ),
                     subtitle: Text(
                       '${context.t('number_format_example')} : ${_getExample(format)}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isLightMode ? Colors.grey.shade600 : Colors.grey.shade400,
+                        color: isLightMode
+                            ? Colors.grey.shade600
+                            : Colors.grey.shade400,
                       ),
                     ),
                     trailing: isSelected
-                        ? Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary)
+                        ? Icon(
+                            Icons.check_circle,
+                            color: Theme.of(context).colorScheme.primary,
+                          )
                         : null,
                     onTap: () {
                       setState(() => _currentSelectedFormat = format);

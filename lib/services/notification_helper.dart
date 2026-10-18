@@ -12,24 +12,30 @@ import 'notification_service.dart';
 /// Notification helper methods
 class NotificationHelper {
   /// Check wallet balance and notify if negative or low
-  static Future<void> checkWalletBalance(Wallet wallet, String operationType) async {
+  static Future<void> checkWalletBalance(
+    Wallet wallet,
+    String operationType,
+  ) async {
     try {
       if (wallet.balance < 0) {
         await NotificationService.showNotification(
           id: _generateNotificationId('negative_balance_${wallet.name}'),
           title: '⚠️ Negative Balance Alert',
-          body: '${wallet.name} wallet is in negative: ${wallet.balance.toStringAsFixed(2)}',
+          body:
+              '${wallet.name} wallet is in negative: ${wallet.balance.toStringAsFixed(2)}',
           channelId: 'wallet_alerts',
           channelName: 'Wallet Alerts',
           payload: 'open_home_page',
         );
-        debugPrint("💰 [Notification] Negative balance alert for ${wallet.name}");
-      }
-      else if (wallet.balance < 50 && wallet.balance > 0) {
+        debugPrint(
+          "💰 [Notification] Negative balance alert for ${wallet.name}",
+        );
+      } else if (wallet.balance < 50 && wallet.balance > 0) {
         await NotificationService.showNotification(
           id: _generateNotificationId('low_balance_${wallet.name}'),
           title: '💸 Low Balance Warning',
-          body: '${wallet.name} wallet is running low: ${wallet.balance.toStringAsFixed(2)}',
+          body:
+              '${wallet.name} wallet is running low: ${wallet.balance.toStringAsFixed(2)}',
           channelId: 'wallet_alerts',
           channelName: 'Wallet Alerts',
           payload: 'open_home_page',
@@ -42,11 +48,17 @@ class NotificationHelper {
   }
 
   /// Notify about large transactions
-  static Future<void> notifyLargeTransaction(double amount, String type, String description) async {
+  static Future<void> notifyLargeTransaction(
+    double amount,
+    String type,
+    String description,
+  ) async {
     try {
       if (amount > 1000) {
         await NotificationService.showNotification(
-          id: _generateNotificationId('large_${type}_${DateTime.now().millisecondsSinceEpoch}'),
+          id: _generateNotificationId(
+            'large_${type}_${DateTime.now().millisecondsSinceEpoch}',
+          ),
           title: '💳 Large ${type.capitalize()}',
           body: '${amount.toStringAsFixed(2)} - $description',
           channelId: 'transaction_alerts',
@@ -61,7 +73,10 @@ class NotificationHelper {
   }
 
   /// Notify about monthly spending trends
-  static Future<void> notifyMonthlySpending(double totalSpent, double budget) async {
+  static Future<void> notifyMonthlySpending(
+    double totalSpent,
+    double budget,
+  ) async {
     try {
       if (budget > 0 && totalSpent > budget * 0.8) {
         final percentage = (totalSpent / budget * 100).toInt();
@@ -81,9 +96,13 @@ class NotificationHelper {
   }
 
   /// Notify about successful habit completion streaks
-  static Future<void> notifyHabitStreak(String habitName, int streakCount) async {
+  static Future<void> notifyHabitStreak(
+    String habitName,
+    int streakCount,
+  ) async {
     try {
-      if (streakCount % 7 == 0 && streakCount > 0) { // Notify every 7 days
+      if (streakCount % 7 == 0 && streakCount > 0) {
+        // Notify every 7 days
         await NotificationService.showNotification(
           id: _generateNotificationId('habit_streak_$habitName'),
           title: '🔥 Amazing Streak!',
@@ -92,7 +111,9 @@ class NotificationHelper {
           channelName: 'Habit Alerts',
           payload: 'open_habit_page',
         );
-        debugPrint("🔥 [Notification] Habit streak: $habitName - $streakCount days");
+        debugPrint(
+          "🔥 [Notification] Habit streak: $habitName - $streakCount days",
+        );
       }
     } catch (e) {
       debugPrint("⚠️ [Notification] Error sending habit streak alert: $e");
@@ -142,21 +163,24 @@ class NotificationHelper {
       // Calculate today's expenses
       final todayExpenses = expenseBox.values
           .where((expense) => expense.date.isAfter(today))
-          .fold(0.0, (sum, expense) => sum + expense.amount);
+          .fold(0.0, (sum, expense) => sum + expense.amountForReporting);
 
       // Calculate weekly expenses
       final weeklyExpenses = expenseBox.values
           .where((expense) => expense.date.isAfter(weekAgo))
-          .fold(0.0, (sum, expense) => sum + expense.amount);
+          .fold(0.0, (sum, expense) => sum + expense.amountForReporting);
 
       // Calculate total balance
       final totalBalance = await UniversalHiveFunctions().getTotalBalance();
 
       // Send summary notification
       await NotificationService.showNotification(
-        id: NotificationHelper._generateNotificationId('daily_summary_${now.millisecondsSinceEpoch}'),
+        id: NotificationHelper._generateNotificationId(
+          'daily_summary_${now.millisecondsSinceEpoch}',
+        ),
         title: '📈 Daily Summary',
-        body: 'Today: ₹${todayExpenses.toStringAsFixed(0)} | Week: ₹${weeklyExpenses.toStringAsFixed(0)} | Total: ₹${totalBalance.toStringAsFixed(0)}',
+        body:
+            'Today: ₹${todayExpenses.toStringAsFixed(0)} | Week: ₹${weeklyExpenses.toStringAsFixed(0)} | Total: ₹${totalBalance.toStringAsFixed(0)}',
         channelId: 'summary_alerts',
         channelName: 'Financial Summary',
         payload: 'open_reports_page',
@@ -187,27 +211,37 @@ class NotificationHelper {
         for (final expense in monthlyExpenses) {
           if (expense.categoryKeys.isEmpty) {
             // If no categories, count as "Uncategorized"
-            categoryCounts['Uncategorized'] = (categoryCounts['Uncategorized'] ?? 0) + expense.amount;
+            categoryCounts['Uncategorized'] =
+                (categoryCounts['Uncategorized'] ?? 0) +
+                expense.amountForReporting;
           } else {
             // Distribute amount evenly across all categories for this expense
-            final amountPerCategory = expense.amount / expense.categoryKeys.length;
+            final amountPerCategory =
+                expense.amountForReporting / expense.categoryKeys.length;
 
             for (final categoryKey in expense.categoryKeys) {
               final category = categoryBox.get(categoryKey);
               final categoryName = category?.name ?? 'Unknown';
-              categoryCounts[categoryName] = (categoryCounts[categoryName] ?? 0) + amountPerCategory;
+              categoryCounts[categoryName] =
+                  (categoryCounts[categoryName] ?? 0) + amountPerCategory;
             }
           }
         }
 
-        final total = categoryCounts.values.fold(0.0, (sum, amount) => sum + amount);
+        final total = categoryCounts.values.fold(
+          0.0,
+          (sum, amount) => sum + amount,
+        );
         for (final entry in categoryCounts.entries) {
           final percentage = (entry.value / total * 100);
           if (percentage > 50) {
             await NotificationService.showNotification(
-              id: NotificationHelper._generateNotificationId('spending_pattern_${entry.key}'),
+              id: NotificationHelper._generateNotificationId(
+                'spending_pattern_${entry.key}',
+              ),
               title: '📊 Spending Pattern',
-              body: '${entry.key} makes up ${percentage.toInt()}% of your spending this month',
+              body:
+                  '${entry.key} makes up ${percentage.toInt()}% of your spending this month',
               channelId: 'pattern_alerts',
               channelName: 'Spending Patterns',
               payload: 'open_reports_page',

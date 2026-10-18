@@ -5,7 +5,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/app_constants.dart';
-import '../data/model/category.dart';
 import '../data/model/goal.dart';
 import 'notification_service.dart';
 import '../data/local/universal_functions.dart';
@@ -20,11 +19,6 @@ class GoalService {
   // Battery optimization: Throttle notifications
   static const Duration _notificationCooldown = Duration(hours: 4);
   final Map<String, DateTime> _lastNotificationTime = {};
-
-  // Cache for frequently accessed data
-  List<int>? _cachedGoalCategoryKeys;
-  DateTime? _cacheTime;
-  static const Duration _cacheExpiry = Duration(hours: 1);
 
   /// Add a new goal
   Future<bool> addGoal(Goal goal) async {
@@ -44,8 +38,12 @@ class GoalService {
     }
   }
 
-  /// Add installment to goal and automatically create income transaction
-  Future<bool> addGoalInstallment(int goalKey, double amount, {String? description}) async {
+  /// Earmark existing money toward a goal without creating income or changing cash.
+  Future<bool> addGoalInstallment(
+    int goalKey,
+    double amount, {
+    String? description,
+  }) async {
     try {
       final goalBox = Hive.box<Goal>(AppConstants.goals);
       final goal = goalBox.get(goalKey);
@@ -59,37 +57,19 @@ class GoalService {
         debugPrint("⚠️ [GoalService] Goal already completed: ${goal.name}");
         return false;
       }
+      if (!amount.isFinite || amount <= 0 || amount > goal.remainingAmount) {
+        return false;
+      }
 
-      // Add installment to goal
       goal.addInstallment(amount);
       await goalBox.put(goalKey, goal);
 
-      debugPrint("💰 [GoalService] Installment added to goal: ${goal.name} - $amount");
-
-      // Automatically create income transaction for the installment
-      final success = await UniversalHiveFunctions().addIncome(
-        amount: amount,
-        description: description ?? "Goal Installment: ${goal.name}",
-        method: goal.walletType,
-        categoryKeys: await _getGoalCategoryKeys(),
-        date: DateTime.now(),
+      debugPrint(
+        "💰 [GoalService] Goal allocation added: ${goal.name} - $amount",
       );
-
-      if (success) {
-        debugPrint("✅ [GoalService] Income transaction created for goal installment");
-
-        // Check progress with throttling
-        await _checkGoalProgressThrottled(goal);
-        await ProgressCalendarService().refreshTodayProgress();
-
-        return true;
-      } else {
-        debugPrint("❌ [GoalService] Failed to create income transaction");
-        // Rollback goal installment
-        goal.currentAmount -= amount;
-        await goalBox.put(goalKey, goal);
-        return false;
-      }
+      await _checkGoalProgressThrottled(goal);
+      await ProgressCalendarService().refreshTodayProgress();
+      return true;
     } catch (e, st) {
       debugPrint("❌ [GoalService] Error adding installment: $e\n$st");
       return false;
@@ -102,6 +82,7 @@ class GoalService {
     required String description,
     required String method,
     required List<int> categoryKeys,
+    required int walletKey,
     DateTime? date,
     List<int>? goalKeys,
   }) async {
@@ -111,6 +92,7 @@ class GoalService {
         amount: amount,
         description: description,
         method: method,
+        walletKey: walletKey,
         categoryKeys: categoryKeys,
         date: date,
       );
@@ -128,7 +110,10 @@ class GoalService {
 
           final goal = Hive.box<Goal>(AppConstants.goals).get(goalKey);
           if (goal != null && !goal.isCompleted) {
-            final allocationAmount = remainingAmount.clamp(0, goal.remainingAmount);
+            final allocationAmount = remainingAmount.clamp(
+              0,
+              goal.remainingAmount,
+            );
             if (allocationAmount > 0) {
               // Don't create duplicate income - just update goal
               goal.addInstallment(allocationAmount as double);
@@ -151,7 +136,9 @@ class GoalService {
   Future<List<Goal>> getGoalsNeedingAttention() async {
     try {
       final goalBox = Hive.box<Goal>(AppConstants.goals);
-      final allGoals = goalBox.values.where((goal) => !goal.isCompleted).toList();
+      final allGoals = goalBox.values
+          .where((goal) => !goal.isCompleted)
+          .toList();
 
       return allGoals.where((goal) {
         final progress = goal.progressPercentage;
@@ -172,7 +159,9 @@ class GoalService {
 
     // Check if we've sent a notification recently
     if (_lastNotificationTime.containsKey(notificationKey)) {
-      final timeSinceLastNotification = DateTime.now().difference(_lastNotificationTime[notificationKey]!);
+      final timeSinceLastNotification = DateTime.now().difference(
+        _lastNotificationTime[notificationKey]!,
+      );
       if (timeSinceLastNotification < _notificationCooldown) {
         debugPrint("⏱️ [GoalService] Notification throttled for ${goal.name}");
         return;
@@ -224,7 +213,8 @@ class GoalService {
         await NotificationService.scheduleNotification(
           id: _generateGoalNotificationId(goal, 'deadline_reminder'),
           title: "Goal Deadline Approaching 📅",
-          body: "1 week left for '${goal.name}'. Current progress: ${goal.progressPercentage.toInt()}%",
+          body:
+              "1 week left for '${goal.name}'. Current progress: ${goal.progressPercentage.toInt()}%",
           scheduledDate: reminderDate,
         );
       }
@@ -254,7 +244,11 @@ class GoalService {
   }
 
   /// Send goal progress notification
-  Future<void> _sendGoalProgressNotification(Goal goal, String title, String body) async {
+  Future<void> _sendGoalProgressNotification(
+    Goal goal,
+    String title,
+    String body,
+  ) async {
     await NotificationService.showNotification(
       id: _generateGoalNotificationId(goal, 'progress'),
       title: title,
@@ -270,49 +264,12 @@ class GoalService {
     await NotificationService.showNotification(
       id: _generateGoalNotificationId(goal, 'completion'),
       title: "Goal Achieved! 🎉",
-      body: "Congratulations! You've successfully achieved your goal: ${goal.name}",
+      body:
+          "Congratulations! You've successfully achieved your goal: ${goal.name}",
       channelId: _goalChannel,
       channelName: 'Goal Alerts',
       payload: 'open_goal_page',
     );
-  }
-
-  /// Get category keys for goal-related transactions (with caching)
-  Future<List<int>> _getGoalCategoryKeys() async {
-    // Return cached value if still valid
-    if (_cachedGoalCategoryKeys != null &&
-        _cacheTime != null &&
-        DateTime.now().difference(_cacheTime!) < _cacheExpiry) {
-      return _cachedGoalCategoryKeys!;
-    }
-
-    try {
-      final categoryBox = Hive.box<Category>(AppConstants.categories);
-      final goalCategory = categoryBox.values.firstWhere(
-            (cat) => cat.name.toLowerCase() == 'savings',
-        orElse: () => categoryBox.values.firstWhere(
-              (cat) => cat.type.toLowerCase() == 'income',
-        ),
-      );
-      final categoryKey = categoryBox.keyAt(categoryBox.values.toList().indexOf(goalCategory)) as int;
-
-      // Cache the result
-      _cachedGoalCategoryKeys = [categoryKey];
-      _cacheTime = DateTime.now();
-
-      return _cachedGoalCategoryKeys!;
-    } catch (e) {
-      debugPrint("⚠️ [GoalService] Error getting goal category, using fallback");
-      final categoryBox = Hive.box<Category>(AppConstants.categories);
-      final incomeCategories = categoryBox.values.where((cat) => cat.type.toLowerCase() == 'income').toList();
-      if (incomeCategories.isNotEmpty) {
-        final key = [categoryBox.keyAt(categoryBox.values.toList().indexOf(incomeCategories.first)) as int];
-        _cachedGoalCategoryKeys = key;
-        _cacheTime = DateTime.now();
-        return key;
-      }
-      return [1];
-    }
   }
 
   /// Generate unique notification ID for goals

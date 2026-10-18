@@ -7,6 +7,7 @@ import '../../core/helpers.dart';
 import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../data/model/income.dart';
+import '../../data/model/wallet.dart';
 import '../../services/langs/localzation_extension.dart';
 import '../../services/number_formatter_service.dart';
 import '../../services/privacy/privacy_manager.dart';
@@ -15,11 +16,17 @@ import '../widgets/custom_app_bar.dart';
 import '../widgets/privacy_overlay_widget.dart';
 import '../widgets/snack_bar.dart';
 import '../widgets/transaction_widget.dart';
+import '../widgets/wallet_account_picker.dart';
 
 class IncomeListingPage extends StatefulWidget {
   final String? initialFilter, filterByCategory, filterByMethod;
 
-  const IncomeListingPage({super.key, this.initialFilter, this.filterByCategory, this.filterByMethod});
+  const IncomeListingPage({
+    super.key,
+    this.initialFilter,
+    this.filterByCategory,
+    this.filterByMethod,
+  });
 
   @override
   State<IncomeListingPage> createState() => _IncomeListingPageState();
@@ -69,8 +76,9 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
 
     if (_filterCategoryIds.isNotEmpty) {
       incomes = incomes.where((i) {
-        return i.value.categoryKeys
-            .any((key) => _filterCategoryIds.contains(key));
+        return i.value.categoryKeys.any(
+          (key) => _filterCategoryIds.contains(key),
+        );
       }).toList();
     }
 
@@ -82,10 +90,17 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
     }
 
     if (_dateRange != null) {
-      incomes = incomes.where((i) =>
-      i.value.date.isAfter(_dateRange!.start.subtract(const Duration(days: 1))) &&
-          i.value.date.isBefore(_dateRange!.end.add(const Duration(days: 1)))
-      ).toList();
+      incomes = incomes
+          .where(
+            (i) =>
+                i.value.date.isAfter(
+                  _dateRange!.start.subtract(const Duration(days: 1)),
+                ) &&
+                i.value.date.isBefore(
+                  _dateRange!.end.add(const Duration(days: 1)),
+                ),
+          )
+          .toList();
     }
 
     if (_minAmount != null) {
@@ -195,9 +210,12 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
 
     if (_filterCategoryIds.isEmpty) return context.t('all');
 
-    final names = _filterCategoryIds.map((id) {
-      return categoryBox.get(id)?.name ?? "";
-    }).where((name) => name.isNotEmpty).toList();
+    final names = _filterCategoryIds
+        .map((id) {
+          return categoryBox.get(id)?.name ?? "";
+        })
+        .where((name) => name.isNotEmpty)
+        .toList();
 
     return names.join(", ");
   }
@@ -256,7 +274,6 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
     );
   }
 
-
   void _showAmountFilter() {
     final minController = TextEditingController(
       text: _minAmount?.toString() ?? '',
@@ -273,7 +290,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
         children: [
           TextField(
             controller: minController,
-            decoration:  InputDecoration(
+            decoration: InputDecoration(
               labelText: context.t('min_amount'),
               border: const OutlineInputBorder(),
               prefixText: '$_currentCurrency ',
@@ -283,7 +300,7 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
           const SizedBox(height: 16),
           TextField(
             controller: maxController,
-            decoration:  InputDecoration(
+            decoration: InputDecoration(
               labelText: context.t('max_amount'),
               border: const OutlineInputBorder(),
               prefixText: '$_currentCurrency ',
@@ -388,7 +405,12 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                 value: 'date',
                 child: Row(
                   children: [
-                    Icon(_sortBy == 'date' ? Icons.check : Icons.calendar_today_rounded, size: 20),
+                    Icon(
+                      _sortBy == 'date'
+                          ? Icons.check
+                          : Icons.calendar_today_rounded,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     Text(context.t('date')),
                   ],
@@ -398,7 +420,12 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                 value: 'amount',
                 child: Row(
                   children: [
-                    Icon(_sortBy == 'amount' ? Icons.check : Icons.currency_rupee_rounded, size: 20),
+                    Icon(
+                      _sortBy == 'amount'
+                          ? Icons.check
+                          : Icons.currency_rupee_rounded,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     Text(context.t('amount')),
                   ],
@@ -408,7 +435,12 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                 value: 'category',
                 child: Row(
                   children: [
-                    Icon(_sortBy == 'category' ? Icons.check : Icons.category_rounded, size: 20),
+                    Icon(
+                      _sortBy == 'category'
+                          ? Icons.check
+                          : Icons.category_rounded,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     Text(context.t('category')),
                   ],
@@ -418,7 +450,10 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                 value: 'source',
                 child: Row(
                   children: [
-                    Icon(_sortBy == 'source' ? Icons.check : Icons.source_rounded, size: 20),
+                    Icon(
+                      _sortBy == 'source' ? Icons.check : Icons.source_rounded,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     Text(context.t('source')),
                   ],
@@ -434,19 +469,31 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(25),
-              color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
+              color: Helpers().isLightMode(context)
+                  ? Colors.white
+                  : Colors.black,
             ),
             child: ValueListenableBuilder<Box<Income>>(
-              valueListenable: Hive.box<Income>(AppConstants.incomes).listenable(),
+              valueListenable: Hive.box<Income>(
+                AppConstants.incomes,
+              ).listenable(),
               builder: (context, box, _) {
                 final filteredIncomes = _getFilteredIncomes(box);
-                final total = filteredIncomes.fold(0.0, (sum, i) => sum + i.value.amount);
+                final total = filteredIncomes.fold(
+                  0.0,
+                  (sum, i) => sum + i.value.amountForReporting,
+                );
                 final activeFilters = _getActiveFilterCount();
 
-                final groupedIncomes = groupBy<MapEntry<dynamic, Income>, DateTime>(
-                  filteredIncomes,
-                      (item) => DateTime(item.value.date.year, item.value.date.month, item.value.date.day),
-                );
+                final groupedIncomes =
+                    groupBy<MapEntry<dynamic, Income>, DateTime>(
+                      filteredIncomes,
+                      (item) => DateTime(
+                        item.value.date.year,
+                        item.value.date.month,
+                        item.value.date.day,
+                      ),
+                    );
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -459,13 +506,17 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                         child: Row(
                           children: [
                             FilterChip(
-                              label: Text('${context.t('category')}${selectedCategoryLabel != context.t('all') ? ': $selectedCategoryLabel' : ''}'),
+                              label: Text(
+                                '${context.t('category')}${selectedCategoryLabel != context.t('all') ? ': $selectedCategoryLabel' : ''}',
+                              ),
                               selected: _filterCategoryIds.isNotEmpty,
                               onSelected: (_) => _showCategoryFilter(),
                               avatar: Icon(
                                 Icons.category_rounded,
                                 size: 18,
-                                color: _filterCategoryIds.isNotEmpty ? colorScheme.primary : null,
+                                color: _filterCategoryIds.isNotEmpty
+                                    ? colorScheme.primary
+                                    : null,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -480,33 +531,44 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                               avatar: Icon(
                                 Icons.payment_rounded,
                                 size: 18,
-                                color: _filterMethods.isNotEmpty ? colorScheme.primary : null,
+                                color: _filterMethods.isNotEmpty
+                                    ? colorScheme.primary
+                                    : null,
                               ),
                             ),
                             const SizedBox(width: 8),
                             FilterChip(
-                              label: Text(_dateRange != null
-                                  ? '${DateFormat('d MMM').format(_dateRange!.start)} - ${DateFormat('d MMM').format(_dateRange!.end)}'
-                                  : context.t('date')),
+                              label: Text(
+                                _dateRange != null
+                                    ? '${DateFormat('d MMM').format(_dateRange!.start)} - ${DateFormat('d MMM').format(_dateRange!.end)}'
+                                    : context.t('date'),
+                              ),
                               selected: _dateRange != null,
                               onSelected: (_) => _showDateRangePicker(),
                               avatar: Icon(
                                 Icons.date_range_rounded,
                                 size: 18,
-                                color: _dateRange != null ? colorScheme.primary : null,
+                                color: _dateRange != null
+                                    ? colorScheme.primary
+                                    : null,
                               ),
                             ),
                             const SizedBox(width: 8),
                             FilterChip(
-                              label: Text(_minAmount != null || _maxAmount != null
-                                  ? '$_currentCurrency ${NumberFormatterService().formatForDisplay(_minAmount ?? 0.0)} - $_currentCurrency ${NumberFormatterService().formatForDisplay(_maxAmount ?? 0.0)}'
-                                  : context.t('amount')),
-                              selected: _minAmount != null || _maxAmount != null,
+                              label: Text(
+                                _minAmount != null || _maxAmount != null
+                                    ? '$_currentCurrency ${NumberFormatterService().formatForDisplay(_minAmount ?? 0.0)} - $_currentCurrency ${NumberFormatterService().formatForDisplay(_maxAmount ?? 0.0)}'
+                                    : context.t('amount'),
+                              ),
+                              selected:
+                                  _minAmount != null || _maxAmount != null,
                               onSelected: (_) => _showAmountFilter(),
                               avatar: Icon(
                                 Icons.currency_rupee_rounded,
                                 size: 18,
-                                color: _minAmount != null || _maxAmount != null ? colorScheme.primary : null,
+                                color: _minAmount != null || _maxAmount != null
+                                    ? colorScheme.primary
+                                    : null,
                               ),
                             ),
                             if (activeFilters > 0) ...[
@@ -514,7 +576,10 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                               ActionChip(
                                 label: Text(context.t('clear_all')),
                                 onPressed: _clearAllFilters,
-                                avatar: const Icon(Icons.clear_rounded, size: 18),
+                                avatar: const Icon(
+                                  Icons.clear_rounded,
+                                  size: 18,
+                                ),
                               ),
                             ],
                           ],
@@ -543,14 +608,16 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                                   Text(
                                     context.t('total_earned'),
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onPrimaryContainer.withAlpha(178),
+                                      color: colorScheme.onPrimaryContainer
+                                          .withAlpha(178),
                                     ),
                                   ),
                                 ],
                               ),
                               PrivacyCurrency(
-                                  amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(total)}',
-                                  isPrivacyActive: isPrivate,
+                                amount:
+                                    '$_currentCurrency ${NumberFormatterService().formatForDisplay(total)}',
+                                isPrivacyActive: isPrivate,
                                 style: theme.textTheme.headlineMedium?.copyWith(
                                   color: colorScheme.onPrimaryContainer,
                                   fontWeight: FontWeight.bold,
@@ -566,13 +633,23 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                       Row(
                         children: [
                           Icon(
-                            _ascending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                            _ascending
+                                ? Icons.arrow_upward_rounded
+                                : Icons.arrow_downward_rounded,
                             size: 16,
                             color: colorScheme.primary,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            context.t('sorted_by').replaceAll('--', _sortBy.capitalize()).replaceAll('(__)', _ascending ? context.t('ascending') : context.t('descending')),
+                            context
+                                .t('sorted_by')
+                                .replaceAll('--', _sortBy.capitalize())
+                                .replaceAll(
+                                  '(__)',
+                                  _ascending
+                                      ? context.t('ascending')
+                                      : context.t('descending'),
+                                ),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -612,42 +689,64 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                       else
                         ...groupedIncomes.entries.map((entry) {
                           // Calculate total for this date
-                          double dailyTotal = entry.value.fold(0.0, (sum, incomeEntry) => sum + incomeEntry.value.amount);
+                          double dailyTotal = entry.value.fold(
+                            0.0,
+                            (sum, incomeEntry) =>
+                                sum + incomeEntry.value.amountForReporting,
+                          );
 
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8, right: 16),
+                                padding: const EdgeInsets.only(
+                                  left: 4,
+                                  top: 8,
+                                  bottom: 8,
+                                  right: 16,
+                                ),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       _formatDateHeader(entry.key),
-                                      style: theme.textTheme.titleSmall?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      style: theme.textTheme.titleSmall
+                                          ?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                     ),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: colorScheme.primary.withAlpha(25),
+                                        color: colorScheme.primary.withAlpha(
+                                          25,
+                                        ),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
                                         '${context.t('total')}: $_currentCurrency ${NumberFormatterService().formatForDisplay(dailyTotal)}',
-                                        style: theme.textTheme.labelSmall?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          color: colorScheme.primary,
-                                        ),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                              color: colorScheme.primary,
+                                            ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
                               ...entry.value.map((incomeEntry) {
-                                return _buildIncomeTile(incomeEntry, colorScheme, theme, isPrivate);
+                                return _buildIncomeTile(
+                                  incomeEntry,
+                                  colorScheme,
+                                  theme,
+                                  isPrivate,
+                                );
                               }),
                               const SizedBox(height: 8),
                             ],
@@ -666,11 +765,11 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
   }
 
   Widget _buildIncomeTile(
-      MapEntry<dynamic, Income> incomeEntry,
-      ColorScheme colorScheme,
-      ThemeData theme,
-      bool isPrivate,
-      ) {
+    MapEntry<dynamic, Income> incomeEntry,
+    ColorScheme colorScheme,
+    ThemeData theme,
+    bool isPrivate,
+  ) {
     final keyId = incomeEntry.key as int;
     final income = incomeEntry.value;
     final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -695,10 +794,24 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
           _showEditIncomeSheet(keyId, income);
-          showTransactionAddEditSheet(context: context, type: TransactionType.income,
-              incomeKey: keyId, existingIncome: income, currency: _currentCurrency);
+          showTransactionAddEditSheet(
+            context: context,
+            type: TransactionType.income,
+            incomeKey: keyId,
+            existingIncome: income,
+            currency: _currentCurrency,
+          );
           return false;
         } else {
+          if (income.classification.startsWith('loan_')) {
+            SnackBars.show(
+              context,
+              message:
+                  'Loan-linked transactions must be changed from the loan record.',
+              type: SnackBarType.error,
+            );
+            return false;
+          }
           final confirm = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
@@ -711,14 +824,20 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(true),
-                  child: Text(context.t('delete'), style: const TextStyle(color: Colors.red)),
+                  child: Text(
+                    context.t('delete'),
+                    style: const TextStyle(color: Colors.red),
+                  ),
                 ),
               ],
             ),
           );
           if (confirm == true) {
-            await UniversalHiveFunctions().deleteIncome(keyId, income.method ?? '');
-            return true;
+            final deleted = await UniversalHiveFunctions().deleteIncome(
+              keyId,
+              income.method ?? '',
+            );
+            return deleted;
           }
           return false;
         }
@@ -735,7 +854,9 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
           ),
           title: Text(
             income.method?.isNotEmpty == true ? income.method! : 'UPI',
-            style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -767,7 +888,8 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
             ],
           ),
           trailing: PrivacyCurrency(
-            amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(income.amount)}',
+            amount:
+                '$_currentCurrency ${NumberFormatterService().formatForDisplay(income.amount)}',
             isPrivacyActive: isPrivate,
             style: theme.textTheme.titleSmall?.copyWith(
               color: colorScheme.primary,
@@ -797,10 +919,17 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
   }
 
   void _showEditIncomeSheet(int incomeKey, Income income) {
-    final amountController = TextEditingController(text: income.amount.toString());
+    final amountController = TextEditingController(
+      text: income.amount.toString(),
+    );
     final descController = TextEditingController(text: income.description);
     String selectedMethod = income.method ?? 'UPI';
-    final selectedCategoryKeys = income.categoryKeys.toSet(); // Use Set for multiple selection
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+    int? selectedWalletKey =
+        income.walletKey ??
+        (walletBox.length == 1 ? walletBox.keyAt(0) as int : null);
+    final selectedCategoryKeys = income.categoryKeys
+        .toSet(); // Use Set for multiple selection
 
     BottomSheetUtil.show(
       context: context,
@@ -815,8 +944,10 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
             children: [
               TextField(
                 controller: amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration:  InputDecoration(
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
                   labelText: context.t('amount'),
                   border: const OutlineInputBorder(),
                   prefixText: '$_currentCurrency ',
@@ -837,14 +968,24 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                   labelText: context.t('source'),
                   border: const OutlineInputBorder(),
                 ),
-                items: Helpers().getPaymentMethods()
-                    .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                items: Helpers()
+                    .getPaymentMethods()
+                    .map(
+                      (type) =>
+                          DropdownMenuItem(value: type, child: Text(type)),
+                    )
                     .toList(),
                 onChanged: (value) {
                   setModalState(() {
                     selectedMethod = value!;
                   });
                 },
+              ),
+              const SizedBox(height: 16),
+              WalletAccountPicker(
+                walletKey: selectedWalletKey,
+                onChanged: (key) =>
+                    setModalState(() => selectedWalletKey = key),
               ),
               const SizedBox(height: 16),
               Text(
@@ -856,31 +997,41 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                 spacing: 8,
                 runSpacing: 4,
                 children: categories
-                    .where((category) => category.type.toString().toLowerCase() == 'income')
+                    .where(
+                      (category) =>
+                          category.type.toString().toLowerCase() == 'income',
+                    )
                     .map((category) {
-                  final catKey = categoryBox.keyAt(categories.indexOf(category)) as int;
-                  final isSelected = selectedCategoryKeys.contains(catKey);
-                  return ChoiceChip(
-                    label: Text(category.name),
-                    backgroundColor: (Helpers().hexToColor(category.color)).withAlpha(128),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setModalState(() {
-                        if (selected) {
-                          selectedCategoryKeys.add(catKey);
-                        } else {
-                          selectedCategoryKeys.remove(catKey);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
+                      final catKey =
+                          categoryBox.keyAt(categories.indexOf(category))
+                              as int;
+                      final isSelected = selectedCategoryKeys.contains(catKey);
+                      return ChoiceChip(
+                        label: Text(category.name),
+                        backgroundColor: (Helpers().hexToColor(
+                          category.color,
+                        )).withAlpha(128),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setModalState(() {
+                            if (selected) {
+                              selectedCategoryKeys.add(catKey);
+                            } else {
+                              selectedCategoryKeys.remove(catKey);
+                            }
+                          });
+                        },
+                      );
+                    })
+                    .toList(),
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: () {
+                onPressed: () async {
                   final amount = double.tryParse(amountController.text);
-                  if (amount == null || amount <= 0 || selectedCategoryKeys.isEmpty) {
+                  if (amount == null ||
+                      amount <= 0 ||
+                      selectedCategoryKeys.isEmpty) {
                     SnackBars.show(
                       context,
                       message: context.t('empty_fields_error'),
@@ -894,10 +1045,26 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
                     date: income.date,
                     description: descController.text,
                     method: selectedMethod,
-                    categoryKeys: selectedCategoryKeys.toList(), // Use the multiple selection
+                    walletKey: selectedWalletKey,
+                    categoryKeys: selectedCategoryKeys
+                        .toList(), // Use the multiple selection
                   );
 
-                  UniversalHiveFunctions().updateIncome(incomeKey, newIncome, selectedMethod);
+                  final success = await UniversalHiveFunctions().updateIncome(
+                    incomeKey,
+                    newIncome,
+                    selectedMethod,
+                  );
+                  if (!success) {
+                    SnackBars.show(
+                      context,
+                      message:
+                          'Could not update income. Check the selected account.',
+                      type: SnackBarType.error,
+                    );
+                    return;
+                  }
+                  if (!context.mounted) return;
                   Navigator.of(context).pop();
 
                   SnackBars.show(

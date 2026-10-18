@@ -30,13 +30,10 @@ enum DateRangePreset {
   last3Months,
   last6Months,
   thisYear,
-  custom
+  custom,
 }
 
-enum TransactionType {
-  expense,
-  income
-}
+enum TransactionType { expense, income }
 
 class TransactionsPage extends StatefulWidget {
   const TransactionsPage({super.key});
@@ -55,7 +52,6 @@ class _TransactionsPageState extends State<TransactionsPage>
   final PrivacyManager _transactionsPrivacyManager = PrivacyManager();
   bool isFirstTime = false;
 
-
   @override
   bool get wantKeepAlive => true;
 
@@ -70,7 +66,7 @@ class _TransactionsPageState extends State<TransactionsPage>
   }
 
   void initCall() {
-  // check if it is first time visiting the page with sharedpref
+    // check if it is first time visiting the page with sharedpref
     Future.delayed(const Duration(seconds: 3), () async {
       final prefs = await SharedPreferences.getInstance();
       final isFirstTime = prefs.getBool('isFirstTime') ?? false;
@@ -80,7 +76,6 @@ class _TransactionsPageState extends State<TransactionsPage>
           this.isFirstTime = true;
         });
       }
-
     });
   }
 
@@ -111,13 +106,14 @@ class _TransactionsPageState extends State<TransactionsPage>
           end: now,
         );
       case DateRangePreset.thisMonth:
-        return DateTimeRange(
-          start: DateTime(now.year, now.month, 1),
-          end: now,
-        );
+        return DateTimeRange(start: DateTime(now.year, now.month, 1), end: now);
       case DateRangePreset.lastMonth:
         final lastMonth = DateTime(now.year, now.month - 1, 1);
-        final lastMonthEnd = DateTime(now.year, now.month, 1).subtract(const Duration(days: 1));
+        final lastMonthEnd = DateTime(
+          now.year,
+          now.month,
+          1,
+        ).subtract(const Duration(days: 1));
         return DateTimeRange(start: lastMonth, end: lastMonthEnd);
       case DateRangePreset.last3Months:
         return DateTimeRange(
@@ -130,12 +126,13 @@ class _TransactionsPageState extends State<TransactionsPage>
           end: now,
         );
       case DateRangePreset.thisYear:
-        return DateTimeRange(
-          start: DateTime(now.year, 1, 1),
-          end: now,
-        );
+        return DateTimeRange(start: DateTime(now.year, 1, 1), end: now);
       case DateRangePreset.custom:
-        return _customDateRange ?? DateTimeRange(start: today.subtract(const Duration(days: 6)), end: now);
+        return _customDateRange ??
+            DateTimeRange(
+              start: today.subtract(const Duration(days: 6)),
+              end: now,
+            );
     }
   }
 
@@ -149,13 +146,34 @@ class _TransactionsPageState extends State<TransactionsPage>
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildDateRangeOption(context.t('today'), DateRangePreset.today),
-            _buildDateRangeOption(context.t('this_week'), DateRangePreset.thisWeek),
-            _buildDateRangeOption(context.t('last_7_days'), DateRangePreset.last7Days),
-            _buildDateRangeOption(context.t('this_month'), DateRangePreset.thisMonth),
-            _buildDateRangeOption(context.t('last_month'), DateRangePreset.lastMonth),
-            _buildDateRangeOption(context.t('last_3_months'), DateRangePreset.last3Months),
-            _buildDateRangeOption(context.t('last_6_months'), DateRangePreset.last6Months),
-            _buildDateRangeOption(context.t('this_year'), DateRangePreset.thisYear),
+            _buildDateRangeOption(
+              context.t('this_week'),
+              DateRangePreset.thisWeek,
+            ),
+            _buildDateRangeOption(
+              context.t('last_7_days'),
+              DateRangePreset.last7Days,
+            ),
+            _buildDateRangeOption(
+              context.t('this_month'),
+              DateRangePreset.thisMonth,
+            ),
+            _buildDateRangeOption(
+              context.t('last_month'),
+              DateRangePreset.lastMonth,
+            ),
+            _buildDateRangeOption(
+              context.t('last_3_months'),
+              DateRangePreset.last3Months,
+            ),
+            _buildDateRangeOption(
+              context.t('last_6_months'),
+              DateRangePreset.last6Months,
+            ),
+            _buildDateRangeOption(
+              context.t('this_year'),
+              DateRangePreset.thisYear,
+            ),
             ListTile(
               leading: Radio<DateRangePreset>(
                 value: DateRangePreset.custom,
@@ -206,7 +224,11 @@ class _TransactionsPageState extends State<TransactionsPage>
     if (picked != null) {
       if (picked.duration.inDays > 365) {
         if (mounted) {
-          SnackBars.show(context,message: 'Please select a range within 1 year',type: SnackBarType.error);
+          SnackBars.show(
+            context,
+            message: 'Please select a range within 1 year',
+            type: SnackBarType.error,
+          );
         }
         return;
       }
@@ -258,10 +280,13 @@ class _TransactionsPageState extends State<TransactionsPage>
   }
 
   double getTotalAmount(List<dynamic> transactions) {
-    return transactions.fold(0, (sum, t) => sum + t.amount);
+    return transactions.fold(0, (sum, t) => sum + t.amountForReporting);
   }
 
-  Map<String, double> getCategoryBreakdown(List<dynamic> transactions, TransactionType type) {
+  Map<String, double> getCategoryBreakdown(
+    List<dynamic> transactions,
+    TransactionType type,
+  ) {
     final categoryBox = Hive.box<Category>(AppConstants.categories);
     Map<String, double> breakdown = {};
 
@@ -278,9 +303,12 @@ class _TransactionsPageState extends State<TransactionsPage>
         final categoryKey = categoryKeys.first;
         final category = categoryBox.get(categoryKey);
         final name = category?.name ?? context.t('uncategorized');
-        breakdown[name] = (breakdown[name] ?? 0) + transaction.amount;
+        breakdown[name] =
+            (breakdown[name] ?? 0) + transaction.amountForReporting;
       } else {
-        breakdown[context.t('uncategorized')] = (breakdown[context.t('uncategorized')] ?? 0) + transaction.amount;
+        breakdown[context.t('uncategorized')] =
+            (breakdown[context.t('uncategorized')] ?? 0) +
+            transaction.amountForReporting;
       }
     }
     return breakdown;
@@ -289,8 +317,11 @@ class _TransactionsPageState extends State<TransactionsPage>
   Map<String, double> getMethodBreakdown(List<dynamic> transactions) {
     Map<String, double> breakdown = <String, double>{};
     for (var transaction in transactions) {
-      final method = transaction.method?.isNotEmpty == true ? transaction.method! : 'UPI';
-      breakdown[method] = (breakdown[method] ?? 0) + transaction.amount;
+      final method = transaction.method?.isNotEmpty == true
+          ? transaction.method!
+          : 'UPI';
+      breakdown[method] =
+          (breakdown[method] ?? 0) + transaction.amountForReporting;
     }
     return breakdown;
   }
@@ -317,12 +348,14 @@ class _TransactionsPageState extends State<TransactionsPage>
         transaction.date.day,
       );
       if (dailyTransactions.containsKey(transactionDay)) {
-        dailyTransactions[transactionDay] = dailyTransactions[transactionDay]! + transaction.amount;
+        dailyTransactions[transactionDay] =
+            dailyTransactions[transactionDay]! + transaction.amountForReporting;
       }
     }
 
     return Map.fromEntries(
-      dailyTransactions.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+      dailyTransactions.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key)),
     );
   }
 
@@ -354,8 +387,14 @@ class _TransactionsPageState extends State<TransactionsPage>
     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
     final incomeBox = Hive.box<Income>(AppConstants.incomes);
 
-    final filteredExpenses = _getFilteredTransactions(expenseBox, TransactionType.expense);
-    final filteredIncomes = _getFilteredTransactions(incomeBox, TransactionType.income);
+    final filteredExpenses = _getFilteredTransactions(
+      expenseBox,
+      TransactionType.expense,
+    );
+    final filteredIncomes = _getFilteredTransactions(
+      incomeBox,
+      TransactionType.income,
+    );
 
     final totalExpense = getTotalAmount(filteredExpenses);
     final totalIncome = getTotalAmount(filteredIncomes);
@@ -365,34 +404,69 @@ class _TransactionsPageState extends State<TransactionsPage>
 
     // Net balance message
     if (net > 0) {
-      messages.add(context.t('period_saved').replaceAll('-- __', '$_currentCurrency ${NumberFormatterService().formatForDisplay(net)}'));
+      messages.add(
+        context
+            .t('period_saved')
+            .replaceAll(
+              '-- __',
+              '$_currentCurrency ${NumberFormatterService().formatForDisplay(net)}',
+            ),
+      );
     } else if (net < 0) {
-      messages.add(context.t('period_spending_exceeded').replaceAll('-- __', '$_currentCurrency ${NumberFormatterService().formatForDisplay(net.abs())}'));
+      messages.add(
+        context
+            .t('period_spending_exceeded')
+            .replaceAll(
+              '-- __',
+              '$_currentCurrency ${NumberFormatterService().formatForDisplay(net.abs())}',
+            ),
+      );
     } else {
       messages.add(context.t('perfect_balance'));
     }
 
     // Expense insights
     if (filteredExpenses.isNotEmpty) {
-      final categoryBreakdown = getCategoryBreakdown(filteredExpenses, TransactionType.expense);
+      final categoryBreakdown = getCategoryBreakdown(
+        filteredExpenses,
+        TransactionType.expense,
+      );
       if (categoryBreakdown.isNotEmpty) {
-        final topCategory = categoryBreakdown.entries.reduce((a, b) => a.value > b.value ? a : b);
-        messages.add(context.t('leads_expenses').replaceAll('__', topCategory.key));
+        final topCategory = categoryBreakdown.entries.reduce(
+          (a, b) => a.value > b.value ? a : b,
+        );
+        messages.add(
+          context.t('leads_expenses').replaceAll('__', topCategory.key),
+        );
       }
     }
 
     // Income message
     if (totalIncome > 0) {
-      messages.add(context.t('total_income_msg').replaceAll('-- __', '$_currentCurrency ${NumberFormatterService().formatForDisplay(totalIncome)}'));
+      messages.add(
+        context
+            .t('total_income_msg')
+            .replaceAll(
+              '-- __',
+              '$_currentCurrency ${NumberFormatterService().formatForDisplay(totalIncome)}',
+            ),
+      );
     }
 
     // Transaction count
     final totalTransactions = filteredExpenses.length + filteredIncomes.length;
     if (totalTransactions > 0) {
-      messages.add(context.t('transactions_in_period').replaceAll('__', totalTransactions.toString()).replaceAll('--', _getDateRangeLabel()));
+      messages.add(
+        context
+            .t('transactions_in_period')
+            .replaceAll('__', totalTransactions.toString())
+            .replaceAll('--', _getDateRangeLabel()),
+      );
     }
 
-    return messages.isEmpty ? [context.t('track_financial_transactions')] : messages;
+    return messages.isEmpty
+        ? [context.t('track_financial_transactions')]
+        : messages;
   }
 
   @override
@@ -425,13 +499,18 @@ class _TransactionsPageState extends State<TransactionsPage>
             onPressed: () => Helpers.navigateTo(context, const LoanPage()),
           ),
         ],
-        actions: (!isFirstTime) ? [
-          IconButton(
-            icon: const Icon(Icons.category_outlined),
-            onPressed: () => Helpers.navigateTo(context, const CategoryPage(openDefaultCategories: true,)),
-            tooltip: context.t('update_default_categories'),
-          ),
-        ] : [],
+        actions: (!isFirstTime)
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.category_outlined),
+                  onPressed: () => Helpers.navigateTo(
+                    context,
+                    const CategoryPage(openDefaultCategories: true),
+                  ),
+                  tooltip: context.t('update_default_categories'),
+                ),
+              ]
+            : [],
         child: ListenableBuilder(
           listenable: _transactionsPrivacyManager,
           builder: (context, child) => Container(
@@ -439,16 +518,23 @@ class _TransactionsPageState extends State<TransactionsPage>
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
+              color: Helpers().isLightMode(context)
+                  ? Colors.white
+                  : Colors.black,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Tab Bar
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TabBar(
@@ -459,8 +545,12 @@ class _TransactionsPageState extends State<TransactionsPage>
                       borderRadius: BorderRadius.circular(12),
                       color: Theme.of(context).colorScheme.primaryContainer,
                     ),
-                    labelColor: Theme.of(context).colorScheme.onPrimaryContainer,
-                    unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                    labelColor: Theme.of(
+                      context,
+                    ).colorScheme.onPrimaryContainer,
+                    unselectedLabelColor: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant,
                     tabs: [
                       Tab(text: context.t('expenses')),
                       Tab(text: context.t('income_tab')),
@@ -474,8 +564,14 @@ class _TransactionsPageState extends State<TransactionsPage>
                   child: IndexedStack(
                     index: _tabController.index,
                     children: [
-                      _buildTransactionContent(expenseBox, TransactionType.expense),
-                      _buildTransactionContent(incomeBox, TransactionType.income),
+                      _buildTransactionContent(
+                        expenseBox,
+                        TransactionType.expense,
+                      ),
+                      _buildTransactionContent(
+                        incomeBox,
+                        TransactionType.income,
+                      ),
                     ],
                   ),
                 ),
@@ -505,17 +601,30 @@ class _TransactionsPageState extends State<TransactionsPage>
 
         final filteredTransactions = _getFilteredTransactions(box, type);
         final total = getTotalAmount(filteredTransactions);
-        final categoryBreakdown = getCategoryBreakdown(filteredTransactions, type);
-        final methodBreakdown = type == TransactionType.expense ? getMethodBreakdown(filteredTransactions) : <String, double>{};
+        final categoryBreakdown = getCategoryBreakdown(
+          filteredTransactions,
+          type,
+        );
+        final methodBreakdown = type == TransactionType.expense
+            ? getMethodBreakdown(filteredTransactions)
+            : <String, double>{};
         final dailyTransactions = getDailyTransactions(box, type);
         final daysDiff = _getDateRange().duration.inDays + 1;
         final avgDaily = daysDiff > 0 ? total / daysDiff : 0;
 
         final isExpense = type == TransactionType.expense;
-        final primaryColor = isExpense ? colorScheme.error : colorScheme.primary;
-        final containerColor = isExpense ? colorScheme.errorContainer : colorScheme.primaryContainer;
-        final onContainerColor = isExpense ? colorScheme.onErrorContainer : colorScheme.onPrimaryContainer;
-        final icon = isExpense ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
+        final primaryColor = isExpense
+            ? colorScheme.error
+            : colorScheme.primary;
+        final containerColor = isExpense
+            ? colorScheme.errorContainer
+            : colorScheme.primaryContainer;
+        final onContainerColor = isExpense
+            ? colorScheme.onErrorContainer
+            : colorScheme.onPrimaryContainer;
+        final icon = isExpense
+            ? Icons.arrow_upward_rounded
+            : Icons.arrow_downward_rounded;
 
         return SingleChildScrollView(
           physics: const ClampingScrollPhysics(),
@@ -528,18 +637,31 @@ class _TransactionsPageState extends State<TransactionsPage>
                 children: [
                   if (isFirstTime) ...[
                     GestureDetector(
-                      onTap: () => Helpers.navigateTo(context, CategoryPage(openDefaultCategories: true)),
+                      onTap: () => Helpers.navigateTo(
+                        context,
+                        CategoryPage(openDefaultCategories: true),
+                      ),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.transparent,
-                          border: Border.all(color: onContainerColor, width: .2),
+                          border: Border.all(
+                            color: onContainerColor,
+                            width: .2,
+                          ),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.category_rounded, size: 14, color: onContainerColor),
+                            Icon(
+                              Icons.category_rounded,
+                              size: 14,
+                              color: onContainerColor,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               context.t('update_default_categories'),
@@ -558,7 +680,10 @@ class _TransactionsPageState extends State<TransactionsPage>
                   GestureDetector(
                     onTap: _showDateRangeMenu,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.transparent,
                         border: Border.all(color: onContainerColor, width: .2),
@@ -567,7 +692,11 @@ class _TransactionsPageState extends State<TransactionsPage>
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.calendar_today_rounded, size: 14, color: onContainerColor),
+                          Icon(
+                            Icons.calendar_today_rounded,
+                            size: 14,
+                            color: onContainerColor,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             _getDateRangeLabel(),
@@ -590,9 +719,13 @@ class _TransactionsPageState extends State<TransactionsPage>
                 children: [
                   Expanded(
                     child: _buildStatCard(
-                      isExpense ? context.t('total_spent') : context.t('total_earned'),
+                      isExpense
+                          ? context.t('total_spent')
+                          : context.t('total_earned'),
                       '$_currentCurrency ${NumberFormatterService().formatForDisplay(total)}',
-                      isExpense ? Icons.account_balance_wallet_rounded : Icons.account_balance_rounded,
+                      isExpense
+                          ? Icons.account_balance_wallet_rounded
+                          : Icons.account_balance_rounded,
                       containerColor,
                       onContainerColor,
                       theme,
@@ -622,19 +755,24 @@ class _TransactionsPageState extends State<TransactionsPage>
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(0, 6, 6, 0),
                     child: ScrollConfiguration(
-                      behavior: const ScrollBehavior().copyWith(overscroll: false),
+                      behavior: const ScrollBehavior().copyWith(
+                        overscroll: false,
+                      ),
                       child: CustomBarChart<MapEntry<DateTime, double>>.simple(
                         data: dailyTransactions.entries.toList(),
                         getDate: (entry) => entry.key,
                         getValue: (entry) => entry.value,
                         config: ChartConfig(
-                          chartTitle: "${isExpense ? context.t('expense') : context.t('income')} Trend ($daysDiff ${context.t('days_sm')})",
+                          chartTitle:
+                              "${isExpense ? context.t('expense') : context.t('income')} Trend ($daysDiff ${context.t('days_sm')})",
                           primaryColor: primaryColor,
                           hoverColor: containerColor,
                           yAxisLabel: context.t('amount'),
                           valueUnit: "$_currentCurrency ",
                           highlightHighest: isExpense ? false : true,
-                          highlightMode: isExpense ? HighlightMode.lowest : HighlightMode.highest,
+                          highlightMode: isExpense
+                              ? HighlightMode.lowest
+                              : HighlightMode.highest,
                           showToggleSwitch: true,
                         ),
                       ),
@@ -646,17 +784,34 @@ class _TransactionsPageState extends State<TransactionsPage>
 
               // Category Breakdown
               if (categoryBreakdown.isNotEmpty) ...[
-                Text(context.t('by_category'), style: theme.textTheme.titleSmall),
+                Text(
+                  context.t('by_category'),
+                  style: theme.textTheme.titleSmall,
+                ),
                 const SizedBox(height: 8),
-                _buildCategoryBreakdown(categoryBreakdown, total, colorScheme, theme, isPrivate),
+                _buildCategoryBreakdown(
+                  categoryBreakdown,
+                  total,
+                  colorScheme,
+                  theme,
+                  isPrivate,
+                ),
                 const SizedBox(height: 12),
               ],
 
               // Method Breakdown (only for expenses)
               if (isExpense && methodBreakdown.isNotEmpty) ...[
-                Text(context.t('by_payment_method'), style: theme.textTheme.titleSmall),
+                Text(
+                  context.t('by_payment_method'),
+                  style: theme.textTheme.titleSmall,
+                ),
                 const SizedBox(height: 8),
-                _buildMethodBreakdown(methodBreakdown, colorScheme, theme, isPrivate),
+                _buildMethodBreakdown(
+                  methodBreakdown,
+                  colorScheme,
+                  theme,
+                  isPrivate,
+                ),
                 const SizedBox(height: 12),
               ],
 
@@ -672,7 +827,10 @@ class _TransactionsPageState extends State<TransactionsPage>
                         Helpers.navigateTo(context, const IncomeListingPage());
                       }
                     },
-                    child: Text(context.t('view_all'), style: const TextStyle(fontSize: 12)),
+                    child: Text(
+                      context.t('view_all'),
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
                 ],
               ),
@@ -680,10 +838,48 @@ class _TransactionsPageState extends State<TransactionsPage>
 
               // Show recent transactions or empty state
               if (filteredTransactions.isEmpty)
-                Container( padding: const EdgeInsets.all(20), margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration( color: colorScheme.surfaceContainerHighest.withValues(alpha:0.3), borderRadius: BorderRadius.circular(12), border: Border.all( color: colorScheme.outline.withValues(alpha:0.2), ), ), child: Row( children: [ Icon( isExpense ? Icons.receipt_long_outlined : Icons.account_balance_wallet_outlined, size: 20, color: colorScheme.onSurfaceVariant, ), const SizedBox(width: 12), Expanded( child: Text( isExpense ? context.t('no_expenses_recorded') : context.t('no_income_recorded'), style: theme.textTheme.bodySmall?.copyWith( color: colorScheme.onSurfaceVariant, ), ), ), ], ), )
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.3,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: colorScheme.outline.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isExpense
+                            ? Icons.receipt_long_outlined
+                            : Icons.account_balance_wallet_outlined,
+                        size: 20,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          isExpense
+                              ? context.t('no_expenses_recorded')
+                              : context.t('no_income_recorded'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
               else
-                ...filteredTransactions.toList().reversed.take(5).map((transaction) {
-                  final categoryBox = Hive.box<Category>(AppConstants.categories);
+                ...filteredTransactions.toList().reversed.take(5).map((
+                  transaction,
+                ) {
+                  final categoryBox = Hive.box<Category>(
+                    AppConstants.categories,
+                  );
                   String categoryName = context.t('uncategorized');
                   List<int> categoryKeys = [];
 
@@ -702,19 +898,22 @@ class _TransactionsPageState extends State<TransactionsPage>
                   return Card(
                     margin: const EdgeInsets.only(bottom: 6),
                     child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
                       leading: CircleAvatar(
                         backgroundColor: containerColor,
                         radius: 16,
-                        child: Icon(
-                          icon,
-                          color: onContainerColor,
-                          size: 16,
-                        ),
+                        child: Icon(icon, color: onContainerColor, size: 16),
                       ),
                       title: Text(
-                        transaction.method?.isNotEmpty == true ? transaction.method! : 'UPI',
-                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                        transaction.method?.isNotEmpty == true
+                            ? transaction.method!
+                            : 'UPI',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       subtitle: Text(
                         '$categoryName • ${transaction.description}',
@@ -723,7 +922,8 @@ class _TransactionsPageState extends State<TransactionsPage>
                         style: theme.textTheme.bodySmall,
                       ),
                       trailing: PrivacyCurrency(
-                        amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(transaction.amount)}',
+                        amount:
+                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(transaction.amount)}',
                         isPrivacyActive: isPrivate,
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: primaryColor,
@@ -734,7 +934,7 @@ class _TransactionsPageState extends State<TransactionsPage>
                   );
                 }),
 
-// Add spacing only if there are transactions
+              // Add spacing only if there are transactions
               if (filteredTransactions.isNotEmpty) const SizedBox(height: 100),
             ],
           ),
@@ -744,14 +944,14 @@ class _TransactionsPageState extends State<TransactionsPage>
   }
 
   Widget _buildStatCard(
-      String label,
-      String value,
-      IconData icon,
-      Color bgColor,
-      Color iconColor,
-      ThemeData theme,
-      bool isPrivate,
-      ) {
+    String label,
+    String value,
+    IconData icon,
+    Color bgColor,
+    Color iconColor,
+    ThemeData theme,
+    bool isPrivate,
+  ) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -764,12 +964,17 @@ class _TransactionsPageState extends State<TransactionsPage>
               child: Icon(icon, color: iconColor, size: 16),
             ),
             const SizedBox(height: 8),
-            Text(label, style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+            ),
             const SizedBox(height: 2),
             PrivacyCurrency(
               amount: value,
               isPrivacyActive: isPrivate,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -778,13 +983,14 @@ class _TransactionsPageState extends State<TransactionsPage>
   }
 
   Widget _buildCategoryBreakdown(
-      Map<String, double> breakdown,
-      double total,
-      ColorScheme colorScheme,
-      ThemeData theme,
-      bool isPrivate,
-      ) {
-    final sorted = breakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    Map<String, double> breakdown,
+    double total,
+    ColorScheme colorScheme,
+    ThemeData theme,
+    bool isPrivate,
+  ) {
+    final sorted = breakdown.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
     final validTotal = total == 0 ? 1 : total;
 
     return Card(
@@ -802,12 +1008,19 @@ class _TransactionsPageState extends State<TransactionsPage>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(entry.key, style: theme.textTheme.bodySmall?.copyWith(fontSize: 12)),
+                        Text(
+                          entry.key,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         LinearProgressIndicator(
                           value: percentage / 100,
                           backgroundColor: colorScheme.surfaceContainerHighest,
-                          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            colorScheme.primary,
+                          ),
                           minHeight: 5,
                           borderRadius: BorderRadius.circular(2.5),
                         ),
@@ -819,9 +1032,13 @@ class _TransactionsPageState extends State<TransactionsPage>
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       PrivacyCurrency(
-                        amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
+                        amount:
+                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
                         isPrivacyActive: isPrivate,
-                        style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                       Text(
                         '${percentage.toStringAsFixed(0)}%',
@@ -842,11 +1059,11 @@ class _TransactionsPageState extends State<TransactionsPage>
   }
 
   Widget _buildMethodBreakdown(
-      Map<String, double> breakdown,
-      ColorScheme colorScheme,
-      ThemeData theme,
-      bool isPrivate,
-      ) {
+    Map<String, double> breakdown,
+    ColorScheme colorScheme,
+    ThemeData theme,
+    bool isPrivate,
+  ) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -872,9 +1089,13 @@ class _TransactionsPageState extends State<TransactionsPage>
                   ),
                   const SizedBox(height: 2),
                   PrivacyCurrency(
-                    amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
+                    amount:
+                        '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
                     isPrivacyActive: isPrivate,
-                    style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 11),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
@@ -885,11 +1106,19 @@ class _TransactionsPageState extends State<TransactionsPage>
     );
   }
 
-  Widget _buildEmptyState(ThemeData theme, ColorScheme colorScheme, TransactionType type) {
+  Widget _buildEmptyState(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    TransactionType type,
+  ) {
     final isExpense = type == TransactionType.expense;
     final icon = isExpense ? Icons.receipt_long_outlined : Icons.inbox_rounded;
-    final title = isExpense ? context.t('no_expenses_recorded') : context.t('no_income_recorded');
-    final subtitle = isExpense ? context.t('add_expense_desc') : context.t('add_income_desc');
+    final title = isExpense
+        ? context.t('no_expenses_recorded')
+        : context.t('no_income_recorded');
+    final subtitle = isExpense
+        ? context.t('add_expense_desc')
+        : context.t('add_income_desc');
 
     return Center(
       child: Column(

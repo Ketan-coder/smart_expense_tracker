@@ -22,13 +22,17 @@ class IncomeAdapter extends TypeAdapter<Income> {
       description: fields[2] as String,
       categoryKeys: (fields[3] as List).cast<int>(),
       method: fields[4] as String?,
+      walletKey: (fields[5] as num?)?.toInt(),
+      classification: fields[6] == null ? 'income' : fields[6] as String,
+      recognizedAmount: (fields[7] as num?)?.toDouble(),
+      balanceApplied: fields[8] as bool?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Income obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.amount)
       ..writeByte(1)
@@ -38,7 +42,15 @@ class IncomeAdapter extends TypeAdapter<Income> {
       ..writeByte(3)
       ..write(obj.categoryKeys)
       ..writeByte(4)
-      ..write(obj.method);
+      ..write(obj.method)
+      ..writeByte(5)
+      ..write(obj.walletKey)
+      ..writeByte(6)
+      ..write(obj.classification)
+      ..writeByte(7)
+      ..write(obj.recognizedAmount)
+      ..writeByte(8)
+      ..write(obj.balanceApplied);
   }
 
   @override

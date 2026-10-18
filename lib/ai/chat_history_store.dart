@@ -5,12 +5,22 @@
 
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/profile_scope.dart';
 import 'ai_provider.dart';
 
 class ChatHistoryStore {
-  static const _messagesKey = 'ai_chat_history_v1';
-  static const _savedAtKey = 'ai_chat_history_saved_at_v1';
-  static const _summaryKey = 'ai_chat_summary_v1';
+  ChatHistoryStore({String? profileId}) : _profileId = profileId;
+
+  final String? _profileId;
+
+  String get _profileSuffix {
+    final profileId = _profileId ?? ProfileScope.activeProfileId;
+    return profileId == 'default' ? '' : '_$profileId';
+  }
+
+  String get _messagesKey => 'ai_chat_history_v1$_profileSuffix';
+  String get _savedAtKey => 'ai_chat_history_saved_at_v1$_profileSuffix';
+  String get _summaryKey => 'ai_chat_summary_v1$_profileSuffix';
 
   // 🛠️ FIX: Extended TTL to 7 days based on your request.
   static const ttl = Duration(days: 7);
@@ -56,13 +66,17 @@ class ChatHistoryStore {
         ? history.sublist(history.length - maxMessages)
         : history;
 
-    final encoded = jsonEncode(trimmed
-        .map((m) => {
-      'content': m.content,
-      'isUser': m.isUser,
-      'timestamp': m.timestamp.toIso8601String(),
-    })
-        .toList());
+    final encoded = jsonEncode(
+      trimmed
+          .map(
+            (m) => {
+              'content': m.content,
+              'isUser': m.isUser,
+              'timestamp': m.timestamp.toIso8601String(),
+            },
+          )
+          .toList(),
+    );
 
     await prefs.setString(_messagesKey, encoded);
     await prefs.setInt(_savedAtKey, DateTime.now().millisecondsSinceEpoch);

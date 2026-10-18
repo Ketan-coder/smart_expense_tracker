@@ -25,6 +25,9 @@ class Recurring extends HiveObject {
   @HiveField(6)
   DateTime? deductionDate;
 
+  @HiveField(7)
+  int? walletKey;
+
   Recurring({
     required this.amount,
     required this.startDate,
@@ -32,7 +35,8 @@ class Recurring extends HiveObject {
     required this.categoryKeys,
     required this.interval,
     this.endDate,
-    this.deductionDate
+    this.deductionDate,
+    this.walletKey,
   });
 
   @override

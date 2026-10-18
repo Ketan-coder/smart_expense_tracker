@@ -771,12 +771,12 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:io' show Platform;
 
 import '../../core/helpers.dart';
+import '../../core/profile_scope.dart';
 import '../../services/langs/localzation_extension.dart';
 import '../../services/number_formatter_service.dart';
 
@@ -809,6 +809,7 @@ class QuickAction {
   final String? description;
   final List<int> categoryKeys;
   final String method;
+  final int? walletKey;
 
   QuickAction({
     required this.id,
@@ -818,6 +819,7 @@ class QuickAction {
     this.description,
     required this.categoryKeys,
     required this.method,
+    this.walletKey,
   });
 
   Map<String, dynamic> toJson() => {
@@ -828,6 +830,7 @@ class QuickAction {
     'description': description,
     'categoryKeys': categoryKeys,
     'method': method,
+    'walletKey': walletKey,
   };
 
   factory QuickAction.fromJson(Map<String, dynamic> json) => QuickAction(
@@ -838,6 +841,7 @@ class QuickAction {
     description: json['description'],
     categoryKeys: List<int>.from(json['categoryKeys']),
     method: json['method'],
+    walletKey: (json['walletKey'] as num?)?.toInt(),
   );
 
   QuickAction copyWith({
@@ -848,6 +852,7 @@ class QuickAction {
     String? description,
     List<int>? categoryKeys,
     String? method,
+    int? walletKey,
   }) {
     return QuickAction(
       id: id ?? this.id,
@@ -857,6 +862,7 @@ class QuickAction {
       description: description ?? this.description,
       categoryKeys: categoryKeys ?? this.categoryKeys,
       method: method ?? this.method,
+      walletKey: walletKey ?? this.walletKey,
     );
   }
 }
@@ -865,11 +871,16 @@ class QuickAction {
 // QUICK ACTION MANAGER (Handles persistence)
 // ============================================================================
 class QuickActionManager {
-  static const String _storageKey = 'quick_actions';
+  static String get _storageKey =>
+      'quick_actions_${ProfileScope.activeProfileId}';
 
   static Future<List<QuickAction>> loadQuickActions() async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString(_storageKey);
+    final jsonString =
+        prefs.getString(_storageKey) ??
+        (ProfileScope.activeProfileId == 'default'
+            ? prefs.getString('quick_actions')
+            : null);
     if (jsonString == null) return [];
 
     final List<dynamic> jsonList = json.decode(jsonString);

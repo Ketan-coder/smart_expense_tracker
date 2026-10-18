@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'core/app_constants.dart';
+import 'core/profile_scope.dart';
 import 'data/model/daily_progress.dart';
 import 'data/model/expense.dart';
 import 'data/model/income.dart';
@@ -26,8 +27,13 @@ void callbackDispatcher() {
       await _showDebugNotification(
         id: 9001,
         title: '🌙 Wallpaper Task Started',
-        body: 'Task: $task | Time: ${DateTime.now().toString().substring(0, 16)}',
+        body:
+            'Task: $task | Time: ${DateTime.now().toString().substring(0, 16)}',
       );
+
+      final prefs = await SharedPreferences.getInstance();
+      ProfileScope.activeProfileId =
+          prefs.getString('active_financial_profile') ?? 'default';
 
       await Hive.initFlutter();
 
@@ -51,7 +57,6 @@ void callbackDispatcher() {
 
       print('✅ Hive initialized in background');
 
-      final prefs = await SharedPreferences.getInstance();
       final bool darkMode = prefs.getBool('wp_dark') ?? true;
       final bool useStatusColors = prefs.getBool('wp_colors') ?? false;
       final int styleIndex = prefs.getInt('wp_style') ?? 0;
@@ -67,7 +72,9 @@ void callbackDispatcher() {
 
       final calendarService = ProgressCalendarService();
       await calendarService.refreshTodayProgress();
-      final yearProgress = await calendarService.getYearProgress(DateTime.now().year);
+      final yearProgress = await calendarService.getYearProgress(
+        DateTime.now().year,
+      );
 
       final wallpaperService = WallpaperGeneratorService();
       final wallpaperFile = await wallpaperService.generateProgressWallpaper(
@@ -86,7 +93,10 @@ void callbackDispatcher() {
       final success = await wallpaperService.setAsLockScreen(wallpaperFile);
 
       if (success) {
-        await prefs.setString('last_wallpaper_update', DateTime.now().toIso8601String());
+        await prefs.setString(
+          'last_wallpaper_update',
+          DateTime.now().toIso8601String(),
+        );
         print('✅ Background wallpaper update successful');
       }
 
@@ -99,7 +109,6 @@ void callbackDispatcher() {
 
       await Hive.close();
       return success;
-
     } catch (e, stack) {
       print('❌ Background task crashed: $e\n$stack');
       return false;
@@ -115,10 +124,11 @@ Future<void> _showDebugNotification({
   required String body,
 }) async {
   try {
-    final FlutterLocalNotificationsPlugin plugin = FlutterLocalNotificationsPlugin();
+    final FlutterLocalNotificationsPlugin plugin =
+        FlutterLocalNotificationsPlugin();
 
     const AndroidInitializationSettings initSettings =
-    AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_notification');
 
     await plugin.initialize(
       const InitializationSettings(android: initSettings),
@@ -132,6 +142,7 @@ Future<void> _showDebugNotification({
         android: AndroidNotificationDetails(
           'wallpaper_debug',
           'Wallpaper Debug',
+          icon: 'ic_notification',
           importance: Importance.high,
           priority: Priority.high,
         ),

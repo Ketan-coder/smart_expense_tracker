@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'dart:async';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
+import '../../core/profile_scope.dart';
 import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
 import '../../data/model/income.dart';
@@ -13,6 +14,7 @@ import '../../data/model/recurring.dart';
 import '../../data/model/loan.dart'; //
 import '../../services/langs/localzation_extension.dart';
 import '../../services/number_formatter_service.dart';
+import '../../services/profile_service.dart';
 import '../../services/privacy/privacy_manager.dart';
 import '../expenses/expense_listing_page.dart';
 import '../loan_page.dart';
@@ -89,6 +91,37 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     return walletBox.values.fold(0.0, (sum, w) => sum + w.balance);
   }
 
+  String _aiOverviewCacheScope(
+    Box<Wallet> walletBox,
+    Box<Income> incomeBox,
+    Box<Expense> expenseBox,
+  ) {
+    final profile = ProfileService.instance.activeProfile;
+    final revision = <Object?>[
+      ProfileScope.activeProfileId,
+      profile.name,
+      profile.currencyCode,
+      profile.currencySymbol,
+      _startDate.millisecondsSinceEpoch,
+      _endDate.millisecondsSinceEpoch,
+      ...walletBox.values.map(
+        (wallet) =>
+            '${wallet.name}:${wallet.balance}:${wallet.updatedAt}:${wallet.balanceAsOf}',
+      ),
+      ...incomeBox.values.map(
+        (income) =>
+            '${income.date.millisecondsSinceEpoch}:${income.amountForReporting}:'
+            '${income.description}:${income.categoryKeys.join(",")}',
+      ),
+      ...expenseBox.values.map(
+        (expense) =>
+            '${expense.date.millisecondsSinceEpoch}:${expense.amountForReporting}:'
+            '${expense.description}:${expense.categoryKeys.join(",")}',
+      ),
+    ];
+    return Object.hashAll(revision).toRadixString(16);
+  }
+
   String _getWalletBalanceForHeader(Box<Wallet> walletBox) {
     if (_calculateTotalBalance(walletBox) == 0) {
       return context.t('spent_all_your_savings');
@@ -123,10 +156,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
 
     if (type == LoanType.lent) {
-      return context.t('dynamic_waiting_for_repayment').replaceAll('--', _currentCurrency).replaceAll('__', NumberFormatterService().formatForDisplay(total));
+      return context
+          .t('dynamic_waiting_for_repayment')
+          .replaceAll('--', _currentCurrency)
+          .replaceAll('__', NumberFormatterService().formatForDisplay(total));
       // return "You lent ₹$total. Waiting for repayment 👍";
     } else {
-      return context.t('dynamic_borrowed_money').replaceAll('--', _currentCurrency).replaceAll('__', NumberFormatterService().formatForDisplay(total));
+      return context
+          .t('dynamic_borrowed_money')
+          .replaceAll('--', _currentCurrency)
+          .replaceAll('__', NumberFormatterService().formatForDisplay(total));
       // return "You borrowed ₹$total. Stay mindful 💡";
     }
   }
@@ -273,11 +312,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         );
                         _periodIncome = filteredIncomes.fold(
                           0.0,
-                          (sum, i) => sum + i.amount,
+                          (sum, i) => sum + i.amountForReporting,
                         );
                         _periodExpense = filteredExpenses.fold(
                           0.0,
-                          (sum, e) => sum + e.amount,
+                          (sum, e) => sum + e.amountForReporting,
                         );
                         final monthlyRecurring = _getMonthlyRecurringTotal(
                           recurringBox,
@@ -297,6 +336,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               : (b as Expense).date);
                           return dateB.compareTo(dateA);
                         });
+                        final activeProfile =
+                            ProfileService.instance.activeProfile;
 
                         return SingleChildScrollView(
                           padding: const EdgeInsets.only(bottom: 100, top: 16),
@@ -306,12 +347,29 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               // AI Overview
                               AIOverviewBox(
                                 title: context.t('ai_overview'),
+                                cacheScope: _aiOverviewCacheScope(
+                                  walletBox,
+                                  Hive.box<Income>(AppConstants.incomes),
+                                  Hive.box<Expense>(AppConstants.expenses),
+                                ),
+                                extraContext:
+                                    '''
+AUTHORITATIVE HOME DASHBOARD TOTALS
+Profile: ${activeProfile.name}
+Currency: ${activeProfile.currencyCode} (${activeProfile.currencySymbol})
+Selected dashboard period: ${_startDate.day}/${_startDate.month}/${_startDate.year} through ${_endDate.day}/${_endDate.month}/${_endDate.year}
+Current available wallet balance: ${activeProfile.currencySymbol}${_calculateTotalBalance(walletBox).toStringAsFixed(2)}
+Reportable income in the selected dashboard period: ${activeProfile.currencySymbol}${_periodIncome.toStringAsFixed(2)}
+Reportable spending in the selected dashboard period: ${activeProfile.currencySymbol}${_periodExpense.toStringAsFixed(2)}
+The wallet balance is a current account balance, not spending. Use these exact totals and this selected period for any dashboard overview; do not substitute figures from another period.
+''',
                                 prompt: '''
 Give me a 2 line overview of my current financial situation.
 
 Make it motivating and useful.
 Mention spending, income, savings, or financial habits
 only when the available data supports it.
+Use the authoritative home dashboard totals supplied to you.
 
 Do not give generic financial advice.
 Keep it concise and natural.
@@ -563,7 +621,8 @@ Keep it concise and natural.
           ),
           const SizedBox(height: 12),
           PrivacyCurrency(
-            amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(_totalBalance)}',
+            amount:
+                '$_currentCurrency ${NumberFormatterService().formatForDisplay(_totalBalance)}',
             isPrivacyActive: isPrivate,
             style: theme.textTheme.displaySmall?.copyWith(
               color: colorScheme.onPrimaryContainer,
@@ -609,7 +668,7 @@ Keep it concise and natural.
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withValues(alpha:0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -626,7 +685,9 @@ Keep it concise and natural.
                     style: theme.textTheme.labelSmall?.copyWith(color: color),
                   ),
                   PrivacyCurrency(
-                    amount: NumberFormatterService().formatForDisplay(amount), //amount.toFormattedString()
+                    amount: NumberFormatterService().formatForDisplay(
+                      amount,
+                    ), //amount.toFormattedString()
                     isPrivacyActive: isPrivate,
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: color,
@@ -741,7 +802,7 @@ Keep it concise and natural.
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha:0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -789,9 +850,9 @@ Keep it concise and natural.
 
     for (var transaction in transactions.take(5)) {
       if (transaction is Income) {
-        recentTotal += transaction.amount;
+        recentTotal += transaction.amountForReporting;
       } else {
-        recentTotal -= transaction.amount;
+        recentTotal -= transaction.amountForReporting;
       }
     }
     return Padding(
@@ -814,11 +875,11 @@ Keep it concise and natural.
                     Helpers.navigateTo(context, ExpenseListingPage()),
                 child: Text(context.loc.see_all),
               ),
-              const SizedBox(width: 10,),
+              const SizedBox(width: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha:0.1),
+                  color: colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: PrivacyCurrency(
@@ -834,7 +895,6 @@ Keep it concise and natural.
                   ),
                 ),
               ),
-
             ],
           ),
           const SizedBox(height: 8),
@@ -1057,7 +1117,11 @@ Keep it concise and natural.
                   }
                   _loadData();
                 },
-                child: Text(isEditing ? context.t('edit_wallet') : context.t('add_wallet')),
+                child: Text(
+                  isEditing
+                      ? context.t('edit_wallet')
+                      : context.t('add_wallet'),
+                ),
               ),
             ],
           );

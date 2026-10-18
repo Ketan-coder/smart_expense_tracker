@@ -3,6 +3,7 @@ import 'package:workmanager/workmanager.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/app_constants.dart';
+import '../core/profile_scope.dart';
 import '../data/model/expense.dart';
 import '../data/model/recurring.dart';
 import '../data/model/wallet.dart';
@@ -16,7 +17,10 @@ void callbackDispatcher() {
       try {
         // Quick check: Skip if already processed today
         final prefs = await SharedPreferences.getInstance();
-        final lastRun = prefs.getString('last_recurring_check');
+        ProfileScope.activeProfileId =
+            prefs.getString('active_financial_profile') ?? 'default';
+        final profileId = ProfileScope.activeProfileId;
+        final lastRun = prefs.getString('last_recurring_check_$profileId');
         final today = DateTime.now().toIso8601String().substring(0, 10);
 
         if (lastRun == today) {
@@ -38,11 +42,13 @@ void callbackDispatcher() {
         }
 
         // Open boxes
-        final recurringBox = await Hive.openBox<Recurring>(AppConstants.recurrings);
+        final recurringBox = await Hive.openBox<Recurring>(
+          AppConstants.recurrings,
+        );
 
         // Quick check: If no recurring payments exist, skip everything
         if (recurringBox.isEmpty) {
-          await prefs.setString('last_recurring_check', today);
+          await prefs.setString('last_recurring_check_$profileId', today);
           return Future.value(true);
         }
 
@@ -60,23 +66,29 @@ void callbackDispatcher() {
           if (r.endDate != null && todayDate.isAfter(r.endDate!)) continue;
 
           final lastDeduct = r.deductionDate != null
-              ? DateTime(r.deductionDate!.year, r.deductionDate!.month, r.deductionDate!.day)
+              ? DateTime(
+                  r.deductionDate!.year,
+                  r.deductionDate!.month,
+                  r.deductionDate!.day,
+                )
               : null;
 
           // Calculate next due date
           final nextDue = _nextDueDate(r.startDate, r.interval, lastDeduct);
 
           // Deduct if due today and not already deducted
-          if (nextDue == todayDate && (lastDeduct == null || lastDeduct.isBefore(todayDate))) {
-            await _deductRecurring(r, walletBox, expenseBox);
-            r.deductionDate = now;
-            await r.save();
-            processedCount++;
+          if (nextDue == todayDate &&
+              (lastDeduct == null || lastDeduct.isBefore(todayDate))) {
+            if (await _deductRecurring(r, walletBox, expenseBox)) {
+              r.deductionDate = now;
+              await r.save();
+              processedCount++;
+            }
           }
         }
 
         // Update last run date
-        await prefs.setString('last_recurring_check', today);
+        await prefs.setString('last_recurring_check_$profileId', today);
 
         // Close boxes to free resources
         await recurringBox.close();
@@ -103,7 +115,7 @@ DateTime _nextDueDate(DateTime start, String interval, DateTime? lastDeduct) {
     case 'weekly':
       return DateTime(baseDate.year, baseDate.month, baseDate.day + 7);
     case 'monthly':
-    // Handle month-end edge cases
+      // Handle month-end edge cases
       int targetMonth = baseDate.month + 1;
       int targetYear = baseDate.year;
       if (targetMonth > 12) {
@@ -118,33 +130,55 @@ DateTime _nextDueDate(DateTime start, String interval, DateTime? lastDeduct) {
   }
 }
 
-Future<void> _deductRecurring(
-    Recurring r,
-    Box<Wallet> walletBox,
-    Box<Expense> expenseBox,
-    ) async {
-  // Get default wallet
-  final wallet = walletBox.isNotEmpty ? walletBox.values.first : null;
-  if (wallet == null) return;
+Future<bool> _deductRecurring(
+  Recurring r,
+  Box<Wallet> walletBox,
+  Box<Expense> expenseBox,
+) async {
+  final walletKey =
+      r.walletKey ?? (walletBox.length == 1 ? walletBox.keyAt(0) as int : null);
+  final wallet = walletKey == null ? null : walletBox.get(walletKey);
+  if (wallet == null) {
+    debugPrint(
+      'Recurring payment requires an assigned account: ${r.description}',
+    );
+    return false;
+  }
 
   // Check sufficient balance
   if (wallet.balance < r.amount) {
     print('Insufficient balance for recurring payment: ${r.description}');
-    return;
+    return false;
   }
 
-  // Deduct from wallet
-  wallet.balance -= r.amount;
-  await wallet.save();
+  final now = DateTime.now();
+  final originalBalance = wallet.balance;
+  final originalUpdatedAt = wallet.updatedAt;
+  int? expenseKey;
+  try {
+    wallet.balance -= r.amount;
+    wallet.updatedAt = now;
+    await wallet.save();
 
-  // Add to expenses history
-  final expense = Expense(
-    amount: r.amount,
-    date: DateTime.now(),
-    description: '🔁 ${r.description}', // Mark as recurring
-    categoryKeys: r.categoryKeys,
-  );
-  await expenseBox.add(expense);
+    expenseKey = await expenseBox.add(
+      Expense(
+        amount: r.amount,
+        date: now,
+        description: 'Recurring: ${r.description}',
+        categoryKeys: r.categoryKeys,
+        walletKey: walletKey,
+        balanceApplied: true,
+      ),
+    );
+    r.walletKey ??= walletKey;
+    return true;
+  } catch (error, stackTrace) {
+    if (expenseKey != null) await expenseBox.delete(expenseKey);
+    wallet.balance = originalBalance;
+    wallet.updatedAt = originalUpdatedAt;
+    await wallet.save();
+    Error.throwWithStackTrace(error, stackTrace);
+  }
 }
 
 Future<void> registerRecurringTask() async {

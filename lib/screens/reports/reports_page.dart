@@ -38,7 +38,8 @@ class ReportsPage extends StatefulWidget {
   State<ReportsPage> createState() => _ReportsPageState();
 }
 
-class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStateMixin {
+class _ReportsPageState extends State<ReportsPage>
+    with SingleTickerProviderStateMixin {
   // Showcase
   final ShowcaseController _showcaseController = ShowcaseController();
   final GlobalKey _dateRangeKey = GlobalKey();
@@ -119,7 +120,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         title: context.t('multiple_views'),
         description: context.t('multiple_views_desc'),
         scrollController: null, // No scrolling needed for tab bar
-        targetShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        targetShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
       if (!kIsWeb)
         ShowcaseStep(
@@ -179,14 +182,17 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         if (expense.categoryKeys.isNotEmpty) {
           final category = categoryBox.get(expense.categoryKeys.first);
           final name = category?.name ?? context.t('uncategorized');
-          breakdown[name] = (breakdown[name] ?? 0.0) + expense.amount;
+          breakdown[name] =
+              (breakdown[name] ?? 0.0) + expense.amountForReporting;
         } else {
-          breakdown[context.t('uncategorized')] = (breakdown[context.t('uncategorized')] ?? 0.0) + expense.amount;
+          breakdown[context.t('uncategorized')] =
+              (breakdown[context.t('uncategorized')] ?? 0.0) +
+              expense.amountForReporting;
         }
       }
 
       return Map.fromEntries(
-          breakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value))
+        breakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value)),
       );
     } catch (e) {
       debugPrint('Error getting category breakdown: $e');
@@ -200,14 +206,22 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       final daysDiff = _endDate.difference(_startDate).inDays + 1;
 
       for (int i = 0; i < daysDiff; i++) {
-        final date = DateTime(_startDate.year, _startDate.month, _startDate.day + i);
+        final date = DateTime(
+          _startDate.year,
+          _startDate.month,
+          _startDate.day + i,
+        );
         daily[date] = 0.0;
       }
 
       for (var expense in expenses) {
-        final day = DateTime(expense.date.year, expense.date.month, expense.date.day);
+        final day = DateTime(
+          expense.date.year,
+          expense.date.month,
+          expense.date.day,
+        );
         if (daily.containsKey(day)) {
-          daily[day] = (daily[day] ?? 0.0) + expense.amount;
+          daily[day] = (daily[day] ?? 0.0) + expense.amountForReporting;
         }
       }
 
@@ -226,14 +240,22 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       final daysDiff = _endDate.difference(_startDate).inDays + 1;
 
       for (int i = 0; i < daysDiff; i++) {
-        final date = DateTime(_startDate.year, _startDate.month, _startDate.day + i);
+        final date = DateTime(
+          _startDate.year,
+          _startDate.month,
+          _startDate.day + i,
+        );
         daily[date] = 0.0;
       }
 
       for (var income in incomes) {
-        final day = DateTime(income.date.year, income.date.month, income.date.day);
+        final day = DateTime(
+          income.date.year,
+          income.date.month,
+          income.date.day,
+        );
         if (daily.containsKey(day)) {
-          daily[day] = (daily[day] ?? 0.0) + income.amount;
+          daily[day] = (daily[day] ?? 0.0) + income.amountForReporting;
         }
       }
 
@@ -267,11 +289,11 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           ),
           if (!kIsWeb)
             CustomAppBarActionItem(
-            icon: Icons.file_download_outlined,
-            label: context.t('export_as_pdf'),
-            tooltip: context.t('pdf_desc'),
-            onPressed: _showExportOptions,
-          ),
+              icon: Icons.file_download_outlined,
+              label: context.t('export_as_pdf'),
+              tooltip: context.t('pdf_desc'),
+              onPressed: _showExportOptions,
+            ),
         ],
         child: Container(
           margin: const EdgeInsets.all(8),
@@ -282,58 +304,90 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           ),
           child: _isLoading
               ? const SizedBox(
-            height: 200,
-            child: Center(child: CircularProgressIndicator()),
-          )
+                  height: 200,
+                  child: Center(child: CircularProgressIndicator()),
+                )
               : ValueListenableBuilder(
-            valueListenable: Hive.box<Expense>(AppConstants.expenses).listenable(),
-            builder: (context, expenseBox, _) {
-              return ValueListenableBuilder(
-                valueListenable: Hive.box<Income>(AppConstants.incomes).listenable(),
-                builder: (context, incomeBox, _) {
-                  return ValueListenableBuilder(
-                    valueListenable: Hive.box<Recurring>(AppConstants.recurrings).listenable(),
-                    builder: (context, recurringBox, _) {
-                      final expenses = _getFilteredExpenses(_startDate, _endDate);
-                      final incomes = _getFilteredIncomes(_startDate, _endDate);
+                  valueListenable: Hive.box<Expense>(
+                    AppConstants.expenses,
+                  ).listenable(),
+                  builder: (context, expenseBox, _) {
+                    return ValueListenableBuilder(
+                      valueListenable: Hive.box<Income>(
+                        AppConstants.incomes,
+                      ).listenable(),
+                      builder: (context, incomeBox, _) {
+                        return ValueListenableBuilder(
+                          valueListenable: Hive.box<Recurring>(
+                            AppConstants.recurrings,
+                          ).listenable(),
+                          builder: (context, recurringBox, _) {
+                            final expenses = _getFilteredExpenses(
+                              _startDate,
+                              _endDate,
+                            );
+                            final incomes = _getFilteredIncomes(
+                              _startDate,
+                              _endDate,
+                            );
 
-                      return SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.72,
-                        child: Column(
-                          children: [
-                            // Date Range Display
-                            _buildDateRangeDisplay(theme, colorScheme),
-
-                            // Tab Bar
-                            ShowcaseView(
-                              showcaseKey: _tabKey,
-                              controller: _showcaseController,
-                              child: _buildTabBar(theme, colorScheme),
-                            ),
-
-                            // Tab Content
-                            Expanded(
-                              child: TabBarView(
-                                controller: _tabController,
+                            return SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.72,
+                              child: Column(
                                 children: [
-                                  _buildInsightsTab(expenses, incomes, theme, colorScheme),
-                                  _buildOverviewTab(expenses, incomes, recurringBox, theme, colorScheme),
-                                  _buildCategoriesTab(expenses, theme, colorScheme),
-                                  _buildTrendsTab(expenses, incomes, theme, colorScheme),
+                                  // Date Range Display
+                                  _buildDateRangeDisplay(theme, colorScheme),
+
+                                  // Tab Bar
+                                  ShowcaseView(
+                                    showcaseKey: _tabKey,
+                                    controller: _showcaseController,
+                                    child: _buildTabBar(theme, colorScheme),
+                                  ),
+
+                                  // Tab Content
+                                  Expanded(
+                                    child: TabBarView(
+                                      controller: _tabController,
+                                      children: [
+                                        _buildInsightsTab(
+                                          expenses,
+                                          incomes,
+                                          theme,
+                                          colorScheme,
+                                        ),
+                                        _buildOverviewTab(
+                                          expenses,
+                                          incomes,
+                                          recurringBox,
+                                          theme,
+                                          colorScheme,
+                                        ),
+                                        _buildCategoriesTab(
+                                          expenses,
+                                          theme,
+                                          colorScheme,
+                                        ),
+                                        _buildTrendsTab(
+                                          expenses,
+                                          incomes,
+                                          theme,
+                                          colorScheme,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 40),
                                 ],
                               ),
-                            ),
-
-                            const SizedBox(height: 40),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          ),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
         ),
       ),
     );
@@ -353,7 +407,11 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.calendar_today_rounded, size: 16, color: colorScheme.onPrimaryContainer),
+              Icon(
+                Icons.calendar_today_rounded,
+                size: 16,
+                color: colorScheme.onPrimaryContainer,
+              ),
               const SizedBox(width: 8),
               Text(
                 '${DateFormat('d MMM yyyy').format(_startDate)} - ${DateFormat('d MMM yyyy').format(_endDate)}',
@@ -385,7 +443,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         indicatorSize: TabBarIndicatorSize.tab,
         labelColor: colorScheme.onPrimaryContainer,
         unselectedLabelColor: colorScheme.onSurfaceVariant,
-        labelStyle: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+        labelStyle: theme.textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
         dividerColor: Colors.transparent,
         tabs: [
           Tab(text: context.t('insights')),
@@ -398,15 +458,29 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   }
 
   // OVERVIEW TAB
-  Widget _buildOverviewTab(List<Expense> expenses, List<Income> incomes,
-      Box<Recurring> recurringBox, ThemeData theme, ColorScheme colorScheme) {
-    final totalExpense = expenses.fold(0.0, (sum, e) => sum + e.amount);
-    final totalIncome = incomes.fold(0.0, (sum, i) => sum + i.amount);
+  Widget _buildOverviewTab(
+    List<Expense> expenses,
+    List<Income> incomes,
+    Box<Recurring> recurringBox,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    final totalExpense = expenses.fold(
+      0.0,
+      (sum, e) => sum + e.amountForReporting,
+    );
+    final totalIncome = incomes.fold(
+      0.0,
+      (sum, i) => sum + i.amountForReporting,
+    );
     final netSavings = totalIncome - totalExpense;
     final daysDiff = _endDate.difference(_startDate).inDays + 1;
     final avgDailyExpense = daysDiff > 0 ? totalExpense / daysDiff : 0.0;
 
-    final recurringTotal = recurringBox.values.fold(0.0, (sum, r) => sum + r.amount);
+    final recurringTotal = recurringBox.values.fold(
+      0.0,
+      (sum, r) => sum + r.amount,
+    );
 
     return SingleChildScrollView(
       controller: _scrollController,
@@ -448,9 +522,15 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 child: _buildStatCard(
                   context.t('net_savings'),
                   '$_currentCurrency ${NumberFormatterService().formatForDisplay(netSavings)}',
-                  netSavings >= 0 ? Icons.savings_outlined : Icons.warning_amber_rounded,
-                  netSavings >= 0 ? colorScheme.tertiaryContainer : colorScheme.errorContainer,
-                  netSavings >= 0 ? colorScheme.onTertiaryContainer : colorScheme.onErrorContainer,
+                  netSavings >= 0
+                      ? Icons.savings_outlined
+                      : Icons.warning_amber_rounded,
+                  netSavings >= 0
+                      ? colorScheme.tertiaryContainer
+                      : colorScheme.errorContainer,
+                  netSavings >= 0
+                      ? colorScheme.onTertiaryContainer
+                      : colorScheme.onErrorContainer,
                   theme,
                 ),
               ),
@@ -470,7 +550,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           const SizedBox(height: 20),
 
           // Expense Breakdown
-          Text(context.t('expense_distribution'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            context.t('expense_distribution'),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 12),
           if (expenses.isEmpty)
             _buildEmptyCard(context.t('no_expenses_period'), theme, colorScheme)
@@ -480,10 +565,19 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           const SizedBox(height: 20),
 
           // Top Spending Categories
-          Text(context.t('top_spending_categories'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            context.t('top_spending_categories'),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 12),
           if (expenses.isEmpty)
-            _buildEmptyCard(context.t('no_expenses_analyze'), theme, colorScheme)
+            _buildEmptyCard(
+              context.t('no_expenses_analyze'),
+              theme,
+              colorScheme,
+            )
           else
             Column(
               children: [
@@ -492,13 +586,19 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 Row(
                   children: [
                     TextButton.icon(
-                      onPressed: () => Helpers.navigateTo(context, const ExpenseListingPage()),
+                      onPressed: () => Helpers.navigateTo(
+                        context,
+                        const ExpenseListingPage(),
+                      ),
                       icon: const Icon(Icons.arrow_forward, size: 16),
                       label: Text(context.t('view_all_expenses')),
                     ),
                     const Spacer(),
                     TextButton.icon(
-                      onPressed: () => Helpers.navigateTo(context, const IncomeListingPage()),
+                      onPressed: () => Helpers.navigateTo(
+                        context,
+                        const IncomeListingPage(),
+                      ),
                       icon: const Icon(Icons.arrow_forward, size: 16),
                       label: Text(context.t('view_all_incomes')),
                     ),
@@ -511,9 +611,19 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
           // Recurring Payments
           if (recurringBox.values.isNotEmpty) ...[
-            Text(context.t('recurring_commitments'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              context.t('recurring_commitments'),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 12),
-            _buildRecurringCard(recurringBox, recurringTotal, theme, colorScheme),
+            _buildRecurringCard(
+              recurringBox,
+              recurringTotal,
+              theme,
+              colorScheme,
+            ),
             const SizedBox(height: 20),
           ],
 
@@ -524,9 +634,16 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   }
 
   // CATEGORIES TAB
-  Widget _buildCategoriesTab(List<Expense> expenses, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildCategoriesTab(
+    List<Expense> expenses,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final categoryBreakdown = _getCategoryBreakdown(expenses);
-    final totalExpense = expenses.fold(0.0, (sum, e) => sum + e.amount);
+    final totalExpense = expenses.fold(
+      0.0,
+      (sum, e) => sum + e.amountForReporting,
+    );
 
     return SingleChildScrollView(
       controller: _scrollController,
@@ -534,19 +651,32 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(context.t('category_analysis'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            context.t('category_analysis'),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 16),
 
           if (categoryBreakdown.isEmpty)
-            _buildEmptyCard(context.t('no_expenses_categorize'), theme, colorScheme)
+            _buildEmptyCard(
+              context.t('no_expenses_categorize'),
+              theme,
+              colorScheme,
+            )
           else
             ...categoryBreakdown.entries.map((entry) {
-              final percentage = totalExpense > 0 ? (entry.value / totalExpense * 100) : 0.0;
+              final percentage = totalExpense > 0
+                  ? (entry.value / totalExpense * 100)
+                  : 0.0;
               final expensesInCategory = expenses.where((e) {
-                if (e.categoryKeys.isEmpty) return entry.key == context.t('uncategorized');
+                if (e.categoryKeys.isEmpty)
+                  return entry.key == context.t('uncategorized');
                 final categoryBox = Hive.box<Category>(AppConstants.categories);
                 final category = categoryBox.get(e.categoryKeys.first);
-                return (category?.name ?? context.t('uncategorized')) == entry.key;
+                return (category?.name ?? context.t('uncategorized')) ==
+                    entry.key;
               }).toList();
 
               return _buildCategoryCard(
@@ -556,14 +686,16 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 expensesInCategory.length,
                 theme,
                 colorScheme,
-                onTap: () => Helpers.navigateTo(context, const ExpenseListingPage()),
+                onTap: () =>
+                    Helpers.navigateTo(context, const ExpenseListingPage()),
               );
             }),
 
           const SizedBox(height: 12),
           Center(
             child: TextButton.icon(
-              onPressed: () => Helpers.navigateTo(context, const CategoryPage()),
+              onPressed: () =>
+                  Helpers.navigateTo(context, const CategoryPage()),
               icon: const Icon(Icons.arrow_forward, size: 16),
               label: Text(context.t('view_all_categories')),
             ),
@@ -576,7 +708,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   }
 
   // TRENDS TAB
-  Widget _buildTrendsTab(List<Expense> expenses, List<Income> incomes, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildTrendsTab(
+    List<Expense> expenses,
+    List<Income> incomes,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final dailyExpenses = _getDailyExpenses(expenses);
     final dailyIncomes = _getDailyIncomes(incomes);
     final daysDiff = _endDate.difference(_startDate).inDays + 1;
@@ -588,7 +725,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Expense Trend
-          Text(context.t('expense_trend'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            context.t('expense_trend'),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 12),
 
           if (expenses.isEmpty)
@@ -599,7 +741,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               color: colorScheme.surfaceContainer,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
+                side: BorderSide(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(0, 12, 12, 0),
@@ -608,7 +752,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   getDate: (entry) => entry.key,
                   getValue: (entry) => entry.value,
                   config: ChartConfig(
-                    chartTitle: "${context.t('daily_expenses')} ($daysDiff ${context.t('days_sm')})",
+                    chartTitle:
+                        "${context.t('daily_expenses')} ($daysDiff ${context.t('days_sm')})",
                     primaryColor: colorScheme.error,
                     hoverColor: colorScheme.errorContainer,
                     yAxisLabel: context.t('amount'),
@@ -624,7 +769,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           const SizedBox(height: 20),
 
           // Income Trend
-          Text(context.t('income_trend'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            context.t('income_trend'),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 12),
 
           if (incomes.isEmpty)
@@ -635,7 +785,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               color: colorScheme.surfaceContainer,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
+                side: BorderSide(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(0, 12, 12, 0),
@@ -644,7 +796,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   getDate: (entry) => entry.key,
                   getValue: (entry) => entry.value,
                   config: ChartConfig(
-                    chartTitle: "${context.t('daily_income')} ($daysDiff ${context.t('days_sm')})",
+                    chartTitle:
+                        "${context.t('daily_income')} ($daysDiff ${context.t('days_sm')})",
                     primaryColor: colorScheme.primary,
                     hoverColor: colorScheme.primaryContainer,
                     yAxisLabel: context.t('amount'),
@@ -665,17 +818,32 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   }
 
   // INSIGHTS TAB (Now First)
-  Widget _buildInsightsTab(List<Expense> expenses, List<Income> incomes, ThemeData theme, ColorScheme colorScheme) {
-    final totalExpense = expenses.fold(0.0, (sum, e) => sum + e.amount);
-    final totalIncome = incomes.fold(0.0, (sum, i) => sum + i.amount);
-    final savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome * 100) : 0.0;
+  Widget _buildInsightsTab(
+    List<Expense> expenses,
+    List<Income> incomes,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    final totalExpense = expenses.fold(
+      0.0,
+      (sum, e) => sum + e.amountForReporting,
+    );
+    final totalIncome = incomes.fold(
+      0.0,
+      (sum, i) => sum + i.amountForReporting,
+    );
+    final savingsRate = totalIncome > 0
+        ? ((totalIncome - totalExpense) / totalIncome * 100)
+        : 0.0;
 
     final daysDiff = _endDate.difference(_startDate).inDays + 1;
     final avgDailyExpense = daysDiff > 0 ? totalExpense / daysDiff : 0.0;
     final avgDailyIncome = daysDiff > 0 ? totalIncome / daysDiff : 0.0;
 
     final categoryBreakdown = _getCategoryBreakdown(expenses);
-    final topCategory = categoryBreakdown.isNotEmpty ? categoryBreakdown.entries.first : null;
+    final topCategory = categoryBreakdown.isNotEmpty
+        ? categoryBreakdown.entries.first
+        : null;
     final topCategoryPercent = totalExpense > 0 && topCategory != null
         ? (topCategory.value / totalExpense * 100)
         : 0.0;
@@ -690,7 +858,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           _buildHealthScoreCard(savingsRate, theme, colorScheme),
 
           const SizedBox(height: 16),
-          Text(context.t('financial_insights'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            context.t('financial_insights'),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 16),
 
           // Savings Rate
@@ -698,13 +871,19 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             context.t('savings_rate'),
             '${savingsRate.toStringAsFixed(1)}%',
             savingsRate >= 20
-                ? context.t('savings_rate_excellent').replaceAll('--', savingsRate.toStringAsFixed(0))
+                ? context
+                      .t('savings_rate_excellent')
+                      .replaceAll('--', savingsRate.toStringAsFixed(0))
                 : savingsRate >= 10
                 ? context.t('savings_rate_good')
                 : context.t('savings_rate_low'),
             savingsRate >= 20 ? Icons.emoji_events : Icons.info_outline,
-            savingsRate >= 20 ? colorScheme.primaryContainer : colorScheme.secondaryContainer,
-            savingsRate >= 20 ? colorScheme.onPrimaryContainer : colorScheme.onSecondaryContainer,
+            savingsRate >= 20
+                ? colorScheme.primaryContainer
+                : colorScheme.secondaryContainer,
+            savingsRate >= 20
+                ? colorScheme.onPrimaryContainer
+                : colorScheme.onSecondaryContainer,
             theme,
             colorScheme,
           ),
@@ -713,7 +892,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           _buildInsightCard(
             context.t('daily_spending'),
             '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyExpense)}',
-            context.t('daily_spending_desc').replaceAll('--', '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyExpense)}'),
+            context
+                .t('daily_spending_desc')
+                .replaceAll(
+                  '--',
+                  '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyExpense)}',
+                ),
             Icons.calendar_today,
             colorScheme.tertiaryContainer,
             colorScheme.onTertiaryContainer,
@@ -725,7 +909,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           _buildInsightCard(
             context.t('daily_income'),
             '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyIncome)}',
-            context.t('daily_income_desc').replaceAll('--', '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyIncome)}'),
+            context
+                .t('daily_income_desc')
+                .replaceAll(
+                  '--',
+                  '$_currentCurrency ${NumberFormatterService().formatForDisplay(avgDailyIncome)}',
+                ),
             Icons.attach_money,
             colorScheme.primaryContainer,
             colorScheme.onPrimaryContainer,
@@ -738,9 +927,13 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             _buildInsightCard(
               context.t('top_spending'),
               topCategory.key,
-              context.t('top_spending_desc')
+              context
+                  .t('top_spending_desc')
                   .replaceAll('--', topCategoryPercent.toStringAsFixed(0))
-                  .replaceAll('(__)', '$_currentCurrency ${NumberFormatterService().formatForDisplay(topCategory.value)}')
+                  .replaceAll(
+                    '(__)',
+                    '$_currentCurrency ${NumberFormatterService().formatForDisplay(topCategory.value)}',
+                  )
                   .replaceAll('{}', topCategory.key),
               Icons.category,
               colorScheme.errorContainer,
@@ -757,13 +950,13 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
   // Helper Widgets
   Widget _buildStatCard(
-      String label,
-      String value,
-      IconData icon,
-      Color bgColor,
-      Color textColor,
-      ThemeData theme,
-      ) {
+    String label,
+    String value,
+    IconData icon,
+    Color bgColor,
+    Color textColor,
+    ThemeData theme,
+  ) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -781,7 +974,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             Text(
               label,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: textColor.withValues(alpha:0.8),
+                color: textColor.withValues(alpha: 0.8),
                 fontSize: 11,
               ),
             ),
@@ -800,22 +993,33 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildExpenseDistributionChart(List<Expense> expenses, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildExpenseDistributionChart(
+    List<Expense> expenses,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final categoryBreakdown = _getCategoryBreakdown(expenses);
-    final totalExpense = expenses.fold(0.0, (sum, e) => sum + e.amount);
+    final totalExpense = expenses.fold(
+      0.0,
+      (sum, e) => sum + e.amountForReporting,
+    );
 
     return Card(
       elevation: 0,
       color: colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: categoryBreakdown.entries.take(5).map((entry) {
-            final percentage = totalExpense > 0 ? (entry.value / totalExpense * 100) : 0.0;
+            final percentage = totalExpense > 0
+                ? (entry.value / totalExpense * 100)
+                : 0.0;
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(
@@ -825,12 +1029,19 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(entry.key, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                        Text(
+                          entry.key,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         LinearProgressIndicator(
                           value: percentage / 100,
                           backgroundColor: colorScheme.surfaceContainerHighest,
-                          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            colorScheme.primary,
+                          ),
                           minHeight: 8,
                           borderRadius: BorderRadius.circular(4),
                         ),
@@ -843,11 +1054,15 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                     children: [
                       Text(
                         '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
-                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       Text(
                         '${percentage.toStringAsFixed(1)}%',
-                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -860,13 +1075,18 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildTopCategories(List<Expense> expenses, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildTopCategories(
+    List<Expense> expenses,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final categoryBreakdown = _getCategoryBreakdown(expenses);
 
     return Column(
       children: categoryBreakdown.entries.take(3).map((entry) {
         final expensesInCategory = expenses.where((e) {
-          if (e.categoryKeys.isEmpty) return entry.key == context.t('uncategorized');
+          if (e.categoryKeys.isEmpty)
+            return entry.key == context.t('uncategorized');
           final categoryBox = Hive.box<Category>(AppConstants.categories);
           final category = categoryBox.get(e.categoryKeys.first);
           return (category?.name ?? context.t('uncategorized')) == entry.key;
@@ -878,7 +1098,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           margin: const EdgeInsets.only(bottom: 8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
+            side: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
           ),
           child: ListTile(
             leading: CircleAvatar(
@@ -891,8 +1113,15 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 ),
               ),
             ),
-            title: Text(entry.key, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-            subtitle: Text('$expensesInCategory transaction${expensesInCategory != 1 ? 's' : ''}'),
+            title: Text(
+              entry.key,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            subtitle: Text(
+              '$expensesInCategory transaction${expensesInCategory != 1 ? 's' : ''}',
+            ),
             trailing: Text(
               '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
               style: theme.textTheme.titleMedium?.copyWith(
@@ -906,13 +1135,20 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildRecurringCard(Box<Recurring> recurringBox, double total, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildRecurringCard(
+    Box<Recurring> recurringBox,
+    double total,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     return Card(
       elevation: 0,
       color: colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -925,7 +1161,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 const SizedBox(width: 8),
                 Text(
                   context.t('monthly_recurring'),
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -940,7 +1178,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             const SizedBox(height: 8),
             Text(
               '${recurringBox.values.length} ${context.t('active')} subscription${recurringBox.values.length != 1 ? 's' : ''}',
-              style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -949,21 +1189,23 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   }
 
   Widget _buildCategoryCard(
-      String categoryName,
-      double amount,
-      double percentage,
-      int transactionCount,
-      ThemeData theme,
-      ColorScheme colorScheme, {
-        VoidCallback? onTap,
-      }) {
+    String categoryName,
+    double amount,
+    double percentage,
+    int transactionCount,
+    ThemeData theme,
+    ColorScheme colorScheme, {
+    VoidCallback? onTap,
+  }) {
     return Card(
       elevation: 0,
       color: colorScheme.surfaceContainer,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: InkWell(
         onTap: onTap,
@@ -979,7 +1221,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   Expanded(
                     child: Text(
                       categoryName,
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   Text(
@@ -1005,7 +1249,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 children: [
                   Text(
                     '$transactionCount transaction${transactionCount != 1 ? 's' : ''}',
-                    style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   Text(
                     '$_currentCurrency ${NumberFormatterService().formatForDisplay(amount)}',
@@ -1024,22 +1270,24 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   }
 
   Widget _buildInsightCard(
-      String title,
-      String value,
-      String description,
-      IconData icon,
-      Color bgColor,
-      Color textColor,
-      ThemeData theme,
-      ColorScheme colorScheme,
-      ) {
+    String title,
+    String value,
+    String description,
+    IconData icon,
+    Color bgColor,
+    Color textColor,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     return Card(
       elevation: 0,
       color: colorScheme.surfaceContainer,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1090,7 +1338,11 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildHealthScoreCard(double savingsRate, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildHealthScoreCard(
+    double savingsRate,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     String healthStatus;
     String healthDescription;
     Color healthColor;
@@ -1126,7 +1378,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isNeedsAttention ? healthColor : colorScheme.outlineVariant.withValues(alpha:0.3),
+          color: isNeedsAttention
+              ? healthColor
+              : colorScheme.outlineVariant.withValues(alpha: 0.3),
           width: isNeedsAttention ? 2 : 1,
         ),
       ),
@@ -1140,7 +1394,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: healthColor.withValues(alpha:0.15),
+                    color: healthColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(healthIcon, color: healthColor, size: 32),
@@ -1177,7 +1431,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurface,
                 height: 1.4,
-                fontWeight: isNeedsAttention ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: isNeedsAttention
+                    ? FontWeight.w600
+                    : FontWeight.normal,
               ),
             ),
           ],
@@ -1186,20 +1442,30 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildEmptyCard(String message, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildEmptyCard(
+    String message,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     return Card(
       elevation: 0,
       color: colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.5)),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(40.0),
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.inbox_outlined, size: 48, color: colorScheme.onSurfaceVariant),
+              Icon(
+                Icons.inbox_outlined,
+                size: 48,
+                color: colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(height: 12),
               Text(
                 message,
@@ -1258,7 +1524,16 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             subtitle: Text(context.t('pdf_desc')),
             onTap: () {
               Navigator.pop(context);
-              exportAsPDF(context: context, startDate: _startDate, endDate: _endDate, expenses: expenses, incomes: incomes, categoryBreakdown: categoryBreakdown, currentCurrency: _currentCurrency, languageCode: languageCode);
+              exportAsPDF(
+                context: context,
+                startDate: _startDate,
+                endDate: _endDate,
+                expenses: expenses,
+                incomes: incomes,
+                categoryBreakdown: categoryBreakdown,
+                currentCurrency: _currentCurrency,
+                languageCode: languageCode,
+              );
             },
           ),
           ListTile(
@@ -1267,7 +1542,13 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             subtitle: Text(context.t('csv_desc')),
             onTap: () {
               Navigator.pop(context);
-              exportAsCSV(context: context, startDate: _startDate, endDate: _endDate, expenses: expenses, incomes: incomes);
+              exportAsCSV(
+                context: context,
+                startDate: _startDate,
+                endDate: _endDate,
+                expenses: expenses,
+                incomes: incomes,
+              );
             },
           ),
           const SizedBox(height: 20),
@@ -1306,7 +1587,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   /// For Indian scripts, bold variants often don't ship separately — we reuse
   /// the same TTF for both base and bold (pdf package will fake-bold if needed).
   Future<({pw.Font base, pw.Font bold})> _loadFontsForLocale(
-      String languageCode) async {
+    String languageCode,
+  ) async {
     final fontAsset = _getFontAssetForLocale(languageCode);
     final fontData = await rootBundle.load(fontAsset);
     final font = pw.Font.ttf(fontData);
@@ -1325,16 +1607,16 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     return (base: font, bold: boldFont);
   }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PDF EXPORT
-// ─────────────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PDF EXPORT
+  // ─────────────────────────────────────────────────────────────────────────────
 
   Future<void> exportAsPDF({
     required BuildContext context,
     required DateTime startDate,
     required DateTime endDate,
-    required List<dynamic> expenses,   // List<Expense>
-    required List<dynamic> incomes,    // List<Income>
+    required List<dynamic> expenses, // List<Expense>
+    required List<dynamic> incomes, // List<Income>
     required Map<String, double> categoryBreakdown,
     required String currentCurrency,
     required String languageCode,
@@ -1342,11 +1624,21 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     // required void Function(String message, {bool isError, bool isInfo}) showSnackBar,
   }) async {
     try {
-      SnackBars.show(context, message: context.t('generating_pdf'), type: SnackBarType.info);
+      SnackBars.show(
+        context,
+        message: context.t('generating_pdf'),
+        type: SnackBarType.info,
+      );
 
-      final totalExpense = expenses.fold<double>(0.0, (sum, e) => sum + (e.amount as double));
-      final totalIncome  = incomes.fold<double>(0.0,  (sum, i) => sum + (i.amount as double));
-      final netSavings   = totalIncome - totalExpense;
+      final totalExpense = expenses.fold<double>(
+        0.0,
+        (sum, e) => sum + e.amountForReporting,
+      );
+      final totalIncome = incomes.fold<double>(
+        0.0,
+        (sum, i) => sum + i.amountForReporting,
+      );
+      final netSavings = totalIncome - totalExpense;
 
       // ── Font loading ──────────────────────────────────────────────────────────
       final fonts = await _loadFontsForLocale(languageCode);
@@ -1361,10 +1653,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
       pdf.addPage(
         pw.MultiPage(
-          theme: pw.ThemeData.withFont(
-            base: fonts.base,
-            bold: fonts.bold,
-          ),
+          theme: pw.ThemeData.withFont(base: fonts.base, bold: fonts.bold),
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(32),
 
@@ -1375,13 +1664,17 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               pw.Text(
                 l.t('financial_reports'),
                 style: pw.TextStyle(
-                    fontSize: 22, fontWeight: pw.FontWeight.bold),
+                  fontSize: 22,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
               pw.SizedBox(height: 6),
               pw.Text(
                 '${l.t('select_date_range')}: $dateRange',
                 style: const pw.TextStyle(
-                    fontSize: 11, color: PdfColors.grey700),
+                  fontSize: 11,
+                  color: PdfColors.grey700,
+                ),
               ),
               pw.SizedBox(height: 16),
               pw.Divider(color: PdfColors.grey400),
@@ -1396,24 +1689,23 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             child: pw.Text(
               // "Page 1 of 3"  — no translation key needed, numbers are universal
               'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
-              style: const pw.TextStyle(
-                  fontSize: 9, color: PdfColors.grey600),
+              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
             ),
           ),
 
           // ── Body ──────────────────────────────────────────────────────────────
           build: (_) => [
-
             // 1. Summary table
             pw.Header(
               level: 1,
-              child: pw.Text(l.t('overview'),
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              child: pw.Text(
+                l.t('overview'),
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
             ),
             pw.SizedBox(height: 8),
             pw.Table(
-              border: pw.TableBorder.all(
-                  color: PdfColors.grey400, width: 0.5),
+              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
               columnWidths: {
                 0: const pw.FlexColumnWidth(3),
                 1: const pw.FlexColumnWidth(2),
@@ -1440,14 +1732,18 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             // 2. Expense by Category
             pw.Header(
               level: 1,
-              child: pw.Text(l.t('category_analysis'),
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              child: pw.Text(
+                l.t('category_analysis'),
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
             ),
             pw.SizedBox(height: 8),
             if (categoryBreakdown.isNotEmpty)
               pw.Table(
                 border: pw.TableBorder.all(
-                    color: PdfColors.grey400, width: 0.5),
+                  color: PdfColors.grey400,
+                  width: 0.5,
+                ),
                 columnWidths: {
                   0: const pw.FlexColumnWidth(3),
                   1: const pw.FlexColumnWidth(2),
@@ -1472,21 +1768,27 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 ],
               )
             else
-              pw.Text(l.t('no_expenses_categorize'),
-                  style: const pw.TextStyle(color: PdfColors.grey600)),
+              pw.Text(
+                l.t('no_expenses_categorize'),
+                style: const pw.TextStyle(color: PdfColors.grey600),
+              ),
             pw.SizedBox(height: 28),
 
             // 3. Recent Transactions (expenses, first 20)
             pw.Header(
               level: 1,
-              child: pw.Text(l.t('transactions'),
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              child: pw.Text(
+                l.t('transactions'),
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
             ),
             pw.SizedBox(height: 8),
             if (expenses.isNotEmpty)
               pw.Table(
                 border: pw.TableBorder.all(
-                    color: PdfColors.grey400, width: 0.5),
+                  color: PdfColors.grey400,
+                  width: 0.5,
+                ),
                 columnWidths: {
                   0: const pw.FlexColumnWidth(2),
                   1: const pw.FlexColumnWidth(3),
@@ -1501,8 +1803,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                     l.t('amount'),
                   ]),
                   ...expenses.take(20).map((e) {
-                    final categoryBox =
-                    Hive.box<Category>(AppConstants.categories);
+                    final categoryBox = Hive.box<Category>(
+                      AppConstants.categories,
+                    );
                     String categoryName = l.t('uncategorized');
                     if ((e.categoryKeys as List).isNotEmpty) {
                       final cat = categoryBox.get(e.categoryKeys.first);
@@ -1518,44 +1821,66 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 ],
               )
             else
-              pw.Text(l.t('no_expenses_recorded'),
-                  style: const pw.TextStyle(color: PdfColors.grey600)),
+              pw.Text(
+                l.t('no_expenses_recorded'),
+                style: const pw.TextStyle(color: PdfColors.grey600),
+              ),
           ],
         ),
       );
 
       // ── Save & share ─────────────────────────────────────────────────────────
-      final dir  = await getTemporaryDirectory();
+      final dir = await getTemporaryDirectory();
       final file = File(
-          '${dir.path}/financial_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf');
+        '${dir.path}/financial_report_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
+      );
       await file.writeAsBytes(await pdf.save());
-      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)],text: context.t('financial_reports')));
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: context.t('financial_reports'),
+        ),
+      );
 
       if (context.mounted) {
-        SnackBars.show(context, message: context.t('pdf_generated_success'), type: SnackBarType.success);
+        SnackBars.show(
+          context,
+          message: context.t('pdf_generated_success'),
+          type: SnackBarType.success,
+        );
       }
     } catch (e) {
       debugPrint('Error generating PDF: $e');
       if (context.mounted) {
-        SnackBars.show(context, message: context.t('pdf_generation_error').replaceAll('--', e.toString()), type: SnackBarType.error);
+        SnackBars.show(
+          context,
+          message: context
+              .t('pdf_generation_error')
+              .replaceAll('--', e.toString()),
+          type: SnackBarType.error,
+        );
       }
     }
   }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CSV EXPORT
-// ─────────────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // CSV EXPORT
+  // ─────────────────────────────────────────────────────────────────────────────
 
   Future<void> exportAsCSV({
     required BuildContext context,
     required DateTime startDate,
     required DateTime endDate,
-    required List<dynamic> expenses,  // List<Expense>
-    required List<dynamic> incomes,   // List<Income>
+    required List<dynamic> expenses, // List<Expense>
+    required List<dynamic> incomes, // List<Income>
     // required void Function(String message, {bool isError, bool isInfo}) showSnackBar,
   }) async {
     try {
-      SnackBars.show(context, message: context.t('generating_csv'), type: SnackBarType.info);
+      SnackBars.show(
+        context,
+        message: context.t('generating_csv'),
+        type: SnackBarType.info,
+      );
 
       final categoryBox = Hive.box<Category>(AppConstants.categories);
 
@@ -1573,16 +1898,16 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         }
         // Escape commas/quotes inside fields with double-quote wrapping
         final description = _csvEscape(income.description as String);
-        final category    = _csvEscape(categoryName);
-        final method      = _csvEscape((income.method as String?) ?? 'N/A');
+        final category = _csvEscape(categoryName);
+        final method = _csvEscape((income.method as String?) ?? 'N/A');
 
         csv.writeln(
           '${DateFormat('yyyy-MM-dd').format(income.date as DateTime)},'
-              '${context.t('income')},'   // localized type
-              '$description,'
-              '$category,'
-              '${income.amount},'
-              '$method',
+          '${context.t('income')},' // localized type
+          '$description,'
+          '$category,'
+          '${income.amount},'
+          '$method',
         );
       }
 
@@ -1594,46 +1919,59 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           categoryName = cat?.name ?? context.t('general');
         }
         final description = _csvEscape(expense.description as String);
-        final category    = _csvEscape(categoryName);
-        final method      = _csvEscape((expense.method as String?) ?? 'N/A');
+        final category = _csvEscape(categoryName);
+        final method = _csvEscape((expense.method as String?) ?? 'N/A');
 
         csv.writeln(
           '${DateFormat('yyyy-MM-dd').format(expense.date as DateTime)},'
-              '${context.t('expense')},'  // localized type
-              '$description,'
-              '$category,'
-              '${expense.amount},'
-              '$method',
+          '${context.t('expense')},' // localized type
+          '$description,'
+          '$category,'
+          '${expense.amount},'
+          '$method',
         );
       }
 
       // ── Save & share ─────────────────────────────────────────────────────────
-      final dir  = await getTemporaryDirectory();
+      final dir = await getTemporaryDirectory();
       final file = File(
-          '${dir.path}/transactions_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv');
+        '${dir.path}/transactions_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv',
+      );
 
       // UTF-8 BOM so Excel auto-detects encoding for non-Latin scripts
       await file.writeAsBytes([
-        0xEF, 0xBB, 0xBF,                         // UTF-8 BOM
+        0xEF, 0xBB, 0xBF, // UTF-8 BOM
         ...utf8.encode(csv.toString()),
       ]);
 
-      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)],text: context.t('transactions')));
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(file.path)], text: context.t('transactions')),
+      );
 
       if (context.mounted) {
-        SnackBars.show(context, message: context.t('csv_generated_success'), type: SnackBarType.success);
+        SnackBars.show(
+          context,
+          message: context.t('csv_generated_success'),
+          type: SnackBarType.success,
+        );
       }
     } catch (e) {
       debugPrint('Error generating CSV: $e');
       if (context.mounted) {
-        SnackBars.show(context, message: context.t('csv_generation_error').replaceAll('--', e.toString()), type: SnackBarType.error);
+        SnackBars.show(
+          context,
+          message: context
+              .t('csv_generation_error')
+              .replaceAll('--', e.toString()),
+          type: SnackBarType.error,
+        );
       }
     }
   }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // HELPERS
+  // ─────────────────────────────────────────────────────────────────────────────
 
   /// Wraps a CSV field in double-quotes and escapes any internal double-quotes.
   String _csvEscape(String value) {
@@ -1648,16 +1986,16 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       children: cells
           .map(
             (cell) => pw.Padding(
-          padding: const pw.EdgeInsets.all(8),
-          child: pw.Text(
-            cell,
-            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-            textAlign: cells.indexOf(cell) == 0
-                ? pw.TextAlign.left
-                : pw.TextAlign.right,
-          ),
-        ),
-      )
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                cell,
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                textAlign: cells.indexOf(cell) == 0
+                    ? pw.TextAlign.left
+                    : pw.TextAlign.right,
+              ),
+            ),
+          )
           .toList(),
     );
   }
@@ -1668,15 +2006,15 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       children: cells
           .map(
             (cell) => pw.Padding(
-          padding: const pw.EdgeInsets.all(8),
-          child: pw.Text(
-            cell,
-            textAlign: cells.indexOf(cell) == 0
-                ? pw.TextAlign.left
-                : pw.TextAlign.right,
-          ),
-        ),
-      )
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                cell,
+                textAlign: cells.indexOf(cell) == 0
+                    ? pw.TextAlign.left
+                    : pw.TextAlign.right,
+              ),
+            ),
+          )
           .toList(),
     );
   }
@@ -1925,9 +2263,6 @@ class ShowcaseView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: showcaseKey,
-      child: child,
-    );
+    return Container(key: showcaseKey, child: child);
   }
 }

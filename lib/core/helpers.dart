@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/profile_service.dart';
 
 class Helpers {
   /// Format currency (₹, $, etc.)
@@ -43,8 +44,10 @@ class Helpers {
         const end = Offset.zero; // End at the center
         const curve = Curves.easeInOut; // Smooth slow effect
 
-        var tween = Tween(begin: begin, end: end).chain(
-            CurveTween(curve: curve));
+        var tween = Tween(
+          begin: begin,
+          end: end,
+        ).chain(CurveTween(curve: curve));
         var offsetAnimation = animation.drive(tween);
 
         return SlideTransition(position: offsetAnimation, child: child);
@@ -60,11 +63,13 @@ class Helpers {
         pageBuilder: (context, animation, secondaryAnimation) => screen,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(1.0, 0.0); // Start from the right
-          const end = Offset.zero;        // End at center
+          const end = Offset.zero; // End at center
           const curve = Curves.easeInOut;
 
-          var tween =
-          Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          var tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
           var offsetAnimation = animation.drive(tween);
 
           return SlideTransition(position: offsetAnimation, child: child);
@@ -128,20 +133,29 @@ class Helpers {
     final startTime = startHour > 12 ? '${startHour - 12} PM' : '$startHour AM';
     final endTime = endHour > 12 ? '${endHour - 12} PM' : '$endHour AM';
 
-    debugPrint("⏰ Current time: ${now.hour}:${now.minute.toString().padLeft(2, '0')}");
-    debugPrint("⏰ Within notification hours ($startTime - $endTime): $isWithinHours");
+    debugPrint(
+      "⏰ Current time: ${now.hour}:${now.minute.toString().padLeft(2, '0')}",
+    );
+    debugPrint(
+      "⏰ Within notification hours ($startTime - $endTime): $isWithinHours",
+    );
 
     return isWithinHours;
   }
-  
-  Future<String?> getCurrentCurrency() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('selectedCurrency') ?? '₹';
-  }
 
-  Future<void> setCurrentCurrency(String currency) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selectedCurrency', currency);
+  Future<String?> getCurrentCurrency() async =>
+      ProfileService.instance.activeProfile.currencySymbol;
+
+  Future<String?> getCurrentCurrencyCode() async =>
+      ProfileService.instance.activeProfile.currencyCode;
+
+  Future<void> setCurrentCurrency(String currency, {String? code}) async {
+    final profile = ProfileService.instance.activeProfile;
+    await ProfileService.instance.updateCurrency(
+      profileId: profile.id,
+      currencyCode: code ?? profile.currencyCode,
+      currencySymbol: currency,
+    );
   }
 
   Future<String?> getCurrentLanguage() async {
@@ -254,8 +268,6 @@ class Helpers {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('ai_overview_enabled', state);
   }
-
-
 
   Future<String?> getEnvValue(String key) async {
     final value = dotenv.env[key];

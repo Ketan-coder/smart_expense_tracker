@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
 import '../../core/app_constants.dart';
 import '../../core/helpers.dart';
+import '../../data/model/wallet.dart';
+import 'wallet_account_picker.dart';
 import '../../data/model/category.dart';
 import 'bottom_sheet.dart';
 import 'floating_toolbar.dart';
@@ -39,6 +41,7 @@ class _QuickActionSheetState extends State<QuickActionSheet> {
   List<int> _selectedCategoryKeys = [];
   String _selectedMethod = 'UPI';
   String _currentCurrency = 'INR';
+  int? _selectedWalletKey;
 
   @override
   void initState() {
@@ -50,9 +53,16 @@ class _QuickActionSheetState extends State<QuickActionSheet> {
       _amountController.text = widget.existingAction!.amount.toString();
       _descriptionController.text = widget.existingAction!.description ?? '';
       _selectedType = widget.existingAction!.type;
-      _selectedCategoryKeys = List<int>.from(widget.existingAction!.categoryKeys);
+      _selectedCategoryKeys = List<int>.from(
+        widget.existingAction!.categoryKeys,
+      );
       _selectedMethod = widget.existingAction!.method;
+      _selectedWalletKey = widget.existingAction!.walletKey;
     }
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+    _selectedWalletKey ??= walletBox.length == 1
+        ? walletBox.keyAt(0) as int
+        : null;
   }
 
   Future<void> _loadCurrency() async {
@@ -83,10 +93,7 @@ class _QuickActionSheetState extends State<QuickActionSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Type Selection
-          Text(
-            'Type',
-            style: theme.textTheme.labelLarge,
-          ),
+          Text('Type', style: theme.textTheme.labelLarge),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -150,6 +157,12 @@ class _QuickActionSheetState extends State<QuickActionSheet> {
           ),
           const SizedBox(height: 16),
 
+          WalletAccountPicker(
+            walletKey: _selectedWalletKey,
+            onChanged: (key) => setState(() => _selectedWalletKey = key),
+          ),
+          const SizedBox(height: 16),
+
           // Amount
           TextFormField(
             controller: _amountController,
@@ -180,10 +193,10 @@ class _QuickActionSheetState extends State<QuickActionSheet> {
             ),
             items: Helpers()
                 .getPaymentMethods()
-                .map((method) => DropdownMenuItem(
-              value: method,
-              child: Text(method),
-            ))
+                .map(
+                  (method) =>
+                      DropdownMenuItem(value: method, child: Text(method)),
+                )
                 .toList(),
             onChanged: (value) {
               if (value != null) {
@@ -206,10 +219,7 @@ class _QuickActionSheetState extends State<QuickActionSheet> {
           const SizedBox(height: 20),
 
           // Category Selection
-          Text(
-            'Categories',
-            style: theme.textTheme.labelLarge,
-          ),
+          Text('Categories', style: theme.textTheme.labelLarge),
           const SizedBox(height: 8),
           if (categories.isEmpty)
             Padding(
@@ -232,13 +242,13 @@ class _QuickActionSheetState extends State<QuickActionSheet> {
 
                 return ChoiceChip(
                   selected: isSelected,
-                  backgroundColor: Helpers().hexToColor(category.color).withAlpha(128),
+                  backgroundColor: Helpers()
+                      .hexToColor(category.color)
+                      .withAlpha(128),
                   selectedColor: Helpers().hexToColor(category.color),
                   label: Text(
                     category.name,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : null,
-                    ),
+                    style: TextStyle(color: isSelected ? Colors.white : null),
                   ),
                   onSelected: (selected) {
                     setState(() {
@@ -282,7 +292,9 @@ class _QuickActionSheetState extends State<QuickActionSheet> {
                       if (_selectedCategoryKeys.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Please select at least one category'),
+                            content: Text(
+                              'Please select at least one category',
+                            ),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -290,7 +302,8 @@ class _QuickActionSheetState extends State<QuickActionSheet> {
                       }
 
                       final action = QuickAction(
-                        id: widget.existingAction?.id ??
+                        id:
+                            widget.existingAction?.id ??
                             DateTime.now().millisecondsSinceEpoch.toString(),
                         label: _labelController.text,
                         type: _selectedType,
@@ -300,6 +313,7 @@ class _QuickActionSheetState extends State<QuickActionSheet> {
                             : _descriptionController.text,
                         categoryKeys: _selectedCategoryKeys,
                         method: _selectedMethod,
+                        walletKey: _selectedWalletKey,
                       );
                       Navigator.of(context).pop(action);
                     }
@@ -307,7 +321,11 @@ class _QuickActionSheetState extends State<QuickActionSheet> {
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
                   ),
-                  child: Text(widget.existingAction == null ? 'Add Quick Action' : 'Save Changes'),
+                  child: Text(
+                    widget.existingAction == null
+                        ? 'Add Quick Action'
+                        : 'Save Changes',
+                  ),
                 ),
               ),
             ],

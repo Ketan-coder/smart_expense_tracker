@@ -15,19 +15,13 @@
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../core/profile_scope.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // MEMORY TYPE
 // ═══════════════════════════════════════════════════════════════
 
-enum MemoryType {
-  profile,
-  preference,
-  goal,
-  project,
-}
-
+enum MemoryType { profile, preference, goal, project }
 
 // ═══════════════════════════════════════════════════════════════
 // USER MEMORY
@@ -96,9 +90,7 @@ class UserMemory {
     };
   }
 
-  factory UserMemory.fromJson(
-      Map<String, dynamic> json,
-      ) {
+  factory UserMemory.fromJson(Map<String, dynamic> json) {
     final createdAtRaw = json['createdAt'];
 
     final createdAt = createdAtRaw is String
@@ -114,30 +106,28 @@ class UserMemory {
     final typeName = json['type'];
 
     final type = MemoryType.values.firstWhere(
-          (e) => e.name == typeName,
+      (e) => e.name == typeName,
       orElse: () => MemoryType.profile,
     );
 
     return UserMemory(
-      id: json['id'] as String? ??
+      id:
+          json['id'] as String? ??
           DateTime.now().microsecondsSinceEpoch.toString(),
 
       // Backwards compatibility:
       //
       // Old memories did not have a key.
       // Use the old fact as a temporary key.
-      key: json['key'] as String? ??
-          (json['fact'] as String? ?? 'unknown'),
+      key: json['key'] as String? ?? (json['fact'] as String? ?? 'unknown'),
 
       fact: json['fact'] as String? ?? '',
 
       type: type,
 
-      confidence:
-      (json['confidence'] as num?)?.toDouble() ?? 1.0,
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 1.0,
 
-      importance:
-      (json['importance'] as num?)?.toDouble() ?? 0.5,
+      importance: (json['importance'] as num?)?.toDouble() ?? 0.5,
 
       createdAt: createdAt,
 
@@ -146,13 +136,21 @@ class UserMemory {
   }
 }
 
-
 // ═══════════════════════════════════════════════════════════════
 // MEMORY STORE
 // ═══════════════════════════════════════════════════════════════
 
 class MemoryStore {
-  static const _key = 'ai_user_memories_v1';
+  MemoryStore({String? profileId}) : _profileId = profileId;
+
+  final String? _profileId;
+
+  String get _key {
+    final profileId = _profileId ?? ProfileScope.activeProfileId;
+    return profileId == 'default'
+        ? 'ai_user_memories_v1'
+        : 'ai_user_memories_v1_$profileId';
+  }
 
   /// Maximum number of memories stored locally.
   ///
@@ -160,7 +158,6 @@ class MemoryStore {
   /// a relatively small local model and we don't want memories
   /// consuming a large part of its context window.
   static const maxMemories = 40;
-
 
   // ═══════════════════════════════════════════════════════════
   // LOAD
@@ -184,11 +181,7 @@ class MemoryStore {
 
       return decoded
           .whereType<Map>()
-          .map(
-            (item) => UserMemory.fromJson(
-          Map<String, dynamic>.from(item),
-        ),
-      )
+          .map((item) => UserMemory.fromJson(Map<String, dynamic>.from(item)))
           .where((memory) => memory.fact.trim().isNotEmpty)
           .toList();
     } catch (e) {
@@ -197,28 +190,19 @@ class MemoryStore {
     }
   }
 
-
   // ═══════════════════════════════════════════════════════════
   // SAVE
   // ═══════════════════════════════════════════════════════════
 
-  Future<void> _saveAll(
-      List<UserMemory> memories,
-      ) async {
+  Future<void> _saveAll(List<UserMemory> memories) async {
     final prefs = await SharedPreferences.getInstance();
 
     final encoded = jsonEncode(
-      memories
-          .map((memory) => memory.toJson())
-          .toList(),
+      memories.map((memory) => memory.toJson()).toList(),
     );
 
-    await prefs.setString(
-      _key,
-      encoded,
-    );
+    await prefs.setString(_key, encoded);
   }
-
 
   // ═══════════════════════════════════════════════════════════
   // UPSERT MEMORY
@@ -267,22 +251,17 @@ class MemoryStore {
 
     final memories = await load();
 
-    final normalizedKey =
-    trimmedKey.toLowerCase();
+    final normalizedKey = trimmedKey.toLowerCase();
 
     final now = DateTime.now();
 
     final existingIndex = memories.indexWhere(
-          (memory) =>
-      memory.key.trim().toLowerCase() ==
-          normalizedKey,
+      (memory) => memory.key.trim().toLowerCase() == normalizedKey,
     );
 
-    final safeConfidence =
-    confidence.clamp(0.0, 1.0).toDouble();
+    final safeConfidence = confidence.clamp(0.0, 1.0).toDouble();
 
-    final safeImportance =
-    importance.clamp(0.0, 1.0).toDouble();
+    final safeImportance = importance.clamp(0.0, 1.0).toDouble();
 
     // ─────────────────────────────────────────────────────────
     // UPDATE EXISTING MEMORY
@@ -302,11 +281,9 @@ class MemoryStore {
         updatedAt: now,
       );
     }
-
     // ─────────────────────────────────────────────────────────
     // CREATE NEW MEMORY
     // ─────────────────────────────────────────────────────────
-
     else {
       memories.add(
         UserMemory(
@@ -336,34 +313,24 @@ class MemoryStore {
     // This prevents uncertain memories from outranking
     // important and reliable memories.
     //
-    memories.sort(
-          (a, b) {
-        final scoreA =
-            (a.importance * 0.7) +
-                (a.confidence * 0.3);
+    memories.sort((a, b) {
+      final scoreA = (a.importance * 0.7) + (a.confidence * 0.3);
 
-        final scoreB =
-            (b.importance * 0.7) +
-                (b.confidence * 0.3);
+      final scoreB = (b.importance * 0.7) + (b.confidence * 0.3);
 
-        return scoreB.compareTo(scoreA);
-      },
-    );
+      return scoreB.compareTo(scoreA);
+    });
 
     // ─────────────────────────────────────────────────────────
     // ENFORCE MEMORY LIMIT
     // ─────────────────────────────────────────────────────────
 
     if (memories.length > maxMemories) {
-      memories.removeRange(
-        maxMemories,
-        memories.length,
-      );
+      memories.removeRange(maxMemories, memories.length);
     }
 
     await _saveAll(memories);
   }
-
 
   // ═══════════════════════════════════════════════════════════
   // GET RELEVANT MEMORIES
@@ -385,67 +352,49 @@ class MemoryStore {
   // ═══════════════════════════════════════════════════════════
 
   List<UserMemory> getRelevantMemories(
-      List<UserMemory> memories, {
-        int limit = 12,
-      }) {
+    List<UserMemory> memories, {
+    int limit = 12,
+  }) {
     final sorted = [...memories];
 
-    sorted.sort(
-          (a, b) {
-        final scoreA =
-            (a.importance * 0.7) +
-                (a.confidence * 0.3);
+    sorted.sort((a, b) {
+      final scoreA = (a.importance * 0.7) + (a.confidence * 0.3);
 
-        final scoreB =
-            (b.importance * 0.7) +
-                (b.confidence * 0.3);
+      final scoreB = (b.importance * 0.7) + (b.confidence * 0.3);
 
-        return scoreB.compareTo(scoreA);
-      },
-    );
+      return scoreB.compareTo(scoreA);
+    });
 
     return sorted.take(limit).toList();
   }
-
 
   // ═══════════════════════════════════════════════════════════
   // REMOVE ONE MEMORY
   // ═══════════════════════════════════════════════════════════
 
-  Future<void> removeMemory(
-      String id,
-      ) async {
+  Future<void> removeMemory(String id) async {
     final memories = await load();
 
-    memories.removeWhere(
-          (memory) => memory.id == id,
-    );
+    memories.removeWhere((memory) => memory.id == id);
 
     await _saveAll(memories);
   }
-
 
   // ═══════════════════════════════════════════════════════════
   // REMOVE MEMORY BY KEY
   // ═══════════════════════════════════════════════════════════
 
-  Future<void> removeMemoryByKey(
-      String key,
-      ) async {
+  Future<void> removeMemoryByKey(String key) async {
     final memories = await load();
 
-    final normalizedKey =
-    key.trim().toLowerCase();
+    final normalizedKey = key.trim().toLowerCase();
 
     memories.removeWhere(
-          (memory) =>
-      memory.key.trim().toLowerCase() ==
-          normalizedKey,
+      (memory) => memory.key.trim().toLowerCase() == normalizedKey,
     );
 
     await _saveAll(memories);
   }
-
 
   // ═══════════════════════════════════════════════════════════
   // CLEAR ALL MEMORIES
@@ -457,32 +406,24 @@ class MemoryStore {
     await prefs.remove(_key);
   }
 
-
   // ═══════════════════════════════════════════════════════════
   // MEMORY CONTEXT FOR GEMMA
   // ═══════════════════════════════════════════════════════════
 
-  String toContextBlock(
-      List<UserMemory> memories,
-      ) {
+  String toContextBlock(List<UserMemory> memories) {
     if (memories.isEmpty) {
       return '';
     }
 
     // Only use the highest-value memories.
-    final relevant = getRelevantMemories(
-      memories,
-      limit: 12,
-    );
+    final relevant = getRelevantMemories(memories, limit: 12);
 
     if (relevant.isEmpty) {
       return '';
     }
 
-    final groups =
-    <MemoryType, List<UserMemory>>{
-      for (final type in MemoryType.values)
-        type: [],
+    final groups = <MemoryType, List<UserMemory>>{
+      for (final type in MemoryType.values) type: [],
     };
 
     for (final memory in relevant) {
@@ -491,18 +432,14 @@ class MemoryStore {
 
     final buffer = StringBuffer();
 
-    buffer.writeln(
-      'USER MEMORY',
-    );
+    buffer.writeln('USER MEMORY');
 
     buffer.writeln(
       'The following are durable facts/preferences/goals/projects '
-          'about the user.',
+      'about the user.',
     );
 
-    buffer.writeln(
-      'Use them only when relevant to the current conversation.',
-    );
+    buffer.writeln('Use them only when relevant to the current conversation.');
 
     buffer.writeln(
       'Do not mention the memory system or say that you remember them.',
@@ -512,55 +449,38 @@ class MemoryStore {
     // PROFILE
     // ─────────────────────────────────────────────────────────
 
-    _writeMemoryGroup(
-      buffer,
-      'PROFILE',
-      groups[MemoryType.profile]!,
-    );
+    _writeMemoryGroup(buffer, 'PROFILE', groups[MemoryType.profile]!);
 
     // ─────────────────────────────────────────────────────────
     // PREFERENCES
     // ─────────────────────────────────────────────────────────
 
-    _writeMemoryGroup(
-      buffer,
-      'PREFERENCES',
-      groups[MemoryType.preference]!,
-    );
+    _writeMemoryGroup(buffer, 'PREFERENCES', groups[MemoryType.preference]!);
 
     // ─────────────────────────────────────────────────────────
     // GOALS
     // ─────────────────────────────────────────────────────────
 
-    _writeMemoryGroup(
-      buffer,
-      'GOALS',
-      groups[MemoryType.goal]!,
-    );
+    _writeMemoryGroup(buffer, 'GOALS', groups[MemoryType.goal]!);
 
     // ─────────────────────────────────────────────────────────
     // PROJECTS
     // ─────────────────────────────────────────────────────────
 
-    _writeMemoryGroup(
-      buffer,
-      'PROJECTS',
-      groups[MemoryType.project]!,
-    );
+    _writeMemoryGroup(buffer, 'PROJECTS', groups[MemoryType.project]!);
 
     return buffer.toString();
   }
-
 
   // ═══════════════════════════════════════════════════════════
   // WRITE MEMORY GROUP
   // ═══════════════════════════════════════════════════════════
 
   void _writeMemoryGroup(
-      StringBuffer buffer,
-      String title,
-      List<UserMemory> memories,
-      ) {
+    StringBuffer buffer,
+    String title,
+    List<UserMemory> memories,
+  ) {
     if (memories.isEmpty) {
       return;
     }
@@ -569,12 +489,9 @@ class MemoryStore {
     buffer.writeln('$title:');
 
     for (final memory in memories) {
-      buffer.writeln(
-        '- ${memory.key}: ${memory.fact}',
-      );
+      buffer.writeln('- ${memory.key}: ${memory.fact}');
     }
   }
-
 
   // ═══════════════════════════════════════════════════════════
   // DEBUG / STATS

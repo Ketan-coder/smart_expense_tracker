@@ -19,13 +19,32 @@ class Income {
   @HiveField(4)
   String? method;
 
+  @HiveField(5)
+  int? walletKey;
+
+  @HiveField(6)
+  String classification;
+
+  @HiveField(7)
+  double? recognizedAmount;
+
+  @HiveField(8)
+  bool? balanceApplied;
+
   Income({
     required this.amount,
     required this.date,
     required this.description,
     required this.categoryKeys,
     this.method,
+    this.walletKey,
+    this.classification = 'income',
+    this.recognizedAmount,
+    this.balanceApplied,
   });
+
+  double get amountForReporting =>
+      recognizedAmount ?? (classification == 'income' ? amount : 0);
 
   @override
   String toString() =>

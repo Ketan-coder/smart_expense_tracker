@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-typedef SmsCallback = void Function(String sender, String message, int timestamp);
+typedef SmsCallback =
+    void Function(String sender, String message, int timestamp);
 
 class SmsListener {
   // CRITICAL FIX: Use the correct channel name matching MainActivity
-  static const MethodChannel _channel = MethodChannel('com.example.expense_tracker/sms');
+  static const MethodChannel _channel = MethodChannel(
+    'com.example.expense_tracker/sms',
+  );
   static SmsCallback? _callback;
   static bool _isListening = false;
 
@@ -22,12 +25,15 @@ class SmsListener {
         String? testResult = await _channel.invokeMethod('testReceiver');
         debugPrint("📱 Channel test result: $testResult");
       } catch (e) {
-        debugPrint("⚠️ Channel test failed (this is OK if method doesn't exist): $e");
+        debugPrint(
+          "⚠️ Channel test failed (this is OK if method doesn't exist): $e",
+        );
       }
 
       // Check permissions
       try {
-        bool hasPermissions = await _channel.invokeMethod('checkPermissions') ?? false;
+        bool hasPermissions =
+            await _channel.invokeMethod('checkPermissions') ?? false;
         debugPrint("🔐 Has SMS permissions: $hasPermissions");
 
         if (!hasPermissions) {
@@ -43,7 +49,6 @@ class SmsListener {
         // Assume permissions are granted if check fails
         return true;
       }
-
     } catch (e) {
       debugPrint("❌ Error initializing SMS listener: $e");
       return false;
@@ -85,19 +90,24 @@ class SmsListener {
 
             final sender = args['sender']?.toString() ?? '';
             final message = args['message']?.toString() ?? '';
-            final timestamp = args['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+            final timestamp =
+                args['timestamp'] as int? ??
+                DateTime.now().millisecondsSinceEpoch;
 
             debugPrint("📨 Parsed SMS Details:");
             debugPrint("   👤 Sender: $sender");
             debugPrint("   📝 Message length: ${message.length}");
-            debugPrint("   📝 Message preview: ${message.length > 50 ? '${message.substring(0, 50)}...' : message}");
+            debugPrint(
+              "   📝 Message preview: ${message.length > 50 ? '${message.substring(0, 50)}...' : message}",
+            );
             debugPrint("   ⏰ Timestamp: $timestamp");
-            debugPrint("   ⏰ DateTime: ${DateTime.fromMillisecondsSinceEpoch(timestamp)}");
+            debugPrint(
+              "   ⏰ DateTime: ${DateTime.fromMillisecondsSinceEpoch(timestamp)}",
+            );
 
             debugPrint("📨 Calling callback function...");
             _callback!(sender, message, timestamp);
             debugPrint("✅ SMS callback executed successfully");
-
           } catch (e, stackTrace) {
             debugPrint("❌ Error processing SMS: $e");
             debugPrint("❌ Stack trace: $stackTrace");
@@ -150,18 +160,41 @@ class SmsListener {
   static bool isTransactionMessage(String message) {
     debugPrint("🔍 ========================================");
     debugPrint("🔍 Checking if transaction message...");
-    debugPrint("🔍 Message: ${message.length > 100 ? '${message.substring(0, 100)}...' : message}");
+    debugPrint(
+      "🔍 Message: ${message.length > 100 ? '${message.substring(0, 100)}...' : message}",
+    );
 
     String lowerMsg = message.toLowerCase();
 
     List<String> transactionKeywords = [
-      'debited', 'credited', 'sent', 'received', 'paid', 'withdrawn',
-      'deposited', 'transferred', 'transaction', 'purchase', 'refund',
-      'deducted', 'added', 'balance', 'account', 'upi', 'neft', 'imps',
-      'rtgs', 'bank', 'atm', 'pos', 'online'
+      'debited',
+      'credited',
+      'sent',
+      'received',
+      'paid',
+      'withdrawn',
+      'deposited',
+      'transferred',
+      'transaction',
+      'purchase',
+      'refund',
+      'deducted',
+      'added',
+      'balance',
+      'account',
+      'upi',
+      'neft',
+      'imps',
+      'rtgs',
+      'bank',
+      'atm',
+      'pos',
+      'online',
     ];
 
-    List<String> matchedKeywords = transactionKeywords.where((keyword) => lowerMsg.contains(keyword)).toList();
+    List<String> matchedKeywords = transactionKeywords
+        .where((keyword) => lowerMsg.contains(keyword))
+        .toList();
     bool isTransaction = matchedKeywords.isNotEmpty;
 
     debugPrint("🔍 Is transaction: $isTransaction");
@@ -176,11 +209,21 @@ class SmsListener {
   static bool isDebitMessage(String message) {
     String lowerMsg = message.toLowerCase();
     List<String> debitKeywords = [
-      'debited', 'sent', 'paid', 'withdrawn', 'deducted',
-      'purchase', 'spent', 'transfer to', 'payment', 'debit'
+      'debited',
+      'sent',
+      'paid',
+      'withdrawn',
+      'deducted',
+      'purchase',
+      'spent',
+      'transfer to',
+      'payment',
+      'debit',
     ];
 
-    List<String> matchedKeywords = debitKeywords.where((keyword) => lowerMsg.contains(keyword)).toList();
+    List<String> matchedKeywords = debitKeywords
+        .where((keyword) => lowerMsg.contains(keyword))
+        .toList();
     bool isDebit = matchedKeywords.isNotEmpty;
 
     debugPrint("🔍 Is debit: $isDebit");
@@ -193,11 +236,20 @@ class SmsListener {
   static bool isCreditMessage(String message) {
     String lowerMsg = message.toLowerCase();
     List<String> creditKeywords = [
-      'credited', 'received', 'deposited', 'added',
-      'refund', 'transfer from', 'salary', 'interest', 'credit'
+      'credited',
+      'received',
+      'deposited',
+      'added',
+      'refund',
+      'transfer from',
+      'salary',
+      'interest',
+      'credit',
     ];
 
-    List<String> matchedKeywords = creditKeywords.where((keyword) => lowerMsg.contains(keyword)).toList();
+    List<String> matchedKeywords = creditKeywords
+        .where((keyword) => lowerMsg.contains(keyword))
+        .toList();
     bool isCredit = matchedKeywords.isNotEmpty;
 
     debugPrint("🔍 Is credit: $isCredit");
@@ -212,7 +264,16 @@ class SmsListener {
 
     String upperMsg = message.toUpperCase();
     List<String> methodKeywords = [
-      'UPI', 'NEFT', 'IMPS', 'RTGS', 'BANK', 'ATM', 'POS', 'ONLINE', 'DEBIT CARD', 'CREDIT CARD'
+      'UPI',
+      'NEFT',
+      'IMPS',
+      'RTGS',
+      'BANK',
+      'ATM',
+      'POS',
+      'ONLINE',
+      'DEBIT CARD',
+      'CREDIT CARD',
     ];
 
     String method = 'OTHER';
@@ -235,18 +296,32 @@ class SmsListener {
   static double? extractAmount(String message) {
     debugPrint("💰 ========================================");
     debugPrint("💰 Extracting amount from message...");
-    debugPrint("💰 Message: ${message.length > 100 ? '${message.substring(0, 100)}...' : message}");
+    debugPrint(
+      "💰 Message: ${message.length > 100 ? '${message.substring(0, 100)}...' : message}",
+    );
 
     List<RegExp> amountPatterns = [
       // Indian Rupee patterns
-      RegExp(r'(?:rs\.?\s*|inr\s*|₹\s*)([0-9,]+(?:\.[0-9]{2})?)', caseSensitive: false),
-      RegExp(r'([0-9,]+(?:\.[0-9]{2})?)\s*(?:rs\.?|inr|₹)', caseSensitive: false),
+      RegExp(
+        r'(?:rs\.?\s*|inr\s*|₹\s*)([0-9,]+(?:\.[0-9]{2})?)',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'([0-9,]+(?:\.[0-9]{2})?)\s*(?:rs\.?|inr|₹)',
+        caseSensitive: false,
+      ),
 
       // Amount with label
-      RegExp(r'amount[:\s]*(?:rs\.?|inr|₹)?\s*([0-9,]+(?:\.[0-9]{2})?)', caseSensitive: false),
+      RegExp(
+        r'amount[:\s]*(?:rs\.?|inr|₹)?\s*([0-9,]+(?:\.[0-9]{2})?)',
+        caseSensitive: false,
+      ),
 
       // USD/Dollar
-      RegExp(r'(?:usd|dollar)\s*([0-9,]+(?:\.[0-9]{2})?)', caseSensitive: false),
+      RegExp(
+        r'(?:usd|dollar)\s*([0-9,]+(?:\.[0-9]{2})?)',
+        caseSensitive: false,
+      ),
 
       // Generic number (last resort)
       RegExp(r'(?:^|\s)([0-9,]+\.[0-9]{2})(?:\s|$)', caseSensitive: false),
@@ -328,7 +403,11 @@ class SmsListener {
     return sender;
   }
 
-  static Map<String, dynamic>? parseTransactionSms(String sender, String message, int timestamp) {
+  static Map<String, dynamic>? parseTransactionSms(
+    String sender,
+    String message,
+    int timestamp,
+  ) {
     debugPrint("🔄 ========================================");
     debugPrint("🔄 PARSING TRANSACTION SMS");
     debugPrint("🔄 ========================================");
@@ -354,19 +433,13 @@ class SmsListener {
     debugPrint("🔄 ✅ Amount extracted: ₹$amount");
 
     // Step 3: Determine transaction type
-    String transactionType;
-    if (isDebitMessage(message)) {
-      transactionType = 'debit';
-      debugPrint("🔄 ✅ Type: DEBIT (expense)");
-    } else if (isCreditMessage(message)) {
-      transactionType = 'credit';
-      debugPrint("🔄 ✅ Type: CREDIT (income)");
-    } else {
-      transactionType = 'unknown';
-      debugPrint("🔄 ⚠️ Type: UNKNOWN (defaulting to debit)");
-      // Default to debit if unclear
-      transactionType = 'debit';
+    final isDebit = isDebitMessage(message);
+    final isCredit = isCreditMessage(message);
+    if (isDebit == isCredit) {
+      debugPrint("🔄 ⚠️ Direction is ambiguous; ignoring message");
+      return null;
     }
+    final transactionType = isDebit ? 'debit' : 'credit';
 
     // Step 4: Extract additional info
     String bankName = extractBankName(sender);

@@ -7,6 +7,7 @@ import 'package:hive_ce_flutter/adapters.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import '../core/app_constants.dart';
+import '../core/profile_scope.dart';
 import '../data/model/daily_progress.dart';
 import '../data/model/expense.dart';
 import '../data/model/income.dart';
@@ -42,6 +43,10 @@ void callbackDispatcher() {
         Hive.registerAdapter(HabitAdapter());
       }
 
+      final prefs = await SharedPreferences.getInstance();
+      ProfileScope.activeProfileId =
+          prefs.getString('active_financial_profile') ?? 'default';
+
       // Open ALL required boxes
       await Hive.openBox<DailyProgress>(AppConstants.dailyProgress);
       await Hive.openBox<Expense>(AppConstants.expenses);
@@ -52,7 +57,6 @@ void callbackDispatcher() {
       debugPrint('✅ All Hive boxes opened successfully');
 
       // 2. Load User Preferences
-      final prefs = await SharedPreferences.getInstance();
       final bool darkMode = prefs.getBool('wp_dark') ?? true;
       final bool useStatusColors = prefs.getBool('wp_colors') ?? false;
       final int styleIndex = prefs.getInt('wp_style') ?? 0;
@@ -100,7 +104,9 @@ void callbackDispatcher() {
       // Verify file exists
       final exists = await wallpaperFile.exists();
       final size = exists ? await wallpaperFile.length() : 0;
-      debugPrint('📁 File exists: $exists, Size: ${(size / 1024).toStringAsFixed(2)} KB');
+      debugPrint(
+        '📁 File exists: $exists, Size: ${(size / 1024).toStringAsFixed(2)} KB',
+      );
 
       // 6. Set wallpaper
       debugPrint('📱 Setting wallpaper...');
@@ -113,7 +119,10 @@ void callbackDispatcher() {
         debugPrint('✅ ========================================');
 
         // Save last update time
-        await prefs.setString('last_wallpaper_update', DateTime.now().toIso8601String());
+        await prefs.setString(
+          'last_wallpaper_update',
+          DateTime.now().toIso8601String(),
+        );
       } else {
         debugPrint('❌ ========================================');
         debugPrint('❌ Wallpaper setting failed');
@@ -135,7 +144,8 @@ void callbackDispatcher() {
 }
 
 class WallpaperSchedulerService {
-  static final WallpaperSchedulerService _instance = WallpaperSchedulerService._internal();
+  static final WallpaperSchedulerService _instance =
+      WallpaperSchedulerService._internal();
   factory WallpaperSchedulerService() => _instance;
   WallpaperSchedulerService._internal();
 
@@ -152,7 +162,9 @@ class WallpaperSchedulerService {
     // await Workmanager().cancelAll();
 
     final nextMidnight = _getDurationUntilMidnight();
-    debugPrint('⏰ Next wallpaper update in: ${nextMidnight.inHours}h ${nextMidnight.inMinutes % 60}m');
+    debugPrint(
+      '⏰ Next wallpaper update in: ${nextMidnight.inHours}h ${nextMidnight.inMinutes % 60}m',
+    );
 
     // Schedule daily update at midnight
     await Workmanager().registerPeriodicTask(
@@ -210,7 +222,9 @@ class WallpaperSchedulerService {
 
       final calendarService = ProgressCalendarService();
       await calendarService.refreshTodayProgress();
-      final yearProgress = await calendarService.getYearProgress(DateTime.now().year);
+      final yearProgress = await calendarService.getYearProgress(
+        DateTime.now().year,
+      );
 
       final wallpaperService = WallpaperGeneratorService();
       final wallpaperFile = await wallpaperService.generateProgressWallpaper(
@@ -229,7 +243,10 @@ class WallpaperSchedulerService {
       final success = await wallpaperService.setAsLockScreen(wallpaperFile);
 
       if (success) {
-        await prefs.setString('last_wallpaper_update', DateTime.now().toIso8601String());
+        await prefs.setString(
+          'last_wallpaper_update',
+          DateTime.now().toIso8601String(),
+        );
         debugPrint('✅ Direct wallpaper update successful');
       }
 
@@ -244,7 +261,11 @@ class WallpaperSchedulerService {
     final prefs = await SharedPreferences.getInstance();
     final lastUpdateStr = prefs.getString('last_wallpaper_update');
 
-    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
 
     if (lastUpdateStr == null) {
       debugPrint('🔄 No previous update found, running directly...');
@@ -253,11 +274,17 @@ class WallpaperSchedulerService {
     }
 
     final lastUpdate = DateTime.parse(lastUpdateStr);
-    final lastUpdateDay = DateTime(lastUpdate.year, lastUpdate.month, lastUpdate.day);
+    final lastUpdateDay = DateTime(
+      lastUpdate.year,
+      lastUpdate.month,
+      lastUpdate.day,
+    );
 
     if (lastUpdateDay.isBefore(today)) {
       final daysLate = today.difference(lastUpdateDay).inDays;
-      debugPrint('🔄 Wallpaper is $daysLate day(s) outdated, running directly...');
+      debugPrint(
+        '🔄 Wallpaper is $daysLate day(s) outdated, running directly...',
+      );
       await runDirectUpdate(); // ← direct, not via Workmanager
     } else {
       debugPrint('✅ Wallpaper already up to date');
@@ -284,7 +311,14 @@ class WallpaperSchedulerService {
 
   Duration _getDurationUntilMidnight() {
     final now = DateTime.now();
-    final midnight = DateTime(now.year, now.month, now.day + 1, 0, 5, 0); // 5 minutes after midnight for safety
+    final midnight = DateTime(
+      now.year,
+      now.month,
+      now.day + 1,
+      0,
+      5,
+      0,
+    ); // 5 minutes after midnight for safety
     return midnight.difference(now);
   }
 

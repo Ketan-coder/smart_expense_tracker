@@ -23,7 +23,7 @@ enum DateRangePreset {
   last3Months,
   last6Months,
   thisYear,
-  custom
+  custom,
 }
 
 class IncomePage extends StatefulWidget {
@@ -67,13 +67,14 @@ class _IncomePageState extends State<IncomePage> {
           end: now,
         );
       case DateRangePreset.thisMonth:
-        return DateTimeRange(
-          start: DateTime(now.year, now.month, 1),
-          end: now,
-        );
+        return DateTimeRange(start: DateTime(now.year, now.month, 1), end: now);
       case DateRangePreset.lastMonth:
         final lastMonth = DateTime(now.year, now.month - 1, 1);
-        final lastMonthEnd = DateTime(now.year, now.month, 1).subtract(const Duration(days: 1));
+        final lastMonthEnd = DateTime(
+          now.year,
+          now.month,
+          1,
+        ).subtract(const Duration(days: 1));
         return DateTimeRange(start: lastMonth, end: lastMonthEnd);
       case DateRangePreset.last3Months:
         return DateTimeRange(
@@ -86,15 +87,15 @@ class _IncomePageState extends State<IncomePage> {
           end: now,
         );
       case DateRangePreset.thisYear:
-        return DateTimeRange(
-          start: DateTime(now.year, 1, 1),
-          end: now,
-        );
+        return DateTimeRange(start: DateTime(now.year, 1, 1), end: now);
       case DateRangePreset.custom:
-        return _customDateRange ?? DateTimeRange(start: today.subtract(const Duration(days: 6)), end: now);
+        return _customDateRange ??
+            DateTimeRange(
+              start: today.subtract(const Duration(days: 6)),
+              end: now,
+            );
     }
   }
-
 
   Future<void> _showDateRangeMenu() async {
     await BottomSheetUtil.show(
@@ -163,7 +164,11 @@ class _IncomePageState extends State<IncomePage> {
     if (picked != null) {
       if (picked.duration.inDays > 365) {
         if (mounted) {
-          SnackBars.show(context,message: 'Please select a range within 1 year',type: SnackBarType.error);
+          SnackBars.show(
+            context,
+            message: 'Please select a range within 1 year',
+            type: SnackBarType.error,
+          );
         }
         return;
       }
@@ -206,7 +211,7 @@ class _IncomePageState extends State<IncomePage> {
   }
 
   double getTotalIncome(List<Income> incomes) {
-    return incomes.fold(0, (sum, i) => sum + i.amount);
+    return incomes.fold(0, (sum, i) => sum + i.amountForReporting);
   }
 
   Map<String, double> getCategoryBreakdown(List<Income> incomes) {
@@ -216,9 +221,10 @@ class _IncomePageState extends State<IncomePage> {
       if (income.categoryKeys.isNotEmpty) {
         final category = categoryBox.get(income.categoryKeys.first);
         final name = category?.name ?? 'Uncategorized';
-        breakdown[name] = (breakdown[name] ?? 0) + income.amount;
+        breakdown[name] = (breakdown[name] ?? 0) + income.amountForReporting;
       } else {
-        breakdown['Uncategorized'] = (breakdown['Uncategorized'] ?? 0) + income.amount;
+        breakdown['Uncategorized'] =
+            (breakdown['Uncategorized'] ?? 0) + income.amountForReporting;
       }
     }
     return breakdown;
@@ -246,7 +252,8 @@ class _IncomePageState extends State<IncomePage> {
         income.date.day,
       );
       if (dailyIncomes.containsKey(incomeDay)) {
-        dailyIncomes[incomeDay] = dailyIncomes[incomeDay]! + income.amount;
+        dailyIncomes[incomeDay] =
+            dailyIncomes[incomeDay]! + income.amountForReporting;
       }
     }
 
@@ -297,7 +304,9 @@ class _IncomePageState extends State<IncomePage> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const IncomeListingPage()),
+                MaterialPageRoute(
+                  builder: (context) => const IncomeListingPage(),
+                ),
               );
             },
           ),
@@ -315,7 +324,9 @@ class _IncomePageState extends State<IncomePage> {
             color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
           ),
           child: ValueListenableBuilder<Box<Income>>(
-            valueListenable: Hive.box<Income>(AppConstants.incomes).listenable(),
+            valueListenable: Hive.box<Income>(
+              AppConstants.incomes,
+            ).listenable(),
             builder: (context, box, _) {
               if (_isLoading) {
                 return const Center(child: CircularProgressIndicator());
@@ -341,7 +352,10 @@ class _IncomePageState extends State<IncomePage> {
                     GestureDetector(
                       onTap: _showDateRangeMenu,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: colorScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(8),
@@ -349,7 +363,11 @@ class _IncomePageState extends State<IncomePage> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.calendar_today_rounded, size: 14, color: colorScheme.onPrimaryContainer),
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              size: 14,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               _getDateRangeLabel(),
@@ -375,7 +393,7 @@ class _IncomePageState extends State<IncomePage> {
                             colorScheme.primaryContainer,
                             colorScheme.onPrimaryContainer,
                             theme,
-                            isPrivate
+                            isPrivate,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -387,7 +405,7 @@ class _IncomePageState extends State<IncomePage> {
                             colorScheme.tertiaryContainer,
                             colorScheme.onTertiaryContainer,
                             theme,
-                            isPrivate
+                            isPrivate,
                           ),
                         ),
                       ],
@@ -401,23 +419,28 @@ class _IncomePageState extends State<IncomePage> {
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(0, 6, 6, 0),
                           child: ScrollConfiguration(
-                            behavior: const ScrollBehavior().copyWith(overscroll: false),
-                            child: CustomBarChart<MapEntry<DateTime, double>>.simple(
-                              data: dailyIncomes.entries.toList(),
-                              getDate: (entry) => entry.key,
-                              getValue: (entry) => entry.value,
-                              config: ChartConfig(
-                                chartTitle: "Income Trend ($daysDiff Days)",
-                                primaryColor: colorScheme.primary,
-                                hoverColor: colorScheme.primaryContainer,
-                                yAxisLabel: "Amount",
-                                valueUnit: "$_currentCurrency ",
-                                highlightHighest: true,
-                                highlightMode: HighlightMode.highest,
-                                isAscending: true,
-                                showToggleSwitch: true,
-                              ),
+                            behavior: const ScrollBehavior().copyWith(
+                              overscroll: false,
                             ),
+                            child:
+                                CustomBarChart<
+                                  MapEntry<DateTime, double>
+                                >.simple(
+                                  data: dailyIncomes.entries.toList(),
+                                  getDate: (entry) => entry.key,
+                                  getValue: (entry) => entry.value,
+                                  config: ChartConfig(
+                                    chartTitle: "Income Trend ($daysDiff Days)",
+                                    primaryColor: colorScheme.primary,
+                                    hoverColor: colorScheme.primaryContainer,
+                                    yAxisLabel: "Amount",
+                                    valueUnit: "$_currentCurrency ",
+                                    highlightHighest: true,
+                                    highlightMode: HighlightMode.highest,
+                                    isAscending: true,
+                                    showToggleSwitch: true,
+                                  ),
+                                ),
                           ),
                         ),
                       ),
@@ -428,7 +451,13 @@ class _IncomePageState extends State<IncomePage> {
                     if (categoryBreakdown.isNotEmpty) ...[
                       Text('By Category', style: theme.textTheme.titleSmall),
                       const SizedBox(height: 8),
-                      _buildCategoryBreakdown(categoryBreakdown, total, colorScheme, theme, isPrivate),
+                      _buildCategoryBreakdown(
+                        categoryBreakdown,
+                        total,
+                        colorScheme,
+                        theme,
+                        isPrivate,
+                      ),
                       const SizedBox(height: 12),
                     ],
 
@@ -439,25 +468,38 @@ class _IncomePageState extends State<IncomePage> {
                         Text('Recent', style: theme.textTheme.titleSmall),
                         TextButton(
                           onPressed: () {
-                            Helpers.navigateTo(context, const IncomeListingPage());
+                            Helpers.navigateTo(
+                              context,
+                              const IncomeListingPage(),
+                            );
                           },
-                          child: const Text('View All', style: TextStyle(fontSize: 12)),
+                          child: const Text(
+                            'View All',
+                            style: TextStyle(fontSize: 12),
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
                     ...filteredIncomes.toList().reversed.take(5).map((income) {
-                      final categoryBox = Hive.box<Category>(AppConstants.categories);
+                      final categoryBox = Hive.box<Category>(
+                        AppConstants.categories,
+                      );
                       String categoryName = 'Uncategorized';
                       if (income.categoryKeys.isNotEmpty) {
-                        final category = categoryBox.get(income.categoryKeys.first);
+                        final category = categoryBox.get(
+                          income.categoryKeys.first,
+                        );
                         categoryName = category?.name ?? 'General';
                       }
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 6),
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
                           leading: CircleAvatar(
                             backgroundColor: colorScheme.primaryContainer,
                             radius: 16,
@@ -468,8 +510,12 @@ class _IncomePageState extends State<IncomePage> {
                             ),
                           ),
                           title: Text(
-                            income.method?.isNotEmpty == true ? income.method! : 'UPI',
-                            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                            income.method?.isNotEmpty == true
+                                ? income.method!
+                                : 'UPI',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           subtitle: Text(
                             '$categoryName • ${income.description}',
@@ -485,13 +531,14 @@ class _IncomePageState extends State<IncomePage> {
                           //   ),
                           // ),
                           trailing: PrivacyCurrency(
-                              amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(income.amount)}',
-                              isPrivacyActive: isPrivate,
+                            amount:
+                                '$_currentCurrency ${NumberFormatterService().formatForDisplay(income.amount)}',
+                            isPrivacyActive: isPrivate,
                             style: theme.textTheme.titleSmall?.copyWith(
                               color: colorScheme.primary,
                               fontWeight: FontWeight.bold,
-                              ),
                             ),
+                          ),
                         ),
                       );
                     }),
@@ -507,15 +554,14 @@ class _IncomePageState extends State<IncomePage> {
   }
 
   Widget _buildStatCard(
-      String label,
-      String value,
-      IconData icon,
-      Color bgColor,
-      Color iconColor,
-      ThemeData theme,
-      bool isPrivate
-      ) {
-
+    String label,
+    String value,
+    IconData icon,
+    Color bgColor,
+    Color iconColor,
+    ThemeData theme,
+    bool isPrivate,
+  ) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -528,16 +574,21 @@ class _IncomePageState extends State<IncomePage> {
               child: Icon(icon, color: iconColor, size: 16),
             ),
             const SizedBox(height: 8),
-            Text(label, style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+            ),
             const SizedBox(height: 2),
             // Text(
             //   value,
             //   style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             // ),
             PrivacyCurrency(
-                amount: value,
-                isPrivacyActive: isPrivate,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              amount: value,
+              isPrivacyActive: isPrivate,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -546,13 +597,14 @@ class _IncomePageState extends State<IncomePage> {
   }
 
   Widget _buildCategoryBreakdown(
-      Map<String, double> breakdown,
-      double total,
-      ColorScheme colorScheme,
-      ThemeData theme,
-      bool isPrivate,
-      ) {
-    final sorted = breakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    Map<String, double> breakdown,
+    double total,
+    ColorScheme colorScheme,
+    ThemeData theme,
+    bool isPrivate,
+  ) {
+    final sorted = breakdown.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
     final validTotal = total == 0 ? 1 : total;
 
     return Card(
@@ -570,12 +622,19 @@ class _IncomePageState extends State<IncomePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(entry.key, style: theme.textTheme.bodySmall?.copyWith(fontSize: 12)),
+                        Text(
+                          entry.key,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         LinearProgressIndicator(
                           value: percentage / 100,
                           backgroundColor: colorScheme.surfaceContainerHighest,
-                          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            colorScheme.primary,
+                          ),
                           minHeight: 5,
                           borderRadius: BorderRadius.circular(2.5),
                         ),
@@ -591,9 +650,13 @@ class _IncomePageState extends State<IncomePage> {
                       //   style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
                       // ),
                       PrivacyCurrency(
-                          amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
-                          isPrivacyActive: isPrivate,
-                        style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
+                        amount:
+                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
+                        isPrivacyActive: isPrivate,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                       Text(
                         '${percentage.toStringAsFixed(0)}%',
@@ -618,7 +681,11 @@ class _IncomePageState extends State<IncomePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inbox_rounded, size: 80, color: colorScheme.onSurfaceVariant),
+          Icon(
+            Icons.inbox_rounded,
+            size: 80,
+            color: colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(height: 16),
           Text('No income yet', style: theme.textTheme.headlineSmall),
           const SizedBox(height: 8),

@@ -15,7 +15,6 @@ enum NotificationActionType {
   openHabit,
 }
 
-
 class _PendingNotification {
   final int id;
   final String title;
@@ -45,7 +44,8 @@ class NotificationService {
   static bool _isInitialized = false;
   static final List<_PendingNotification> _manualNotifications = [];
 
-  static final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> _navigatorKey =
+      GlobalKey<NavigatorState>();
   static GlobalKey<NavigatorState> get navigatorKey => _navigatorKey;
 
   static Future<void> initialize() async {
@@ -64,7 +64,7 @@ class NotificationService {
 
       // Android initialization
       const AndroidInitializationSettings initializationSettingsAndroid =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+          AndroidInitializationSettings('@drawable/ic_notification');
 
       final InitializationSettings initializationSettings =
           InitializationSettings(android: initializationSettingsAndroid);
@@ -77,7 +77,6 @@ class NotificationService {
           _handleNotificationClick(response.payload);
         },
       );
-
 
       // Create notification channel FIRST
       await createNotificationChannel();
@@ -103,10 +102,7 @@ class NotificationService {
         final habitName = payload.split('|')[1];
 
         // Navigate to habit page and pass the name as an argument
-        _navigatorKey.currentState?.pushNamed(
-            '/habit',
-            arguments: habitName
-        );
+        _navigatorKey.currentState?.pushNamed('/habit', arguments: habitName);
         return;
       }
 
@@ -147,7 +143,6 @@ class NotificationService {
       }
     });
   }
-
 
   static Future<void> createNotificationChannel() async {
     try {
@@ -324,7 +319,12 @@ class NotificationService {
       debugPrint(
         '[SCHEDULE] Scheduled time is in the past. Showing immediately.',
       );
-      await showNotification(id: id, title: title, body: body, payload: payload);
+      await showNotification(
+        id: id,
+        title: title,
+        body: body,
+        payload: payload,
+      );
       return;
     }
 
@@ -343,6 +343,7 @@ class NotificationService {
             'reminder_channel',
             'Reminders',
             channelDescription: 'Channel for reminder notifications',
+            icon: 'ic_notification',
             importance: Importance.max,
             priority: Priority.high,
             enableVibration: true,
@@ -395,6 +396,7 @@ class NotificationService {
             channelId,
             channelName,
             channelDescription: 'Channel for notifications',
+            icon: 'ic_notification',
             importance: Importance.max,
             priority: Priority.high,
             enableVibration: true,

@@ -10,7 +10,7 @@ import '../data/model/income.dart';
 
 class ProgressCalendarService {
   static final ProgressCalendarService _instance =
-  ProgressCalendarService._internal();
+      ProgressCalendarService._internal();
   factory ProgressCalendarService() => _instance;
   ProgressCalendarService._internal();
 
@@ -64,8 +64,10 @@ class ProgressCalendarService {
     bool hasHabitCompletion = false;
 
     for (final habit in habitBox.values) {
-      final isCompletedOnDate = habit.completionHistory.any((completionDate) =>
-          _isSameDay(_normalizeDate(completionDate), normalizedDate));
+      final isCompletedOnDate = habit.completionHistory.any(
+        (completionDate) =>
+            _isSameDay(_normalizeDate(completionDate), normalizedDate),
+      );
 
       if (isCompletedOnDate) {
         hasHabitCompletion = true;
@@ -82,16 +84,21 @@ class ProgressCalendarService {
 
     // Check for income on this date (income is always productive)
     final dayIncomes = incomeBox.values.where(
-            (income) => _isSameDay(_normalizeDate(income.date), normalizedDate));
+      (income) => _isSameDay(_normalizeDate(income.date), normalizedDate),
+    );
 
     // Check for expenses linked to goals/habits (these are productive)
     final dayExpenses = expenseBox.values.where(
-            (expense) => _isSameDay(_normalizeDate(expense.date), normalizedDate));
+      (expense) => _isSameDay(_normalizeDate(expense.date), normalizedDate),
+    );
 
     // ✅ Income is ALWAYS productive
-    if (dayIncomes.isNotEmpty) {
+    if (dayIncomes.any((income) => income.amountForReporting > 0)) {
       hasProductiveTransaction = true;
-      final totalIncome = dayIncomes.fold(0.0, (sum, income) => sum + income.amount);
+      final totalIncome = dayIncomes.fold(
+        0.0,
+        (sum, income) => sum + income.amountForReporting,
+      );
       totalSavings += totalIncome;
     }
 
@@ -103,7 +110,9 @@ class ProgressCalendarService {
       for (final goal in goalBox.values) {
         if (goal.lastInstallmentDate != null &&
             _isSameDay(goal.lastInstallmentDate!, normalizedDate) &&
-            expense.description.toLowerCase().contains(goal.name.toLowerCase())) {
+            expense.description.toLowerCase().contains(
+              goal.name.toLowerCase(),
+            )) {
           isProductiveExpense = true;
           break;
         }
@@ -112,11 +121,15 @@ class ProgressCalendarService {
       // Check if expense matches any completed habit on this date
       if (!isProductiveExpense) {
         for (final habit in habitBox.values) {
-          final wasCompletedOnDate = habit.completionHistory.any((completionDate) =>
-              _isSameDay(_normalizeDate(completionDate), normalizedDate));
+          final wasCompletedOnDate = habit.completionHistory.any(
+            (completionDate) =>
+                _isSameDay(_normalizeDate(completionDate), normalizedDate),
+          );
 
           if (wasCompletedOnDate &&
-              expense.description.toLowerCase().contains(habit.name.toLowerCase())) {
+              expense.description.toLowerCase().contains(
+                habit.name.toLowerCase(),
+              )) {
             isProductiveExpense = true;
             break;
           }
@@ -126,7 +139,7 @@ class ProgressCalendarService {
       // If this expense is productive, mark it
       if (isProductiveExpense) {
         hasProductiveTransaction = true;
-        totalSavings -= expense.amount; // Subtract from savings
+        totalSavings -= expense.amountForReporting;
       }
     }
 
@@ -160,13 +173,15 @@ class ProgressCalendarService {
         await box.put(key, progress);
       }
 
-      yearProgress.add(progress ??
-          DailyProgress(
-            date: date,
-            hasGoalProgress: false,
-            hasHabitCompletion: false,
-            hasProductiveTransaction: false,
-          ));
+      yearProgress.add(
+        progress ??
+            DailyProgress(
+              date: date,
+              hasGoalProgress: false,
+              hasHabitCompletion: false,
+              hasProductiveTransaction: false,
+            ),
+      );
     }
 
     return yearProgress;

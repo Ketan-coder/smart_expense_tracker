@@ -1,13 +1,15 @@
+import 'profile_scope.dart';
+
 class AppConstants {
-  static final String expenses = 'expenses';
-  static final String incomes = 'incomes';
-  static final String habits = 'habits';
-  static final String categories = 'categories';
-  static final String recurrings = 'recurrings';
-  static final String wallets = 'wallets';
-  static final String goals = 'goals';
-  static const String loans = 'loans';
-  static const String dailyProgress = 'daily_progress';
+  static String get expenses => ProfileScope.boxName('expenses');
+  static String get incomes => ProfileScope.boxName('incomes');
+  static String get habits => ProfileScope.boxName('habits');
+  static String get categories => ProfileScope.boxName('categories');
+  static String get recurrings => ProfileScope.boxName('recurrings');
+  static String get wallets => ProfileScope.boxName('wallets');
+  static String get goals => ProfileScope.boxName('goals');
+  static String get loans => ProfileScope.boxName('loans');
+  static String get dailyProgress => ProfileScope.boxName('daily_progress');
 
   static const loanDocuments = 'loan_documents'; // typeId: 13
   static const loanCreditorTypes = 'loan_creditor_types'; // typeId: 14
@@ -16,9 +18,12 @@ class AppConstants {
   static const loanPurposes = 'loan_purposes'; // typeId: 17
   static const documentTypes = 'document_types'; // typeId: 18
 
-// ---------------- Icon ----------------------------
-  static const String successSendLottieJsonPath = 'assets/icons/SuccessSendLottie.json';
+  // ---------------- Icon ----------------------------
+  static const String successSendLottieJsonPath =
+      'assets/icons/SuccessSendLottie.json';
   static const String cellphoneJsonPath = 'assets/icons/Cellphone.json';
-  static const String spinningIndianRupeeCoin = 'assets/icons/IndiaRupeeCoin.json';
-  static const String moneyRainDashboardJsonPath = 'assets/icons/MoneyRainDashboard.json';
+  static const String spinningIndianRupeeCoin =
+      'assets/icons/IndiaRupeeCoin.json';
+  static const String moneyRainDashboardJsonPath =
+      'assets/icons/MoneyRainDashboard.json';
 }

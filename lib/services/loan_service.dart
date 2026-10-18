@@ -31,6 +31,7 @@ class LoanService {
     required LoanType type,
     required String method,
     required List<int> categoryKeys,
+    int? walletKey,
     DateTime? dueDate,
     String? phoneNumber,
     bool reminderEnabled = true,
@@ -60,6 +61,7 @@ class LoanService {
         principalAmount: principalAmount,
         type: type,
         method: method,
+        walletKey: walletKey,
         categoryKeys: categoryKeys,
         dueDate: dueDate,
         phoneNumber: phoneNumber,
@@ -91,12 +93,15 @@ class LoanService {
       // Find the newly created loan
       final loanBox = Hive.box<Loan>(AppConstants.loans);
       final newLoan = loanBox.values.lastWhere(
-            (loan) => loan.creditorName == creditorName.trim() &&
+        (loan) =>
+            loan.creditorName == creditorName.trim() &&
             loan.principalAmount == principalAmount,
         orElse: () => throw Exception("Loan not found after creation"),
       );
 
-      debugPrint("✅ [LoanService] Loan added: ${newLoan.typeText} ${newLoan.principalAmount} ${newLoan.directionText}");
+      debugPrint(
+        "✅ [LoanService] Loan added: ${newLoan.typeText} ${newLoan.principalAmount} ${newLoan.directionText}",
+      );
 
       // Schedule reminders
       if (reminderEnabled && (dueDate != null || firstPaymentDate != null)) {
@@ -104,7 +109,6 @@ class LoanService {
       }
 
       return newLoan;
-
     } catch (e, st) {
       debugPrint("❌ [LoanService] Error adding loan: $e\n$st");
       return null;
@@ -117,12 +121,24 @@ class LoanService {
 
     try {
       final loanKey = loanBox.keys.cast<int>().firstWhere(
-            (key) => loanBox.get(key)?.id == loanId,
+        (key) => loanBox.get(key)?.id == loanId,
         orElse: () => throw Exception("Loan not found"),
       );
 
       // Update status before saving
       final statusUpdatedLoan = updatedLoan.updateStatus();
+      final hasLinkedTransactions =
+          statusUpdatedLoan.linkedTransactionIds.isNotEmpty;
+      if (hasLinkedTransactions &&
+          (statusUpdatedLoan.principalAmount !=
+                  loanBox.get(loanKey)!.principalAmount ||
+              statusUpdatedLoan.type != loanBox.get(loanKey)!.type ||
+              statusUpdatedLoan.method != loanBox.get(loanKey)!.method)) {
+        debugPrint(
+          "❌ [LoanService] Principal, direction, and payment method cannot be changed while cash transactions are linked",
+        );
+        return null;
+      }
 
       await loanBox.put(loanKey, statusUpdatedLoan);
       _clearCache();
@@ -135,7 +151,6 @@ class LoanService {
       }
 
       return statusUpdatedLoan;
-
     } catch (e, st) {
       debugPrint("❌ [LoanService] Error updating loan: $e\n$st");
       return null;
@@ -149,13 +164,20 @@ class LoanService {
 
       final loanBox = Hive.box<Loan>(AppConstants.loans);
       final loanKey = loanBox.keys.cast<int>().firstWhere(
-            (key) => loanBox.get(key)?.id == loanId,
+        (key) => loanBox.get(key)?.id == loanId,
         orElse: () => throw Exception("Loan not found"),
       );
 
       final loan = loanBox.get(loanKey);
       if (loan == null) {
         debugPrint("❌ [LoanService] Loan not found");
+        return false;
+      }
+
+      if (loan.linkedTransactionIds.isNotEmpty) {
+        debugPrint(
+          "❌ [LoanService] Cannot delete a loan with linked cash transactions",
+        );
         return false;
       }
 
@@ -168,7 +190,6 @@ class LoanService {
 
       debugPrint("✅ [LoanService] Loan deleted: $loanId");
       return true;
-
     } catch (e, st) {
       debugPrint("❌ [LoanService] Error deleting loan: $e\n$st");
       return false;
@@ -180,6 +201,7 @@ class LoanService {
     required String loanId,
     required double amount,
     required String method,
+    int? walletKey,
     String? note,
   }) async {
     try {
@@ -189,6 +211,7 @@ class LoanService {
         loanId: loanId,
         amount: amount,
         method: method,
+        walletKey: walletKey,
         note: note,
       );
 
@@ -202,11 +225,13 @@ class LoanService {
       // Get updated loan
       final loanBox = Hive.box<Loan>(AppConstants.loans);
       final updatedLoan = loanBox.values.firstWhere(
-            (loan) => loan.id == loanId,
+        (loan) => loan.id == loanId,
         orElse: () => throw Exception("Loan not found"),
       );
 
-      debugPrint("✅ [LoanService] Payment added: $amount to ${updatedLoan.creditorName}");
+      debugPrint(
+        "✅ [LoanService] Payment added: $amount to ${updatedLoan.creditorName}",
+      );
 
       // Cancel reminders if fully paid
       if (updatedLoan.isPaid) {
@@ -218,7 +243,6 @@ class LoanService {
       }
 
       return updatedLoan;
-
     } catch (e, st) {
       debugPrint("❌ [LoanService] Error adding payment: $e\n$st");
       return null;
@@ -272,7 +296,7 @@ class LoanService {
   Loan? getLoanById(String id) {
     final loanBox = Hive.box<Loan>(AppConstants.loans);
     return loanBox.values.firstWhere(
-          (loan) => loan.id == id,
+      (loan) => loan.id == id,
       orElse: () => throw Exception("Loan not found"),
     );
   }
@@ -294,7 +318,9 @@ class LoanService {
 
     final loans = getAllLoans();
     final lentLoans = loans.where((l) => l.type == LoanType.lent).toList();
-    final borrowedLoans = loans.where((l) => l.type == LoanType.borrowed).toList();
+    final borrowedLoans = loans
+        .where((l) => l.type == LoanType.borrowed)
+        .toList();
 
     // Initialize totals
     double totalLent = 0;
@@ -379,7 +405,8 @@ class LoanService {
       'averageInterestRate': avgInterestRate,
 
       // Net balance
-      'netBalance': (totalLent + totalInterestLent - totalLentReceived) -
+      'netBalance':
+          (totalLent + totalInterestLent - totalLentReceived) -
           (totalBorrowed + totalInterestBorrowed - totalBorrowedPaid),
 
       // Alerts
@@ -388,8 +415,12 @@ class LoanService {
       'totalPenalty': totalPenalty,
 
       // By creditor type
-      'bankLoans': loans.where((l) => l.creditorType == LoanCreditorType.bank).length,
-      'personalLoans': loans.where((l) => l.creditorType == LoanCreditorType.person).length,
+      'bankLoans': loans
+          .where((l) => l.creditorType == LoanCreditorType.bank)
+          .length,
+      'personalLoans': loans
+          .where((l) => l.creditorType == LoanCreditorType.person)
+          .length,
     };
 
     _statsCacheTime = DateTime.now();
@@ -403,7 +434,7 @@ class LoanService {
 
     final totalRate = loansWithInterest.fold<double>(
       0,
-          (sum, loan) => sum + loan.interestRate,
+      (sum, loan) => sum + loan.interestRate,
     );
 
     return totalRate / loansWithInterest.length;
@@ -430,7 +461,8 @@ class LoanService {
           title: loan.type == LoanType.lent
               ? '💰 Payment Due from ${loan.creditorName}'
               : '💵 Payment Due to ${loan.creditorName}',
-          body: 'Amount: ${loan.nextPaymentAmount.toStringAsFixed(0)} - Due in ${loan.reminderDaysBefore} days',
+          body:
+              'Amount: ${loan.nextPaymentAmount.toStringAsFixed(0)} - Due in ${loan.reminderDaysBefore} days',
           scheduledDate: reminderDate,
         );
         debugPrint("🔔 Reminder scheduled for: ${loan.creditorName}");
@@ -465,9 +497,12 @@ class LoanService {
     }
 
     // Get loans needing reminders
-    final loansToNotify = getAllLoans().where((loan) {
-      return loan.shouldRemind() && !notifiedLoans.contains(loan.id);
-    }).take(5).toList();
+    final loansToNotify = getAllLoans()
+        .where((loan) {
+          return loan.shouldRemind() && !notifiedLoans.contains(loan.id);
+        })
+        .take(5)
+        .toList();
 
     for (var loan in loansToNotify) {
       await _sendLoanReminder(loan);
@@ -521,7 +556,9 @@ class LoanService {
       final updatedLoan = loan.updateStatus();
       if (updatedLoan.status != loan.status) {
         await loanBox.put(key, updatedLoan);
-        debugPrint("📊 Updated status for ${loan.creditorName}: ${updatedLoan.statusText}");
+        debugPrint(
+          "📊 Updated status for ${loan.creditorName}: ${updatedLoan.statusText}",
+        );
       }
     }
 

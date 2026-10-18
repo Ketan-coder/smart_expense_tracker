@@ -8,14 +8,25 @@
 //   • Explicitly state what data is NOT available (prevents hallucination)
 
 import 'package:hive_ce/hive.dart';
-import '../../core/app_constants.dart';
-import '../../data/model/expense.dart';
-import '../../data/model/income.dart';
-import '../../data/model/category.dart';
-import '../../data/model/habit.dart';
-import '../../data/model/goal.dart';
+import '../core/profile_scope.dart';
+import '../data/model/expense.dart';
+import '../data/model/income.dart';
+import '../data/model/category.dart';
+import '../data/model/habit.dart';
+import '../data/model/goal.dart';
+import '../data/model/wallet.dart';
+import '../services/profile_service.dart';
 
 class ContextBuilder {
+  ContextBuilder({String? profileId}) : _profileId = profileId;
+
+  final String? _profileId;
+
+  Box<T> _box<T>(String name) {
+    final profileId = _profileId ?? ProfileScope.activeProfileId;
+    return Hive.box<T>(ProfileScope.boxNameForProfile(profileId, name));
+  }
+
   /// Max individual line items shown per list-shaped section (categories,
   /// income entries, habits, goals) before rolling the rest into a single
   /// "+N more" summary line. This is the actual enforcement of the "hard
@@ -36,11 +47,16 @@ class ContextBuilder {
   Future<String> buildFullContext({int lookbackDays = 30}) async {
     final now = DateTime.now();
     final cutoff = now.subtract(Duration(days: lookbackDays));
+    final profile = ProfileService.instance.profileById(
+      _profileId ?? ProfileScope.activeProfileId,
+    );
+    final currency = profile.currencySymbol;
 
     final header =
         '=== SmartSpend Financial Snapshot ===\n'
         'Period: last $lookbackDays days\n'
-        'Currency: Indian Rupees (₹)\n\n';
+        'Profile: ${profile.name}\n'
+        'Currency: ${profile.currencyCode} ($currency)\n\n';
     final footer =
         '=== IMPORTANT ===\n'
         'The data above is complete. If asked about something not listed '
@@ -51,16 +67,18 @@ class ContextBuilder {
     // questions and are never dropped. Everything after that is included
     // only while there's still budget left.
     final sections = <String>[
-      await _buildSpendingSection(cutoff, now) ??
+      await _buildSpendingSection(cutoff, now, currency) ??
           'SPENDING: No expenses recorded.',
-      await _buildIncomeSection(cutoff) ?? 'INCOME: No income recorded.',
+      await _buildIncomeSection(cutoff, now, currency) ??
+          'INCOME: No income recorded.',
+      _buildWalletSection(currency),
     ];
     final optionalSections = await Future.wait([
-      _buildCategorySection(cutoff),
-      _buildPatternSection(cutoff, now),
+      _buildCategorySection(cutoff, now, currency),
+      _buildPatternSection(cutoff, now, currency),
       _buildHabitSection(),
-      _buildGoalSection(),
-      _buildRecurringSection(),
+      _buildGoalSection(currency),
+      _buildRecurringSection(currency),
     ]);
     for (final s in optionalSections) {
       if (s != null) sections.add(s);
@@ -70,14 +88,15 @@ class ContextBuilder {
     var budgetLeft = _maxSnapshotChars - header.length - footer.length;
     var droppedAny = false;
 
-    for (final section in sections) {
-      if (section.length <= budgetLeft) {
+    for (var index = 0; index < sections.length; index++) {
+      final section = sections[index];
+      if (index < 3 || section.length <= budgetLeft) {
         buffer.writeln(section);
         buffer.writeln();
         budgetLeft -= section.length;
       } else {
-        // Always keep SPENDING/INCOME (first two); only ever drop the
-        // lower-priority sections that come after them.
+        // Keep spending, income, and the wallet balance; only drop
+        // lower-priority sections when the snapshot budget is exhausted.
         droppedAny = true;
       }
     }
@@ -96,62 +115,75 @@ class ContextBuilder {
 
   // ─────────────────────────────────────────────────────────────
 
-  Future<String?> _buildSpendingSection(DateTime cutoff, DateTime now) async {
-    final box = Hive.box<Expense>(AppConstants.expenses);
-    final recent = box.values.where((e) => e.date.isAfter(cutoff)).toList();
+  Future<String?> _buildSpendingSection(
+    DateTime cutoff,
+    DateTime now,
+    String currency,
+  ) async {
+    final box = _box<Expense>('expenses');
+    final recent = box.values
+        .where((e) => e.date.isAfter(cutoff) && !e.date.isAfter(now))
+        .toList();
     if (recent.isEmpty) return null;
 
-    final total = _sum(recent.map((e) => e.amount));
+    final reportable = recent.where((e) => e.amountForReporting > 0).toList();
+    if (reportable.isEmpty) return null;
+    final total = _sum(reportable.map((e) => e.amountForReporting));
     final avgDay = total / 30;
     final thisWeek = _sum(
-      recent
+      reportable
           .where((e) => e.date.isAfter(now.subtract(const Duration(days: 7))))
-          .map((e) => e.amount),
+          .map((e) => e.amountForReporting),
     );
     final lastWeek = _sum(
-      recent
+      reportable
           .where(
             (e) =>
                 e.date.isAfter(now.subtract(const Duration(days: 14))) &&
                 e.date.isBefore(now.subtract(const Duration(days: 7))),
           )
-          .map((e) => e.amount),
+          .map((e) => e.amountForReporting),
     );
 
     final buf = StringBuffer();
     buf.writeln('SPENDING:');
-    buf.writeln('  30-day total: ₹${_fmt(total)}');
-    buf.writeln('  Daily average: ₹${_fmt(avgDay)}');
-    buf.writeln('  This week: ₹${_fmt(thisWeek)}');
-    buf.writeln('  Last week: ₹${_fmt(lastWeek)}');
+    buf.writeln('  30-day reportable total: $currency${_fmt(total)}');
+    buf.writeln('  Daily average: $currency${_fmt(avgDay)}');
+    buf.writeln('  This week: $currency${_fmt(thisWeek)}');
+    buf.writeln('  Last week: $currency${_fmt(lastWeek)}');
     if (lastWeek > 0) {
       final change = (thisWeek - lastWeek) / lastWeek * 100;
       buf.writeln(
         '  Week change: ${change >= 0 ? "+" : ""}${change.toStringAsFixed(0)}%',
       );
     }
-    buf.writeln('  Number of transactions: ${recent.length}');
-    final largest = recent.reduce((a, b) => a.amount > b.amount ? a : b);
-    buf.writeln(
-      '  Largest single expense: ₹${_fmt(largest.amount)} for "${largest.description}"',
+    buf.writeln('  Number of transactions: ${reportable.length}');
+    final largest = reportable.reduce(
+      (a, b) => a.amountForReporting > b.amountForReporting ? a : b,
     );
-    buf.write(await _buildWeeklyCategoryBreakdown(recent, now));
+    buf.writeln(
+      '  Largest single expense: $currency${_fmt(largest.amountForReporting)} for "${largest.description}"',
+    );
+    buf.write(await _buildWeeklyCategoryBreakdown(recent, now, currency));
     return buf.toString();
   }
 
   Future<String> _buildWeeklyCategoryBreakdown(
     List<Expense> expenses,
     DateTime now,
+    String currency,
   ) async {
     final cutoff = now.subtract(const Duration(days: 7));
-    final categoryBox = Hive.box<Category>(AppConstants.categories);
+    final categoryBox = _box<Category>('categories');
     final totals = <String, double>{};
     final counts = <String, int>{};
 
-    for (final expense in expenses.where((e) => e.date.isAfter(cutoff))) {
+    for (final expense in expenses.where(
+      (e) => e.date.isAfter(cutoff) && e.amountForReporting > 0,
+    )) {
       for (final key in expense.categoryKeys) {
         final name = categoryBox.get(key)?.name ?? 'Uncategorized';
-        totals[name] = (totals[name] ?? 0) + expense.amount;
+        totals[name] = (totals[name] ?? 0) + expense.amountForReporting;
         counts[name] = (counts[name] ?? 0) + 1;
       }
     }
@@ -167,7 +199,7 @@ class ContextBuilder {
     buf.writeln();
     for (final entry in sorted.take(5)) {
       buf.writeln(
-        '    • ${entry.key}: ₹${_fmt(entry.value)}, '
+        '    • ${entry.key}: $currency${_fmt(entry.value)}, '
         '${counts[entry.key]} transactions',
       );
     }
@@ -179,28 +211,39 @@ class ContextBuilder {
       );
       buf.writeln(
         '    • ${sorted.length - 5} smaller categories combined: '
-        '₹${_fmt(remainingTotal)}',
+        '$currency${_fmt(remainingTotal)}',
       );
     }
     return buf.toString();
   }
 
-  Future<String?> _buildIncomeSection(DateTime cutoff) async {
-    final box = Hive.box<Income>(AppConstants.incomes);
-    final recent = box.values.where((i) => i.date.isAfter(cutoff)).toList();
+  Future<String?> _buildIncomeSection(
+    DateTime cutoff,
+    DateTime now,
+    String currency,
+  ) async {
+    final box = _box<Income>('incomes');
+    final recent = box.values
+        .where(
+          (i) =>
+              i.date.isAfter(cutoff) &&
+              !i.date.isAfter(now) &&
+              i.amountForReporting > 0,
+        )
+        .toList();
     if (recent.isEmpty) return null;
 
-    final totalIncome = _sum(recent.map((i) => i.amount));
-    final totalSpend = await _totalSpending(cutoff);
+    final totalIncome = _sum(recent.map((i) => i.amountForReporting));
+    final totalSpend = await _totalSpending(cutoff, now);
     final net = totalIncome - totalSpend;
     final rate = totalIncome > 0 ? (net / totalIncome * 100) : 0.0;
 
     final buf = StringBuffer();
     buf.writeln('INCOME:');
-    buf.writeln('  30-day total income: ₹${_fmt(totalIncome)}');
-    buf.writeln('  30-day total spending: ₹${_fmt(totalSpend)}');
+    buf.writeln('  30-day total income: $currency${_fmt(totalIncome)}');
+    buf.writeln('  30-day total spending: $currency${_fmt(totalSpend)}');
     buf.writeln(
-      '  Net savings: ₹${_fmt(net)} (${rate.toStringAsFixed(0)}% savings rate)',
+      '  Net savings: $currency${_fmt(net)} (${rate.toStringAsFixed(0)}% savings rate)',
     );
 
     // Cap the line-by-line list — a frequent freelancer/gig-worker could
@@ -212,7 +255,7 @@ class ContextBuilder {
     final shown = sortedByDate.take(maxLines);
     for (final i in shown) {
       buf.writeln(
-        '  • ₹${_fmt(i.amount)} — ${i.description} on ${_date(i.date)}',
+        '  • $currency${_fmt(i.amountForReporting)} — ${i.description} on ${_date(i.date)}',
       );
     }
     if (sortedByDate.length > maxLines) {
@@ -223,10 +266,21 @@ class ContextBuilder {
     return buf.toString();
   }
 
-  Future<String?> _buildCategorySection(DateTime cutoff) async {
-    final expBox = Hive.box<Expense>(AppConstants.expenses);
-    final catBox = Hive.box<Category>(AppConstants.categories);
-    final recent = expBox.values.where((e) => e.date.isAfter(cutoff)).toList();
+  Future<String?> _buildCategorySection(
+    DateTime cutoff,
+    DateTime now,
+    String currency,
+  ) async {
+    final expBox = _box<Expense>('expenses');
+    final catBox = _box<Category>('categories');
+    final recent = expBox.values
+        .where(
+          (e) =>
+              e.date.isAfter(cutoff) &&
+              !e.date.isAfter(now) &&
+              e.amountForReporting > 0,
+        )
+        .toList();
     if (recent.isEmpty) return null;
 
     final totals = <String, double>{};
@@ -234,7 +288,7 @@ class ContextBuilder {
     for (final e in recent) {
       for (final key in e.categoryKeys) {
         final name = catBox.get(key)?.name ?? 'Uncategorized';
-        totals[name] = (totals[name] ?? 0) + e.amount;
+        totals[name] = (totals[name] ?? 0) + e.amountForReporting;
         counts[name] = (counts[name] ?? 0) + 1;
       }
     }
@@ -247,8 +301,7 @@ class ContextBuilder {
     // This was the actual cause of the "Input token ids are too long"
     // crash: with 30+ categories this section alone could run past the
     // model's whole context budget. Show the biggest ones individually
-    // and roll the long tail into one summary line — the model doesn't
-    // need every ₹90 category to answer "how much did I spend this week?"
+    // and roll the long tail into one summary line.
     final shown = sorted.take(_maxListLines).toList();
     final remaining = sorted.skip(_maxListLines).toList();
 
@@ -260,7 +313,7 @@ class ContextBuilder {
           ? (entry.value / grand * 100).toStringAsFixed(0)
           : '0';
       buf.writeln(
-        '  • ${entry.key}: ₹${_fmt(entry.value)} — $pct% of total, ${counts[entry.key]} transactions',
+        '  • ${entry.key}: $currency${_fmt(entry.value)} — $pct% of total, ${counts[entry.key]} transactions',
       );
     }
     if (remaining.isNotEmpty) {
@@ -274,15 +327,26 @@ class ContextBuilder {
           : '0';
       buf.writeln(
         '  • +${remaining.length} smaller categories combined: '
-        '₹${_fmt(remainingTotal)} — $pct% of total, $remainingTxns transactions',
+        '$currency${_fmt(remainingTotal)} — $pct% of total, $remainingTxns transactions',
       );
     }
     return buf.toString();
   }
 
-  Future<String?> _buildPatternSection(DateTime cutoff, DateTime now) async {
-    final box = Hive.box<Expense>(AppConstants.expenses);
-    final recent = box.values.where((e) => e.date.isAfter(cutoff)).toList();
+  Future<String?> _buildPatternSection(
+    DateTime cutoff,
+    DateTime now,
+    String currency,
+  ) async {
+    final box = _box<Expense>('expenses');
+    final recent = box.values
+        .where(
+          (e) =>
+              e.date.isAfter(cutoff) &&
+              !e.date.isAfter(now) &&
+              e.amountForReporting > 0,
+        )
+        .toList();
     if (recent.length < 5) return null;
 
     final dowTotals = List.filled(7, 0.0);
@@ -295,9 +359,9 @@ class ContextBuilder {
     };
 
     for (final e in recent) {
-      dowTotals[e.date.weekday - 1] += e.amount;
+      dowTotals[e.date.weekday - 1] += e.amountForReporting;
       final b = _bucket(e.date.hour);
-      timeTotals[b] = (timeTotals[b] ?? 0) + e.amount;
+      timeTotals[b] = (timeTotals[b] ?? 0) + e.amountForReporting;
     }
 
     final peakDow =
@@ -317,7 +381,7 @@ class ContextBuilder {
     final top = ranked.take(3).where((e) => e.value > 0);
     if (top.isNotEmpty) {
       buf.writeln(
-        '  Top 3 days: ${top.map((e) => "${e.key} ₹${_fmt(e.value)}").join(", ")}',
+        '  Top 3 days: ${top.map((e) => "${e.key} $currency${_fmt(e.value)}").join(", ")}',
       );
     }
     return buf.toString();
@@ -325,7 +389,7 @@ class ContextBuilder {
 
   Future<String?> _buildHabitSection() async {
     try {
-      final box = Hive.box<Habit>(AppConstants.habits);
+      final box = _box<Habit>('habits');
       if (box.isEmpty) return null;
       final buf = StringBuffer();
       buf.writeln('HABITS BEING TRACKED:');
@@ -345,9 +409,9 @@ class ContextBuilder {
     }
   }
 
-  Future<String?> _buildGoalSection() async {
+  Future<String?> _buildGoalSection(String currency) async {
     try {
-      final box = Hive.box<Goal>(AppConstants.goals);
+      final box = _box<Goal>('goals');
       if (box.isEmpty) return null;
       final buf = StringBuffer();
       buf.writeln('SAVINGS GOALS:');
@@ -357,7 +421,7 @@ class ContextBuilder {
             ? (g.currentAmount / g.targetAmount * 100).toStringAsFixed(0)
             : '0';
         buf.writeln(
-          '  • ${g.name}: ₹${_fmt(g.currentAmount)} saved of ₹${_fmt(g.targetAmount)} target ($pct% done)',
+          '  • ${g.name}: $currency${_fmt(g.currentAmount)} saved of $currency${_fmt(g.targetAmount)} target ($pct% done)',
         );
       }
       if (goals.length > _maxListLines) {
@@ -371,9 +435,17 @@ class ContextBuilder {
     }
   }
 
-  Future<String?> _buildRecurringSection() async {
-    final box = Hive.box<Expense>(AppConstants.expenses);
-    final all = box.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+  Future<String?> _buildRecurringSection(String currency) async {
+    final box = _box<Expense>('expenses');
+    final now = DateTime.now();
+    final all =
+        box.values
+            .where(
+              (expense) =>
+                  expense.amountForReporting > 0 && !expense.date.isAfter(now),
+            )
+            .toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
 
     final groups = <String, List<Expense>>{};
     for (final e in all) {
@@ -393,7 +465,7 @@ class ContextBuilder {
       final consistent = intervals.every((d) => (d - avg).abs() <= 3);
       if (consistent && avg >= 7) {
         recurring.add(
-          '  • ${_cap(entry.key)}: ₹${_fmt(txns.last.amount)} every ~${avg.round()} days',
+          '  • ${_cap(entry.key)}: $currency${_fmt(txns.last.amountForReporting)} every ~${avg.round()} days',
         );
       }
     }
@@ -407,11 +479,36 @@ class ContextBuilder {
 
   // ── Helpers ──────────────────────────────────────────────────
 
-  Future<double> _totalSpending(DateTime cutoff) async {
-    final box = Hive.box<Expense>(AppConstants.expenses);
+  Future<double> _totalSpending(DateTime cutoff, DateTime now) async {
+    final box = _box<Expense>('expenses');
     return box.values
-        .where((e) => e.date.isAfter(cutoff))
-        .fold<double>(0.0, (s, e) => s + e.amount);
+        .where(
+          (e) =>
+              e.date.isAfter(cutoff) &&
+              !e.date.isAfter(now) &&
+              e.amountForReporting > 0,
+        )
+        .fold<double>(0.0, (s, e) => s + e.amountForReporting);
+  }
+
+  String _buildWalletSection(String currency) {
+    final wallets = _box<Wallet>('wallets').values.toList();
+    final total = wallets.fold<double>(
+      0,
+      (sum, wallet) => sum + wallet.balance,
+    );
+    final buffer = StringBuffer()
+      ..writeln('AVAILABLE BALANCES (NOT SPENDING):')
+      ..writeln('  Current total wallet balance: $currency${_fmt(total)}');
+    for (final wallet in wallets.take(_maxListLines)) {
+      buffer.writeln('  • ${wallet.name}: $currency${_fmt(wallet.balance)}');
+    }
+    if (wallets.length > _maxListLines) {
+      buffer.writeln(
+        '  • ${wallets.length - _maxListLines} more wallet balances omitted',
+      );
+    }
+    return buffer.toString();
   }
 
   double _sum(Iterable<double> values) => values.fold(0.0, (s, v) => s + v);

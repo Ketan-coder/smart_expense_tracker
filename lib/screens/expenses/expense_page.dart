@@ -23,7 +23,7 @@ enum DateRangePreset {
   last3Months,
   last6Months,
   thisYear,
-  custom
+  custom,
 }
 
 class ExpensePage extends StatefulWidget {
@@ -40,8 +40,6 @@ class _ExpensePageState extends State<ExpensePage> {
   String _currentCurrency = 'INR';
   // Privacy
   final PrivacyManager _expensePagePrivacyManager = PrivacyManager();
-
-
 
   @override
   void initState() {
@@ -70,13 +68,14 @@ class _ExpensePageState extends State<ExpensePage> {
           end: now,
         );
       case DateRangePreset.thisMonth:
-        return DateTimeRange(
-          start: DateTime(now.year, now.month, 1),
-          end: now,
-        );
+        return DateTimeRange(start: DateTime(now.year, now.month, 1), end: now);
       case DateRangePreset.lastMonth:
         final lastMonth = DateTime(now.year, now.month - 1, 1);
-        final lastMonthEnd = DateTime(now.year, now.month, 1).subtract(const Duration(days: 1));
+        final lastMonthEnd = DateTime(
+          now.year,
+          now.month,
+          1,
+        ).subtract(const Duration(days: 1));
         return DateTimeRange(start: lastMonth, end: lastMonthEnd);
       case DateRangePreset.last3Months:
         return DateTimeRange(
@@ -89,15 +88,15 @@ class _ExpensePageState extends State<ExpensePage> {
           end: now,
         );
       case DateRangePreset.thisYear:
-        return DateTimeRange(
-          start: DateTime(now.year, 1, 1),
-          end: now,
-        );
+        return DateTimeRange(start: DateTime(now.year, 1, 1), end: now);
       case DateRangePreset.custom:
-        return _customDateRange ?? DateTimeRange(start: today.subtract(const Duration(days: 6)), end: now);
+        return _customDateRange ??
+            DateTimeRange(
+              start: today.subtract(const Duration(days: 6)),
+              end: now,
+            );
     }
   }
-
 
   Future<void> _showDateRangeMenu() async {
     await BottomSheetUtil.show(
@@ -166,7 +165,11 @@ class _ExpensePageState extends State<ExpensePage> {
     if (picked != null) {
       if (picked.duration.inDays > 365) {
         if (mounted) {
-          SnackBars.show(context,message: 'Please select a range within 1 year',type: SnackBarType.error);
+          SnackBars.show(
+            context,
+            message: 'Please select a range within 1 year',
+            type: SnackBarType.error,
+          );
         }
         return;
       }
@@ -209,7 +212,7 @@ class _ExpensePageState extends State<ExpensePage> {
   }
 
   double getTotalExpenses(List<Expense> expenses) {
-    return expenses.fold(0, (sum, e) => sum + e.amount);
+    return expenses.fold(0, (sum, e) => sum + e.amountForReporting);
   }
 
   Map<String, double> getCategoryBreakdown(List<Expense> expenses) {
@@ -219,9 +222,10 @@ class _ExpensePageState extends State<ExpensePage> {
       if (expense.categoryKeys.isNotEmpty) {
         final category = categoryBox.get(expense.categoryKeys.first);
         final name = category?.name ?? 'Uncategorized';
-        breakdown[name] = (breakdown[name] ?? 0) + expense.amount;
+        breakdown[name] = (breakdown[name] ?? 0) + expense.amountForReporting;
       } else {
-        breakdown['Uncategorized'] = (breakdown['Uncategorized'] ?? 0) + expense.amount;
+        breakdown['Uncategorized'] =
+            (breakdown['Uncategorized'] ?? 0) + expense.amountForReporting;
       }
     }
     return breakdown;
@@ -230,8 +234,10 @@ class _ExpensePageState extends State<ExpensePage> {
   Map<String, double> getMethodBreakdown(List<Expense> expenses) {
     Map<String, double> breakdown = {};
     for (var expense in expenses) {
-      final method = expense.method?.isNotEmpty == true ? expense.method! : 'UPI';
-      breakdown[method] = (breakdown[method] ?? 0) + expense.amount;
+      final method = expense.method?.isNotEmpty == true
+          ? expense.method!
+          : 'UPI';
+      breakdown[method] = (breakdown[method] ?? 0) + expense.amountForReporting;
     }
     return breakdown;
   }
@@ -258,7 +264,8 @@ class _ExpensePageState extends State<ExpensePage> {
         expense.date.day,
       );
       if (dailyExpenses.containsKey(expenseDay)) {
-        dailyExpenses[expenseDay] = dailyExpenses[expenseDay]! + expense.amount;
+        dailyExpenses[expenseDay] =
+            dailyExpenses[expenseDay]! + expense.amountForReporting;
       }
     }
 
@@ -324,7 +331,9 @@ class _ExpensePageState extends State<ExpensePage> {
             color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
           ),
           child: ValueListenableBuilder<Box<Expense>>(
-            valueListenable: Hive.box<Expense>(AppConstants.expenses).listenable(),
+            valueListenable: Hive.box<Expense>(
+              AppConstants.expenses,
+            ).listenable(),
             builder: (context, box, _) {
               if (_isLoading) {
                 return const Center(child: CircularProgressIndicator());
@@ -351,7 +360,10 @@ class _ExpensePageState extends State<ExpensePage> {
                     GestureDetector(
                       onTap: _showDateRangeMenu,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: colorScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(8),
@@ -359,7 +371,11 @@ class _ExpensePageState extends State<ExpensePage> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.calendar_today_rounded, size: 14, color: colorScheme.onPrimaryContainer),
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              size: 14,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               _getDateRangeLabel(),
@@ -409,23 +425,29 @@ class _ExpensePageState extends State<ExpensePage> {
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(0, 6, 6, 0),
                           child: ScrollConfiguration(
-                            behavior: const ScrollBehavior().copyWith(overscroll: false),
-                            child: CustomBarChart<MapEntry<DateTime, double>>.simple(
-                              data: dailyExpenses.entries.toList(),
-                              getDate: (entry) => entry.key,
-                              getValue: (entry) => entry.value,
-                              config: ChartConfig(
-                                chartTitle: "Expense Trend ($daysDiff Days)",
-                                primaryColor: colorScheme.error,
-                                hoverColor: colorScheme.errorContainer,
-                                yAxisLabel: "Amount",
-                                valueUnit: "$_currentCurrency ",
-                                // highlightHighest: true,
-                                // highlightMode: HighlightMode.lowest,
-                                isAscending: true,
-                                showToggleSwitch: true,
-                              ),
+                            behavior: const ScrollBehavior().copyWith(
+                              overscroll: false,
                             ),
+                            child:
+                                CustomBarChart<
+                                  MapEntry<DateTime, double>
+                                >.simple(
+                                  data: dailyExpenses.entries.toList(),
+                                  getDate: (entry) => entry.key,
+                                  getValue: (entry) => entry.value,
+                                  config: ChartConfig(
+                                    chartTitle:
+                                        "Expense Trend ($daysDiff Days)",
+                                    primaryColor: colorScheme.error,
+                                    hoverColor: colorScheme.errorContainer,
+                                    yAxisLabel: "Amount",
+                                    valueUnit: "$_currentCurrency ",
+                                    // highlightHighest: true,
+                                    // highlightMode: HighlightMode.lowest,
+                                    isAscending: true,
+                                    showToggleSwitch: true,
+                                  ),
+                                ),
                           ),
                         ),
                       ),
@@ -436,15 +458,27 @@ class _ExpensePageState extends State<ExpensePage> {
                     if (categoryBreakdown.isNotEmpty) ...[
                       Text('By Category', style: theme.textTheme.titleSmall),
                       const SizedBox(height: 8),
-                      _buildCategoryBreakdown(categoryBreakdown, total, colorScheme, theme),
+                      _buildCategoryBreakdown(
+                        categoryBreakdown,
+                        total,
+                        colorScheme,
+                        theme,
+                      ),
                       const SizedBox(height: 12),
                     ],
 
                     // Method Breakdown
                     if (methodBreakdown.isNotEmpty) ...[
-                      Text('By Payment Method', style: theme.textTheme.titleSmall),
+                      Text(
+                        'By Payment Method',
+                        style: theme.textTheme.titleSmall,
+                      ),
                       const SizedBox(height: 8),
-                      _buildMethodBreakdown(methodBreakdown, colorScheme, theme),
+                      _buildMethodBreakdown(
+                        methodBreakdown,
+                        colorScheme,
+                        theme,
+                      ),
                       const SizedBox(height: 12),
                     ],
 
@@ -455,25 +489,40 @@ class _ExpensePageState extends State<ExpensePage> {
                         Text('Recent', style: theme.textTheme.titleSmall),
                         TextButton(
                           onPressed: () {
-                            Helpers.navigateTo(context, const ExpenseListingPage());
+                            Helpers.navigateTo(
+                              context,
+                              const ExpenseListingPage(),
+                            );
                           },
-                          child: const Text('View All', style: TextStyle(fontSize: 12)),
+                          child: const Text(
+                            'View All',
+                            style: TextStyle(fontSize: 12),
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    ...filteredExpenses.toList().reversed.take(5).map((expense) {
-                      final categoryBox = Hive.box<Category>(AppConstants.categories);
+                    ...filteredExpenses.toList().reversed.take(5).map((
+                      expense,
+                    ) {
+                      final categoryBox = Hive.box<Category>(
+                        AppConstants.categories,
+                      );
                       String categoryName = 'Uncategorized';
                       if (expense.categoryKeys.isNotEmpty) {
-                        final category = categoryBox.get(expense.categoryKeys.first);
+                        final category = categoryBox.get(
+                          expense.categoryKeys.first,
+                        );
                         categoryName = category?.name ?? 'General';
                       }
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 6),
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
                           leading: CircleAvatar(
                             backgroundColor: colorScheme.errorContainer,
                             radius: 16,
@@ -484,8 +533,12 @@ class _ExpensePageState extends State<ExpensePage> {
                             ),
                           ),
                           title: Text(
-                            expense.method?.isNotEmpty == true ? expense.method! : 'UPI',
-                            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                            expense.method?.isNotEmpty == true
+                                ? expense.method!
+                                : 'UPI',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           subtitle: Text(
                             '$categoryName • ${expense.description}',
@@ -501,12 +554,13 @@ class _ExpensePageState extends State<ExpensePage> {
                           //   ),
                           // ),
                           trailing: PrivacyCurrency(
-                            amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(expense.amount)}',
+                            amount:
+                                '$_currentCurrency ${NumberFormatterService().formatForDisplay(expense.amount)}',
                             isPrivacyActive: isPrivate,
                             style: theme.textTheme.titleSmall?.copyWith(
-                                  color: colorScheme.error,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              color: colorScheme.error,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       );
@@ -523,13 +577,13 @@ class _ExpensePageState extends State<ExpensePage> {
   }
 
   Widget _buildStatCard(
-      String label,
-      String value,
-      IconData icon,
-      Color bgColor,
-      Color iconColor,
-      ThemeData theme,
-      ) {
+    String label,
+    String value,
+    IconData icon,
+    Color bgColor,
+    Color iconColor,
+    ThemeData theme,
+  ) {
     final isPrivate = _expensePagePrivacyManager.shouldHideSensitiveData();
     return Card(
       child: Padding(
@@ -543,12 +597,17 @@ class _ExpensePageState extends State<ExpensePage> {
               child: Icon(icon, color: iconColor, size: 16),
             ),
             const SizedBox(height: 8),
-            Text(label, style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+            ),
             const SizedBox(height: 2),
             PrivacyCurrency(
               amount: value,
               isPrivacyActive: isPrivate,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             // Text(
             //   value,
@@ -561,12 +620,13 @@ class _ExpensePageState extends State<ExpensePage> {
   }
 
   Widget _buildCategoryBreakdown(
-      Map<String, double> breakdown,
-      double total,
-      ColorScheme colorScheme,
-      ThemeData theme,
-      ) {
-    final sorted = breakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    Map<String, double> breakdown,
+    double total,
+    ColorScheme colorScheme,
+    ThemeData theme,
+  ) {
+    final sorted = breakdown.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
     final validTotal = total == 0 ? 1 : total;
     final isPrivate = _expensePagePrivacyManager.shouldHideSensitiveData();
 
@@ -585,12 +645,19 @@ class _ExpensePageState extends State<ExpensePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(entry.key, style: theme.textTheme.bodySmall?.copyWith(fontSize: 12)),
+                        Text(
+                          entry.key,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         LinearProgressIndicator(
                           value: percentage / 100,
                           backgroundColor: colorScheme.surfaceContainerHighest,
-                          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            colorScheme.primary,
+                          ),
                           minHeight: 5,
                           borderRadius: BorderRadius.circular(2.5),
                         ),
@@ -606,9 +673,13 @@ class _ExpensePageState extends State<ExpensePage> {
                       //   style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
                       // ),
                       PrivacyCurrency(
-                        amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
+                        amount:
+                            '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
                         isPrivacyActive: isPrivate,
-                        style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                       Text(
                         '${percentage.toStringAsFixed(0)}%',
@@ -617,7 +688,6 @@ class _ExpensePageState extends State<ExpensePage> {
                           fontSize: 10,
                         ),
                       ),
-
                     ],
                   ),
                 ],
@@ -630,10 +700,10 @@ class _ExpensePageState extends State<ExpensePage> {
   }
 
   Widget _buildMethodBreakdown(
-      Map<String, double> breakdown,
-      ColorScheme colorScheme,
-      ThemeData theme,
-      ) {
+    Map<String, double> breakdown,
+    ColorScheme colorScheme,
+    ThemeData theme,
+  ) {
     final isPrivate = _expensePagePrivacyManager.shouldHideSensitiveData();
     return Card(
       child: Padding(
@@ -664,9 +734,13 @@ class _ExpensePageState extends State<ExpensePage> {
                   //   style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 11),
                   // ),
                   PrivacyCurrency(
-                      amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
-                      isPrivacyActive: isPrivate,
-                      style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 11),
+                    amount:
+                        '$_currentCurrency ${NumberFormatterService().formatForDisplay(entry.value)}',
+                    isPrivacyActive: isPrivate,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
@@ -682,11 +756,18 @@ class _ExpensePageState extends State<ExpensePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.receipt_long_outlined, size: 80, color: colorScheme.onSurfaceVariant),
+          Icon(
+            Icons.receipt_long_outlined,
+            size: 80,
+            color: colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(height: 16),
           Text('No expenses yet', style: theme.textTheme.headlineSmall),
           const SizedBox(height: 8),
-          Text('Start tracking your expenses', style: theme.textTheme.bodyLarge),
+          Text(
+            'Start tracking your expenses',
+            style: theme.textTheme.bodyLarge,
+          ),
         ],
       ),
     );

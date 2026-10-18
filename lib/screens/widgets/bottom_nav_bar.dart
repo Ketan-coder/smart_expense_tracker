@@ -921,6 +921,7 @@ import 'package:expense_tracker/screens/widgets/quick_actions.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
 import 'package:expense_tracker/screens/widgets/transaction_sheet.dart';
 import 'package:expense_tracker/screens/widgets/transaction_widget.dart';
+import 'package:expense_tracker/screens/widgets/wallet_account_picker.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -931,6 +932,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/helpers.dart';
 import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
+import '../../data/model/expense.dart';
+import '../../data/model/income.dart';
 import '../../services/biometric_auth.dart';
 import '../../services/habit_detection_service.dart';
 import '../../services/langs/localzation_extension.dart';
@@ -984,7 +987,8 @@ class _BottomNavBarState extends State<BottomNavBar>
   // Privacy Focused (mobile only)
   final PrivacyManager _privacyManager = PrivacyManager();
   ShakeDetector? _shakeDetector;
-  final AdaptiveBrightnessService _brightnessService = AdaptiveBrightnessService();
+  final AdaptiveBrightnessService _brightnessService =
+      AdaptiveBrightnessService();
   final bool _showWatcherAlert = false;
   Timer? _watcherAlertTimer;
 
@@ -1024,14 +1028,11 @@ class _BottomNavBarState extends State<BottomNavBar>
               height: MediaQuery.of(context).size.height / 1.35,
               child: AddEditHabitSheet(hideTitle: true, initialTitle: args),
             );
-          }
-          else if (args.toString().contains("new_expense")) {
+          } else if (args.toString().contains("new_expense")) {
             _showAddExpenseSheet();
-          }
-          else if (args.toString().contains("new_income")) {
+          } else if (args.toString().contains("new_income")) {
             _showAddIncomeSheet();
-          }
-          else if (args.toString().contains("new_goal")) {
+          } else if (args.toString().contains("new_goal")) {
             BottomSheetUtil.show(
               context: context,
               title: 'Add New Goal',
@@ -1119,7 +1120,8 @@ class _BottomNavBarState extends State<BottomNavBar>
 
     if (_privacyManager.shakeToPrivacyEnabled && _shakeDetector == null) {
       _initializeShakeDetection();
-    } else if (!_privacyManager.shakeToPrivacyEnabled && _shakeDetector != null) {
+    } else if (!_privacyManager.shakeToPrivacyEnabled &&
+        _shakeDetector != null) {
       _cleanupShakeDetection();
     }
 
@@ -1132,7 +1134,8 @@ class _BottomNavBarState extends State<BottomNavBar>
     }
 
     SecureWindowManager.toggleProtection(
-      _privacyManager.screenshotProtectionEnabled && _privacyManager.isPrivacyActive,
+      _privacyManager.screenshotProtectionEnabled &&
+          _privacyManager.isPrivacyActive,
     );
   }
 
@@ -1141,8 +1144,10 @@ class _BottomNavBarState extends State<BottomNavBar>
     super.didChangeAppLifecycleState(state);
 
     // Biometric check (mobile only)
-    if (_isMobilePlatform && state == AppLifecycleState.resumed &&
-        _biometricRequired && !_isAuthenticated) {
+    if (_isMobilePlatform &&
+        state == AppLifecycleState.resumed &&
+        _biometricRequired &&
+        !_isAuthenticated) {
       debugPrint("🔐 App resumed - biometric re-authentication required");
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted && !_isAuthenticated) {
@@ -1203,7 +1208,8 @@ class _BottomNavBarState extends State<BottomNavBar>
 
       // Only check biometric on mobile
       if (_isMobilePlatform) {
-        final biometricEnabled = await Helpers().getCurrentBiometricState() ?? false;
+        final biometricEnabled =
+            await Helpers().getCurrentBiometricState() ?? false;
         _biometricRequired = biometricEnabled;
         debugPrint("🔐 Biometric required: $_biometricRequired");
 
@@ -1220,7 +1226,8 @@ class _BottomNavBarState extends State<BottomNavBar>
       }
 
       // Notifications (mobile only)
-      if (_isMobilePlatform && Helpers().isWithinNotificationHours(startHour: 20, endHour: 22)) {
+      if (_isMobilePlatform &&
+          Helpers().isWithinNotificationHours(startHour: 20, endHour: 22)) {
         debugPrint("🔔 Triggering scheduled notifications...");
         NotificationHelper().sendFinancialSummary();
         NotificationHelper().checkSpendingPatterns();
@@ -1387,7 +1394,8 @@ class _BottomNavBarState extends State<BottomNavBar>
     debugPrint("📱 ========================================");
     debugPrint("📱 INITIALIZING PLATFORM FEATURES");
 
-    bool smsParsingEnabled = await Helpers().getCurrentSmsParsingState() ?? true;
+    bool smsParsingEnabled =
+        await Helpers().getCurrentSmsParsingState() ?? true;
 
     if (!smsParsingEnabled) {
       debugPrint("📱 SMS parsing disabled by user");
@@ -1444,7 +1452,7 @@ class _BottomNavBarState extends State<BottomNavBar>
 
     for (final categoryName in defaultCategories) {
       final category = categoryBox.values.firstWhere(
-            (cat) => cat.name == categoryName,
+        (cat) => cat.name == categoryName,
         orElse: () => Category(
           name: 'Other',
           type: 'Expense',
@@ -1475,7 +1483,7 @@ class _BottomNavBarState extends State<BottomNavBar>
 
     for (final categoryName in defaultCategories) {
       final category = categoryBox.values.firstWhere(
-            (cat) => cat.name == categoryName,
+        (cat) => cat.name == categoryName,
         orElse: () => Category(
           name: 'Other',
           type: 'Income',
@@ -1503,10 +1511,10 @@ class _BottomNavBarState extends State<BottomNavBar>
   }
 
   Future<void> _onSmsReceived(
-      String sender,
-      String message,
-      int timestamp,
-      ) async {
+    String sender,
+    String message,
+    int timestamp,
+  ) async {
     debugPrint("📨 ========================================");
     debugPrint("📨 SMS RECEIVED IN BOTTOM NAV BAR");
     debugPrint("📨 Sender: $sender");
@@ -1519,7 +1527,8 @@ class _BottomNavBarState extends State<BottomNavBar>
     );
 
     if (transaction != null) {
-      final double amount = double.tryParse(transaction['amount'].toString()) ?? 0.0;
+      final double amount =
+          double.tryParse(transaction['amount'].toString()) ?? 0.0;
       final String bankName = transaction['bankName'] ?? sender;
       final String description = 'Auto: $bankName';
       final String method = transaction['method'] ?? 'UPI';
@@ -1538,6 +1547,8 @@ class _BottomNavBarState extends State<BottomNavBar>
           description: description,
           method: method,
           categoryKeys: await _getDefaultExpenseCategoryKeys(),
+          allowUnassigned: true,
+          date: transaction['timestamp'] as DateTime,
         );
       } else if (transaction['type'] == 'credit') {
         success = await UniversalHiveFunctions().addIncome(
@@ -1545,6 +1556,8 @@ class _BottomNavBarState extends State<BottomNavBar>
           description: description,
           method: method,
           categoryKeys: await _getDefaultIncomeCategoryKeys(),
+          allowUnassigned: true,
+          date: transaction['timestamp'] as DateTime,
         );
       }
 
@@ -1596,9 +1609,9 @@ class _BottomNavBarState extends State<BottomNavBar>
               const SizedBox(height: 12),
               Text(
                 context.t('auth_subtitle'),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
               ),
               const SizedBox(height: 32),
               if (_isAuthenticating)
@@ -1634,7 +1647,8 @@ class _BottomNavBarState extends State<BottomNavBar>
           // Privacy vignette overlay (mobile only)
           if (_isMobilePlatform)
             MyDimmingOverlay(
-              isActive: _privacyManager.isPrivacyActive &&
+              isActive:
+                  _privacyManager.isPrivacyActive &&
                   _privacyManager.adaptiveBrightnessEnabled,
             ),
 
@@ -1693,7 +1707,10 @@ class _BottomNavBarState extends State<BottomNavBar>
               child: Padding(
                 padding: const EdgeInsets.only(left: 15.0, top: 5.0),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(12),
@@ -1714,10 +1731,22 @@ class _BottomNavBarState extends State<BottomNavBar>
       floatingActionButton: FloatingToolbarWithQuickActions(
         items: [
           FloatingToolbarItem(icon: Icons.home, label: context.loc.home),
-          FloatingToolbarItem(icon: Icons.money_off, label: context.loc.transactions),
-          FloatingToolbarItem(icon: Icons.flag_outlined, label: context.loc.goals),
-          FloatingToolbarItem(icon: Icons.track_changes, label: context.loc.habits),
-          FloatingToolbarItem(icon: Icons.settings, label: context.loc.settings),
+          FloatingToolbarItem(
+            icon: Icons.money_off,
+            label: context.loc.transactions,
+          ),
+          FloatingToolbarItem(
+            icon: Icons.flag_outlined,
+            label: context.loc.goals,
+          ),
+          FloatingToolbarItem(
+            icon: Icons.track_changes,
+            label: context.loc.habits,
+          ),
+          FloatingToolbarItem(
+            icon: Icons.settings,
+            label: context.loc.settings,
+          ),
         ],
         primaryButton: _currentIndex != 4
             ? Icon(_currentIndex == 0 ? Icons.tune_rounded : Icons.add)
@@ -1756,7 +1785,6 @@ class _BottomNavBarState extends State<BottomNavBar>
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
-
 
   void _logBatteryOptimization() {
     debugPrint("🔋 ========================================");
@@ -1867,6 +1895,7 @@ class _BottomNavBarState extends State<BottomNavBar>
         amount: action.amount,
         description: action.description ?? action.label,
         method: action.method,
+        walletKey: action.walletKey,
         categoryKeys: action.categoryKeys,
       );
     } else {
@@ -1874,6 +1903,7 @@ class _BottomNavBarState extends State<BottomNavBar>
         amount: action.amount,
         description: action.description ?? action.label,
         method: action.method,
+        walletKey: action.walletKey,
         categoryKeys: action.categoryKeys,
       );
     }
@@ -1929,7 +1959,10 @@ class _BottomNavBarState extends State<BottomNavBar>
                         padding: const EdgeInsets.all(16.0),
                         child: Text(
                           context.t('no_wallets'),
-                          style: const TextStyle(fontSize: 16, color: Colors.grey),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
                     )
@@ -1971,7 +2004,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                                   value: 'edit',
                                   child: Text(context.loc.edit),
                                 ),
-                                 PopupMenuItem(
+                                PopupMenuItem(
                                   value: 'delete',
                                   child: Text(context.loc.delete),
                                 ),
@@ -2051,6 +2084,14 @@ class _BottomNavBarState extends State<BottomNavBar>
                 onPressed: () async {
                   final balance =
                       double.tryParse(balanceController.text) ?? 0.0;
+                  if (!balance.isFinite) {
+                    SnackBars.show(
+                      context,
+                      message: 'Enter a finite account balance.',
+                      type: SnackBarType.error,
+                    );
+                    return;
+                  }
                   if (nameController.text.trim().isEmpty) {
                     Navigator.pop(context);
                     SnackBars.show(
@@ -2068,6 +2109,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                     type: selectedType,
                     createdAt: isEditing ? wallet.createdAt : DateTime.now(),
                     updatedAt: DateTime.now(),
+                    balanceAsOf: DateTime.now(),
                   );
 
                   if (isEditing) {
@@ -2080,12 +2122,18 @@ class _BottomNavBarState extends State<BottomNavBar>
                     Navigator.pop(context);
                     SnackBars.show(
                       context,
-                      message: isEditing ? context.t('wallet_updated') : context.t('wallet_added'),
+                      message: isEditing
+                          ? context.t('wallet_updated')
+                          : context.t('wallet_added'),
                       type: SnackBarType.success,
                     );
                   }
                 },
-                child: Text(isEditing ? context.t('edit_wallet') : context.t('add_wallet')),
+                child: Text(
+                  isEditing
+                      ? context.t('edit_wallet')
+                      : context.t('add_wallet'),
+                ),
               ),
             ],
           );
@@ -2099,7 +2147,9 @@ class _BottomNavBarState extends State<BottomNavBar>
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.t('delete_wallet')),
-        content: Text('${context.t('delete_wallet_confirm')} "${wallet.name}"?'),
+        content: Text(
+          '${context.t('delete_wallet_confirm')} "${wallet.name}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -2108,6 +2158,24 @@ class _BottomNavBarState extends State<BottomNavBar>
           TextButton(
             onPressed: () async {
               final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+              final usedByExpense = Hive.box<Expense>(
+                AppConstants.expenses,
+              ).values.any((expense) => expense.walletKey == key);
+              final usedByIncome = Hive.box<Income>(
+                AppConstants.incomes,
+              ).values.any((income) => income.walletKey == key);
+              final usedByRecurring = Hive.box<Recurring>(
+                AppConstants.recurrings,
+              ).values.any((recurring) => recurring.walletKey == key);
+              if (usedByExpense || usedByIncome || usedByRecurring) {
+                SnackBars.show(
+                  context,
+                  message:
+                      'This account has linked transactions. Keep it to preserve their history.',
+                  type: SnackBarType.error,
+                );
+                return;
+              }
               await walletBox.delete(key);
               if (mounted) {
                 Navigator.pop(context);
@@ -2119,7 +2187,10 @@ class _BottomNavBarState extends State<BottomNavBar>
                 );
               }
             },
-            child: Text(context.loc.delete, style: TextStyle(color: Colors.red)),
+            child: Text(
+              context.loc.delete,
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -2193,7 +2264,10 @@ class _BottomNavBarState extends State<BottomNavBar>
                         padding: const EdgeInsets.all(16.0),
                         child: Text(
                           context.t('no_recurring_found'),
-                          style: const TextStyle(fontSize: 16, color: Colors.grey),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
                     )
@@ -2254,7 +2328,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                                   value: 'edit',
                                   child: Text(context.loc.edit),
                                 ),
-                                 PopupMenuItem(
+                                PopupMenuItem(
                                   value: 'delete',
                                   child: Text(context.loc.delete),
                                 ),
@@ -2288,10 +2362,16 @@ class _BottomNavBarState extends State<BottomNavBar>
         ? (recurring.deductionDate ?? DateTime.now())
         : DateTime.now();
     DateTime? selectedEndDate = isEditing ? recurring.endDate : null;
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+    int? selectedWalletKey =
+        recurring?.walletKey ??
+        (walletBox.length == 1 ? walletBox.keyAt(0) as int : null);
 
     BottomSheetUtil.show(
       context: context,
-      title: isEditing ? context.t('edit_recurring') : context.t('add_recurring'),
+      title: isEditing
+          ? context.t('edit_recurring')
+          : context.t('add_recurring'),
       child: StatefulBuilder(
         builder: (context, setModalState) {
           final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -2320,6 +2400,12 @@ class _BottomNavBarState extends State<BottomNavBar>
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                ),
+                const SizedBox(height: 16),
+                WalletAccountPicker(
+                  walletKey: selectedWalletKey,
+                  onChanged: (walletKey) =>
+                      setModalState(() => selectedWalletKey = walletKey),
                 ),
                 const SizedBox(height: 16),
                 ListTile(
@@ -2383,10 +2469,22 @@ class _BottomNavBarState extends State<BottomNavBar>
                     border: OutlineInputBorder(),
                   ),
                   items: [
-                    DropdownMenuItem(value: 'daily', child: Text(context.t('daily'))),
-                    DropdownMenuItem(value: 'weekly', child: Text(context.t('weekly'))),
-                    DropdownMenuItem(value: 'monthly', child: Text(context.t('monthly'))),
-                    DropdownMenuItem(value: 'yearly', child: Text(context.t('yearly'))),
+                    DropdownMenuItem(
+                      value: 'daily',
+                      child: Text(context.t('daily')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'weekly',
+                      child: Text(context.t('weekly')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'monthly',
+                      child: Text(context.t('monthly')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'yearly',
+                      child: Text(context.t('yearly')),
+                    ),
                   ],
                   onChanged: (value) {
                     setModalState(() => selectedInterval = value!);
@@ -2430,8 +2528,10 @@ class _BottomNavBarState extends State<BottomNavBar>
                     final amount =
                         double.tryParse(amountController.text) ?? 0.0;
                     if (descController.text.trim().isEmpty ||
+                        !amount.isFinite ||
                         amount <= 0 ||
-                        selectedCategoryKeys.isEmpty) {
+                        selectedCategoryKeys.isEmpty ||
+                        selectedWalletKey == null) {
                       Navigator.pop(context);
                       SnackBars.show(
                         context,
@@ -2465,6 +2565,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                       interval: selectedInterval,
                       endDate: selectedEndDate,
                       deductionDate: selectedDeductionDate,
+                      walletKey: selectedWalletKey,
                     );
 
                     if (isEditing) {
@@ -2484,7 +2585,11 @@ class _BottomNavBarState extends State<BottomNavBar>
                       );
                     }
                   },
-                  child: Text(isEditing ? context.t('update') : context.t('add_recurring_payment')),
+                  child: Text(
+                    isEditing
+                        ? context.t('update')
+                        : context.t('add_recurring_payment'),
+                  ),
                 ),
               ],
             ),
@@ -2500,7 +2605,9 @@ class _BottomNavBarState extends State<BottomNavBar>
       builder: (context) => AlertDialog(
         title: Text(context.t('delete_recurring_payment')),
         content: Text(
-          context.t('dynamic_delete_recurring_payment_desc').replaceAll('__', recurring.description),
+          context
+              .t('dynamic_delete_recurring_payment_desc')
+              .replaceAll('__', recurring.description),
         ),
         actions: [
           TextButton(
@@ -2521,7 +2628,10 @@ class _BottomNavBarState extends State<BottomNavBar>
                 );
               }
             },
-            child: Text(context.loc.delete, style: TextStyle(color: Colors.red)),
+            child: Text(
+              context.loc.delete,
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -2552,9 +2662,9 @@ class _BottomNavBarState extends State<BottomNavBar>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: statusColor.withValues(alpha:0.1),
+        color: statusColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: statusColor.withValues(alpha:0.3)),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2692,7 +2802,11 @@ class _BottomNavBarState extends State<BottomNavBar>
                   onTap: () {
                     Navigator.pop(context);
                     // _showAddExpenseSheet();
-                    showTransactionAddEditSheet(context: context, type: TransactionType.expense, currency: _currentCurrency);
+                    showTransactionAddEditSheet(
+                      context: context,
+                      type: TransactionType.expense,
+                      currency: _currentCurrency,
+                    );
                   },
                 ),
                 const SizedBox(height: 12),
@@ -2710,7 +2824,11 @@ class _BottomNavBarState extends State<BottomNavBar>
                   onTap: () {
                     Navigator.pop(context);
                     // _showAddIncomeSheet();
-                    showTransactionAddEditSheet(context: context, type: TransactionType.income, currency: _currentCurrency);
+                    showTransactionAddEditSheet(
+                      context: context,
+                      type: TransactionType.income,
+                      currency: _currentCurrency,
+                    );
                   },
                 ),
                 const SizedBox(height: 8),
@@ -2736,7 +2854,7 @@ class _BottomNavBarState extends State<BottomNavBar>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: Theme.of(context).colorScheme.outline.withValues(alpha:0.1),
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1),
         ),
       ),
       child: InkWell(
@@ -2797,6 +2915,10 @@ class _BottomNavBarState extends State<BottomNavBar>
     final amountController = TextEditingController();
     List<int> selectedCategoryKeys = [];
     String selectedType = 'UPI';
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+    int? selectedWalletKey = walletBox.length == 1
+        ? walletBox.keyAt(0) as int
+        : null;
 
     BottomSheetUtil.show(
       context: context,
@@ -2845,7 +2967,15 @@ class _BottomNavBarState extends State<BottomNavBar>
                 },
               ),
               const SizedBox(height: 16),
-              Text(context.t('categories'), style: Theme.of(context).textTheme.titleSmall),
+              WalletAccountPicker(
+                walletKey: selectedWalletKey,
+                onChanged: (key) => setState(() => selectedWalletKey = key),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                context.t('categories'),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -2889,8 +3019,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                     Navigator.pop(context);
                     SnackBars.show(
                       context,
-                      message:
-                      context.t('empty_fields_error'),
+                      message: context.t('empty_fields_error'),
                       type: SnackBarType.error,
                     );
                     return;
@@ -2901,6 +3030,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                     description: addController.text.trim(),
                     method: selectedType,
                     categoryKeys: selectedCategoryKeys,
+                    walletKey: selectedWalletKey,
                   );
 
                   if (success && context.mounted) {
@@ -2933,6 +3063,10 @@ class _BottomNavBarState extends State<BottomNavBar>
     final amountController = TextEditingController();
     List<int> selectedCategoryKeys = [];
     String selectedType = 'UPI';
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+    int? selectedWalletKey = walletBox.length == 1
+        ? walletBox.keyAt(0) as int
+        : null;
 
     BottomSheetUtil.show(
       context: context,
@@ -2981,7 +3115,15 @@ class _BottomNavBarState extends State<BottomNavBar>
                 },
               ),
               const SizedBox(height: 16),
-              Text(context.t('categories'), style: Theme.of(context).textTheme.titleSmall),
+              WalletAccountPicker(
+                walletKey: selectedWalletKey,
+                onChanged: (key) => setState(() => selectedWalletKey = key),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                context.t('categories'),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -3036,6 +3178,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                     description: addController.text.trim(),
                     method: selectedType,
                     categoryKeys: selectedCategoryKeys,
+                    walletKey: selectedWalletKey,
                   );
 
                   if (success && context.mounted) {
@@ -3195,8 +3338,8 @@ class _BottomNavBarState extends State<BottomNavBar>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                   Text(
-                   context.t('category_color'),
+                  Text(
+                    context.t('category_color'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
                   GestureDetector(
@@ -3210,7 +3353,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                         border: Border.all(color: Colors.grey.shade400),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha:0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -3238,7 +3381,7 @@ class _BottomNavBarState extends State<BottomNavBar>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   Text(
+                  Text(
                     context.t('category_icon'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
@@ -3256,9 +3399,11 @@ class _BottomNavBarState extends State<BottomNavBar>
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(
-                      color: selectedColor.withValues(alpha:0.2),
+                      color: selectedColor.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: selectedColor.withValues(alpha:0.5)),
+                      border: Border.all(
+                        color: selectedColor.withValues(alpha: 0.5),
+                      ),
                     ),
                     child: Icon(
                       _getIconData(selectedIcon),
@@ -3296,8 +3441,8 @@ class _BottomNavBarState extends State<BottomNavBar>
                           child: Container(
                             decoration: BoxDecoration(
                               color: selectedIcon == icon
-                                  ? selectedColor.withValues(alpha:0.3)
-                                  : Colors.grey.withValues(alpha:0.1),
+                                  ? selectedColor.withValues(alpha: 0.3)
+                                  : Colors.grey.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: selectedIcon == icon

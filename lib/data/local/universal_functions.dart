@@ -335,9 +335,38 @@ import '../model/income.dart';
 import '../model/wallet.dart';
 
 class UniversalHiveFunctions {
-  static final UniversalHiveFunctions _instance = UniversalHiveFunctions._internal();
+  static final UniversalHiveFunctions _instance =
+      UniversalHiveFunctions._internal();
   factory UniversalHiveFunctions() => _instance;
   UniversalHiveFunctions._internal();
+
+  (int, Wallet)? _resolveWallet(
+    Box<Wallet> walletBox, {
+    int? walletKey,
+    String? legacyIdentifier,
+  }) {
+    if (walletKey != null) {
+      final wallet = walletBox.get(walletKey);
+      return wallet == null ? null : (walletKey, wallet);
+    }
+    final identifier = legacyIdentifier?.trim().toLowerCase();
+    if (identifier == null || identifier.isEmpty) return null;
+    final matches = <(int, Wallet)>[];
+    for (final key in walletBox.keys.whereType<int>()) {
+      final wallet = walletBox.get(key);
+      if (wallet != null && wallet.type.trim().toLowerCase() == identifier) {
+        matches.add((key, wallet));
+      }
+    }
+    return matches.length == 1 ? matches.single : null;
+  }
+
+  bool _affectsCurrentBalance(Wallet wallet, DateTime date) {
+    final snapshot = wallet.balanceAsOf ?? wallet.createdAt;
+    wallet.balanceAsOf ??= snapshot;
+    final now = DateTime.now();
+    return !date.isBefore(snapshot) && !date.isAfter(now);
+  }
 
   /// Atomic operation: Add expense and update/create wallet with rollback support
   Future<bool> addExpense({
@@ -345,270 +374,166 @@ class UniversalHiveFunctions {
     required String description,
     required String method,
     required List<int> categoryKeys,
+    int? walletKey,
+    bool allowUnassigned = false,
     DateTime? date,
   }) async {
-    debugPrint("💰 [addExpense] Starting atomic operation...");
-
-    // Validate inputs
-    if (amount <= 0) {
-      debugPrint("❌ [addExpense] Invalid amount: $amount");
-      return false;
-    }
-    if (method.trim().isEmpty) {
-      debugPrint("❌ [addExpense] Method cannot be empty");
+    if (!amount.isFinite || amount <= 0) {
+      debugPrint('[addExpense] Amount must be finite and greater than zero');
       return false;
     }
 
     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
     final walletBox = Hive.box<Wallet>(AppConstants.wallets);
-
-    Expense? savedExpense;
-    Wallet? originalWallet;
-    double originalBalance = 0;
-    int? walletKey;
-
-    try {
-      // Step 1: Create expense object
-      final expense = Expense(
-        amount: amount,
-        date: date ?? DateTime.now(),
-        description: description,
-        categoryKeys: categoryKeys,
-        method: method.trim(),
+    final resolved = allowUnassigned && walletKey == null
+        ? null
+        : _resolveWallet(
+            walletBox,
+            walletKey: walletKey,
+            legacyIdentifier: method,
+          );
+    if (resolved == null && !allowUnassigned) {
+      debugPrint(
+        '[addExpense] Select an existing account; no unique account matched',
       );
-
-      // Step 2: Find or create wallet
-      Wallet wallet;
-      final normalizedMethod = method.trim().toLowerCase();
-
-      try {
-        wallet = walletBox.values.firstWhere(
-              (w) => w.type.toLowerCase() == normalizedMethod,
-        );
-        originalWallet = wallet;
-        originalBalance = wallet.balance;
-        walletKey = walletBox.keyAt(walletBox.values.toList().indexOf(wallet));
-        debugPrint("💼 [addExpense] Found existing wallet: ${wallet.name} (key: $walletKey)");
-      } catch (_) {
-        // Create new wallet
-        wallet = Wallet(
-          name: method.trim(),
-          balance: 0,
-          updatedAt: DateTime.now(),
-          type: method.trim(),
-          createdAt: DateTime.now(),
-        );
-        debugPrint("🆕 [addExpense] Creating new wallet: ${wallet.name}");
-      }
-
-      // Step 3: Update wallet balance
-      wallet.balance -= amount;
-      wallet.updatedAt = DateTime.now();
-
-      // Step 4: Save wallet appropriately
-      if (walletKey != null) {
-        // Existing wallet - use save()
-        await wallet.save();
-        debugPrint("💵 [addExpense] Existing wallet updated: ${wallet.name} → Balance: ${wallet.balance}");
-      } else {
-        // New wallet - use add()
-        walletKey = await walletBox.add(wallet);
-        debugPrint("💵 [addExpense] New wallet created: ${wallet.name} → Balance: ${wallet.balance} (key: $walletKey)");
-      }
-
-      // Step 5: Save expense
-      final expenseKey = await expenseBox.add(expense);
-      savedExpense = expense;
-      debugPrint("✅ [addExpense] Expense added successfully: $expense (key: $expenseKey)");
-
-      await NotificationHelper.checkWalletBalance(wallet, 'expense');
-      await NotificationHelper.notifyLargeTransaction(amount, 'expense', description);
-
-      // Check total balance for savings milestone
-      final totalBalance = await getTotalBalance();
-      await NotificationHelper.notifySavingsMilestone(totalBalance);
-
-      return true;
-
-    } catch (e, st) {
-      debugPrint("❌ [addExpense] Atomic operation failed: $e\n$st");
-
-      // Rollback logic
-      await _rollbackExpenseAdd(expenseBox, walletBox, savedExpense, originalWallet, originalBalance);
-
       return false;
     }
-  }
+    final selectedKey = resolved?.$1;
+    final wallet = resolved?.$2;
+    final originalBalance = wallet?.balance;
+    final transactionDate = date ?? DateTime.now();
+    final balanceApplied =
+        wallet != null && _affectsCurrentBalance(wallet, transactionDate);
+    int? savedExpenseKey;
 
-  /// Rollback for failed expense addition
-  Future<void> _rollbackExpenseAdd(
-      Box<Expense> expenseBox,
-      Box<Wallet> walletBox,
-      Expense? savedExpense,
-      Wallet? originalWallet,
-      double originalBalance,
-      ) async {
     try {
-      // Remove saved expense if any
-      if (savedExpense != null) {
-        final expenseKey = expenseBox.keyAt(expenseBox.values.toList().indexOf(savedExpense));
-        await expenseBox.delete(expenseKey);
-        debugPrint("↩️ [rollback] Removed expense");
+      final expense = Expense(
+        amount: amount,
+        date: transactionDate,
+        description: description,
+        categoryKeys: categoryKeys,
+        method: method.trim().isEmpty ? null : method.trim(),
+        walletKey: selectedKey,
+        balanceApplied: balanceApplied,
+      );
+      if (wallet != null && balanceApplied) {
+        wallet.balance -= amount;
+        wallet.updatedAt = DateTime.now();
+        await wallet.save();
       }
-
-      // Restore original wallet balance
-      if (originalWallet != null) {
-        originalWallet.balance = originalBalance;
-        originalWallet.updatedAt = DateTime.now();
-        await originalWallet.save();
-        debugPrint("↩️ [rollback] Restored wallet balance: $originalBalance");
+      savedExpenseKey = await expenseBox.add(expense);
+    } catch (e, st) {
+      debugPrint('[addExpense] Save failed: $e\n$st');
+      if (savedExpenseKey != null) await expenseBox.delete(savedExpenseKey);
+      if (wallet != null && originalBalance != null) {
+        wallet.balance = originalBalance;
+        wallet.updatedAt = DateTime.now();
+        await wallet.save();
       }
-    } catch (e) {
-      debugPrint("⚠️ [rollback] Error during rollback: $e");
+      return false;
     }
+    if (wallet != null && balanceApplied) {
+      await NotificationHelper.checkWalletBalance(wallet, 'expense');
+    }
+    await NotificationHelper.notifyLargeTransaction(
+      amount,
+      'expense',
+      description,
+    );
+    await NotificationHelper.notifySavingsMilestone(await getTotalBalance());
+    return true;
   }
 
   /// Atomic operation: Update expense with rollback support
   Future<bool> updateExpense(int key, Expense newExpense) async {
-    debugPrint("🔄 [updateExpense] Starting atomic update...");
-
-    if (newExpense.amount <= 0 || newExpense.method!.trim().isEmpty) {
-      debugPrint("❌ [updateExpense] Invalid expense data");
+    if (!newExpense.amount.isFinite || newExpense.amount <= 0) {
+      debugPrint('[updateExpense] Amount must be finite and greater than zero');
       return false;
     }
 
     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
     final walletBox = Hive.box<Wallet>(AppConstants.wallets);
-
-    Expense? oldExpense;
-    Wallet? oldWallet;
-    Wallet? newWallet;
-    double oldWalletOriginalBalance = 0;
-    double newWalletOriginalBalance = 0;
-    int? oldWalletKey;
-    int? newWalletKey;
-
-    try {
-      // Step 1: Get old expense
-      oldExpense = expenseBox.get(key);
-      if (oldExpense == null) {
-        debugPrint("❌ [updateExpense] Expense not found for key: $key");
-        return false;
-      }
-
-      // Step 2: Find old wallet
-      if (oldExpense.method != null) {
-        try {
-          oldWallet = walletBox.values.firstWhere(
-                (w) => w.type.toLowerCase() == oldExpense?.method!.toLowerCase(),
-          );
-          oldWalletOriginalBalance = oldWallet.balance;
-          oldWalletKey = walletBox.keyAt(walletBox.values.toList().indexOf(oldWallet));
-        } catch (_) {
-          debugPrint("⚠️ [updateExpense] Old wallet not found: ${oldExpense.method}");
-        }
-      }
-
-      // Step 3: Find or create new wallet
-      final newMethod = newExpense.method!.trim().toLowerCase();
-      try {
-        newWallet = walletBox.values.firstWhere(
-              (w) => w.type.toLowerCase() == newMethod,
-        );
-        newWalletOriginalBalance = newWallet.balance;
-        newWalletKey = walletBox.keyAt(walletBox.values.toList().indexOf(newWallet));
-      } catch (_) {
-        newWallet = Wallet(
-          name: newExpense.method!,
-          balance: 0,
-          updatedAt: DateTime.now(),
-          type: newExpense.method!,
-          createdAt: DateTime.now(),
-        );
-        debugPrint("🆕 [updateExpense] Creating new wallet: ${newWallet.name}");
-      }
-
-      // Step 4: Update wallet balances
-      if (oldWallet != null) {
-        oldWallet.balance += oldExpense.amount; // Revert old expense
-        oldWallet.updatedAt = DateTime.now();
-        await oldWallet.save();
-        debugPrint("💵 [updateExpense] Old wallet reverted: ${oldWallet.name} → Balance: ${oldWallet.balance}");
-      }
-
-      newWallet.balance -= newExpense.amount; // Apply new expense
-      newWallet.updatedAt = DateTime.now();
-
-      if (newWalletKey != null) {
-        await newWallet.save();
-        debugPrint("💵 [updateExpense] Existing wallet updated: ${newWallet.name} → Balance: ${newWallet.balance}");
-      } else {
-        newWalletKey = await walletBox.add(newWallet);
-        debugPrint("💵 [updateExpense] New wallet created: ${newWallet.name} → Balance: ${newWallet.balance}");
-      }
-
-      // Step 5: Update expense
-      await expenseBox.put(key, newExpense);
-      debugPrint("✅ [updateExpense] Expense updated successfully");
-
-      return true;
-
-    } catch (e, st) {
-      debugPrint("❌ [updateExpense] Atomic update failed: $e\n$st");
-
-      // Rollback
-      await _rollbackExpenseUpdate(
-          expenseBox, walletBox, key, oldExpense,
-          oldWallet, oldWalletOriginalBalance,
-          newWallet, newWalletOriginalBalance
-      );
-
+    final oldExpense = expenseBox.get(key);
+    if (oldExpense == null) return false;
+    final oldResolved = _resolveWallet(
+      walletBox,
+      walletKey: oldExpense.walletKey,
+      legacyIdentifier: oldExpense.method,
+    );
+    final newResolved = _resolveWallet(
+      walletBox,
+      walletKey: newExpense.walletKey ?? oldExpense.walletKey,
+      legacyIdentifier: newExpense.method,
+    );
+    if (newResolved == null) {
+      debugPrint('[updateExpense] Select an existing account before saving');
       return false;
     }
-  }
-
-  /// Rollback for failed expense update
-  Future<void> _rollbackExpenseUpdate(
-      Box<Expense> expenseBox,
-      Box<Wallet> walletBox,
-      int expenseKey,
-      Expense? oldExpense,
-      Wallet? oldWallet,
-      double oldWalletOriginalBalance,
-      Wallet? newWallet,
-      double newWalletOriginalBalance,
-      ) async {
+    if (oldExpense.classification.startsWith('loan_') &&
+        (newExpense.amount != oldExpense.amount ||
+            newExpense.date != oldExpense.date ||
+            newExpense.method != oldExpense.method ||
+            newResolved.$1 != oldExpense.walletKey)) {
+      debugPrint(
+        '[updateExpense] Financial fields on a loan-linked transaction cannot be changed independently',
+      );
+      return false;
+    }
+    newExpense.classification = oldExpense.classification;
+    newExpense.recognizedAmount = oldExpense.recognizedAmount;
+    final oldWallet = oldResolved?.$2;
+    final newWallet = newResolved.$2;
+    final oldBalance = oldWallet?.balance;
+    final newBalance = identical(oldWallet, newWallet)
+        ? oldBalance
+        : newWallet.balance;
+    final oldUpdatedAt = oldWallet?.updatedAt;
+    final newUpdatedAt = identical(oldWallet, newWallet)
+        ? oldUpdatedAt
+        : newWallet.updatedAt;
+    final oldApplied = oldExpense.balanceApplied ?? oldWallet != null;
+    final newApplied = _affectsCurrentBalance(newWallet, newExpense.date);
     try {
-      // Restore old expense
-      if (oldExpense != null) {
-        await expenseBox.put(expenseKey, oldExpense);
-        debugPrint("↩️ [rollback] Restored original expense");
-      }
-
-      // Restore old wallet balance
-      if (oldWallet != null) {
-        oldWallet.balance = oldWalletOriginalBalance;
-        oldWallet.updatedAt = DateTime.now();
-        await oldWallet.save();
-        debugPrint("↩️ [rollback] Restored old wallet balance");
-      }
-
-      // Restore new wallet balance or remove if newly created
-      if (newWallet != null) {
-        if (newWalletOriginalBalance == 0) {
-          // This was a newly created wallet, remove it
-          final newWalletKey = walletBox.keyAt(walletBox.values.toList().indexOf(newWallet));
-          await walletBox.delete(newWalletKey);
-          debugPrint("↩️ [rollback] Removed newly created wallet");
-        } else {
-          newWallet.balance = newWalletOriginalBalance;
+      if (identical(oldWallet, newWallet)) {
+        newWallet.balance +=
+            (newApplied ? -newExpense.amount : 0) -
+            (oldApplied ? -oldExpense.amount : 0);
+        if (newApplied || oldApplied) {
           newWallet.updatedAt = DateTime.now();
           await newWallet.save();
-          debugPrint("↩️ [rollback] Restored new wallet balance");
+        }
+      } else {
+        if (oldWallet != null && oldApplied) {
+          oldWallet.balance += oldExpense.amount;
+          oldWallet.updatedAt = DateTime.now();
+          await oldWallet.save();
+        }
+        if (newApplied) {
+          newWallet.balance -= newExpense.amount;
+          newWallet.updatedAt = DateTime.now();
+          await newWallet.save();
         }
       }
-    } catch (e) {
-      debugPrint("⚠️ [rollback] Error during update rollback: $e");
+      newExpense.walletKey = newResolved.$1;
+      newExpense.balanceApplied = newApplied;
+      await expenseBox.put(key, newExpense);
+      return true;
+    } catch (e, st) {
+      debugPrint(
+        '[updateExpense] Update failed; restoring previous balances: $e\n$st',
+      );
+      await expenseBox.put(key, oldExpense);
+      if (oldWallet != null && oldBalance != null) {
+        oldWallet.balance = oldBalance;
+        oldWallet.updatedAt = oldUpdatedAt;
+        await oldWallet.save();
+      }
+      if (!identical(oldWallet, newWallet) && newBalance != null) {
+        newWallet.balance = newBalance;
+        newWallet.updatedAt = newUpdatedAt;
+        await newWallet.save();
+      }
+      return false;
     }
   }
 
@@ -619,81 +544,40 @@ class UniversalHiveFunctions {
     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
     final walletBox = Hive.box<Wallet>(AppConstants.wallets);
 
-    Expense? expense;
-    Wallet? wallet;
-    double originalBalance = 0;
-    int? walletKey;
-
+    final expense = expenseBox.get(key);
+    if (expense == null) return false;
+    if (expense.classification.startsWith('loan_')) {
+      debugPrint(
+        '[deleteExpense] Loan-linked transactions must be managed with their loan',
+      );
+      return false;
+    }
+    final resolved = _resolveWallet(
+      walletBox,
+      walletKey: expense.walletKey,
+      legacyIdentifier: expense.method,
+    );
+    final wallet = resolved?.$2;
+    final originalBalance = wallet?.balance;
+    final originalUpdatedAt = wallet?.updatedAt;
+    final balanceWasApplied = expense.balanceApplied ?? wallet != null;
     try {
-      // Step 1: Get expense
-      expense = expenseBox.get(key);
-      if (expense == null) {
-        debugPrint("❌ [deleteExpense] Expense not found for key: $key");
-        return false;
-      }
-
-      // Step 2: Find wallet
-      if (expense.method != null) {
-        try {
-          wallet = walletBox.values.firstWhere(
-                (w) => w.type.toLowerCase() == expense!.method!.toLowerCase(),
-          );
-          originalBalance = wallet.balance;
-          walletKey = walletBox.keyAt(walletBox.values.toList().indexOf(wallet));
-        } catch (_) {
-          debugPrint("⚠️ [deleteExpense] Wallet not found for method: ${expense.method}");
-        }
-      }
-
-      // Step 3: Update wallet balance
-      if (wallet != null) {
+      if (wallet != null && balanceWasApplied) {
         wallet.balance += expense.amount;
         wallet.updatedAt = DateTime.now();
         await wallet.save();
-        debugPrint("💵 [deleteExpense] Wallet updated: ${wallet.name} → Balance: ${wallet.balance}");
       }
-
-      // Step 4: Delete expense
       await expenseBox.delete(key);
-      debugPrint("✅ [deleteExpense] Expense deleted successfully");
-
       return true;
-
-    } catch (e, st) {
-      debugPrint("❌ [deleteExpense] Atomic deletion failed: $e\n$st");
-
-      // Rollback
-      await _rollbackExpenseDelete(expenseBox, walletBox, key, expense, wallet, originalBalance);
-
-      return false;
-    }
-  }
-
-  /// Rollback for failed expense deletion
-  Future<void> _rollbackExpenseDelete(
-      Box<Expense> expenseBox,
-      Box<Wallet> walletBox,
-      int expenseKey,
-      Expense? expense,
-      Wallet? wallet,
-      double originalBalance,
-      ) async {
-    try {
-      // Restore expense
-      if (expense != null) {
-        await expenseBox.put(expenseKey, expense);
-        debugPrint("↩️ [rollback] Restored deleted expense");
-      }
-
-      // Restore wallet balance
-      if (wallet != null) {
-        wallet.balance = originalBalance;
-        wallet.updatedAt = DateTime.now();
-        await wallet.save();
-        debugPrint("↩️ [rollback] Restored wallet balance: $originalBalance");
-      }
     } catch (e) {
-      debugPrint("⚠️ [rollback] Error during delete rollback: $e");
+      debugPrint('[deleteExpense] Delete failed; restoring prior state: $e');
+      await expenseBox.put(key, expense);
+      if (wallet != null && originalBalance != null) {
+        wallet.balance = originalBalance;
+        wallet.updatedAt = originalUpdatedAt;
+        await wallet.save();
+      }
+      return false;
     }
   }
 
@@ -703,325 +587,212 @@ class UniversalHiveFunctions {
     required String description,
     required String method,
     required List<int> categoryKeys,
+    int? walletKey,
+    bool allowUnassigned = false,
+    String classification = 'income',
+    double? recognizedAmount,
     DateTime? date,
   }) async {
-    debugPrint("💰 [addIncome] Starting atomic operation...");
-
-    // Validate inputs
-    if (amount <= 0) {
-      debugPrint("❌ [addIncome] Invalid amount: $amount");
-      return false;
-    }
-    if (method.trim().isEmpty) {
-      debugPrint("❌ [addIncome] Method cannot be empty");
+    if (!amount.isFinite || amount <= 0) {
+      debugPrint('[addIncome] Amount must be finite and greater than zero');
       return false;
     }
 
     final incomeBox = Hive.box<Income>(AppConstants.incomes);
     final walletBox = Hive.box<Wallet>(AppConstants.wallets);
-
-    Income? savedIncome;
-    Wallet? originalWallet;
-    double originalBalance = 0;
-    int? walletKey;
-
-    try {
-      // Step 1: Create income object
-      final income = Income(
-        amount: amount,
-        date: date ?? DateTime.now(),
-        description: description,
-        categoryKeys: categoryKeys,
-        method: method
+    final resolved = allowUnassigned && walletKey == null
+        ? null
+        : _resolveWallet(
+            walletBox,
+            walletKey: walletKey,
+            legacyIdentifier: method,
+          );
+    if (resolved == null && !allowUnassigned) {
+      debugPrint(
+        '[addIncome] Select an existing account; no unique account matched',
       );
-
-      // Step 2: Find or create wallet
-      Wallet wallet;
-      final normalizedMethod = method.trim().toLowerCase();
-
-      try {
-        wallet = walletBox.values.firstWhere(
-              (w) => w.type.toLowerCase() == normalizedMethod,
-        );
-        originalWallet = wallet;
-        originalBalance = wallet.balance;
-        walletKey = walletBox.keyAt(walletBox.values.toList().indexOf(wallet));
-        debugPrint("💼 [addIncome] Found existing wallet: ${wallet.name} (key: $walletKey)");
-      } catch (_) {
-        // Create new wallet
-        wallet = Wallet(
-          name: method.trim(),
-          balance: 0,
-          updatedAt: DateTime.now(),
-          type: method.trim(),
-          createdAt: DateTime.now(),
-        );
-        debugPrint("🆕 [addIncome] Creating new wallet: ${wallet.name}");
-      }
-
-      // Step 3: Update wallet balance
-      wallet.balance += amount;
-      wallet.updatedAt = DateTime.now();
-
-      // Step 4: Save wallet appropriately
-      if (walletKey != null) {
-        // Existing wallet - use save()
-        await wallet.save();
-        debugPrint("💵 [addIncome] Existing wallet updated: ${wallet.name} → Balance: ${wallet.balance}");
-      } else {
-        // New wallet - use add()
-        walletKey = await walletBox.add(wallet);
-        debugPrint("💵 [addIncome] New wallet created: ${wallet.name} → Balance: ${wallet.balance} (key: $walletKey)");
-      }
-
-      // Step 5: Save income
-      final incomeKey = await incomeBox.add(income);
-      savedIncome = income;
-      debugPrint("✅ [addIncome] Income added successfully: $income (key: $incomeKey)");
-
-      await NotificationHelper.checkWalletBalance(wallet, 'income');
-      await NotificationHelper.notifyLargeTransaction(amount, 'income', description);
-
-      // Check total balance for savings milestone
-      final totalBalance = await getTotalBalance();
-      await NotificationHelper.notifySavingsMilestone(totalBalance);
-
-      await ProgressCalendarService().refreshTodayProgress();
-
-      return true;
-
-    } catch (e, st) {
-      debugPrint("❌ [addIncome] Atomic operation failed: $e\n$st");
-
-      // Rollback logic
-      await _rollbackIncomeAdd(incomeBox, walletBox, savedIncome, originalWallet, originalBalance);
-
       return false;
     }
-  }
-
-  /// Rollback for failed income addition
-  Future<void> _rollbackIncomeAdd(
-      Box<Income> incomeBox,
-      Box<Wallet> walletBox,
-      Income? savedIncome,
-      Wallet? originalWallet,
-      double originalBalance,
-      ) async {
+    final selectedKey = resolved?.$1;
+    final wallet = resolved?.$2;
+    final originalBalance = wallet?.balance;
+    final transactionDate = date ?? DateTime.now();
+    final balanceApplied =
+        wallet != null && _affectsCurrentBalance(wallet, transactionDate);
+    int? savedIncomeKey;
     try {
-      // Remove saved income if any
-      if (savedIncome != null) {
-        final incomeKey = incomeBox.keyAt(incomeBox.values.toList().indexOf(savedIncome));
-        await incomeBox.delete(incomeKey);
-        debugPrint("↩️ [rollback] Removed income");
+      final income = Income(
+        amount: amount,
+        date: transactionDate,
+        description: description,
+        categoryKeys: categoryKeys,
+        method: method.trim().isEmpty ? null : method.trim(),
+        walletKey: selectedKey,
+        classification: classification,
+        recognizedAmount: recognizedAmount,
+        balanceApplied: balanceApplied,
+      );
+      if (wallet != null && balanceApplied) {
+        wallet.balance += amount;
+        wallet.updatedAt = DateTime.now();
+        await wallet.save();
       }
-
-      // Restore original wallet balance
-      if (originalWallet != null) {
-        originalWallet.balance = originalBalance;
-        originalWallet.updatedAt = DateTime.now();
-        await originalWallet.save();
-        debugPrint("↩️ [rollback] Restored wallet balance: $originalBalance");
+      savedIncomeKey = await incomeBox.add(income);
+    } catch (e, st) {
+      debugPrint('[addIncome] Save failed: $e\n$st');
+      if (savedIncomeKey != null) await incomeBox.delete(savedIncomeKey);
+      if (wallet != null && originalBalance != null) {
+        wallet.balance = originalBalance;
+        wallet.updatedAt = DateTime.now();
+        await wallet.save();
       }
-    } catch (e) {
-      debugPrint("⚠️ [rollback] Error during income rollback: $e");
+      return false;
     }
+    if (wallet != null && balanceApplied) {
+      await NotificationHelper.checkWalletBalance(wallet, 'income');
+    }
+    await NotificationHelper.notifyLargeTransaction(
+      amount,
+      'income',
+      description,
+    );
+    await NotificationHelper.notifySavingsMilestone(await getTotalBalance());
+    await ProgressCalendarService().refreshTodayProgress();
+    return true;
   }
 
   /// Atomic operation: Update income with rollback support
   Future<bool> updateIncome(int key, Income newIncome, String method) async {
-    debugPrint("🔄 [updateIncome] Starting atomic update...");
-
-    if (newIncome.amount <= 0 || method.trim().isEmpty) {
-      debugPrint("❌ [updateIncome] Invalid income data");
+    if (!newIncome.amount.isFinite || newIncome.amount <= 0) {
+      debugPrint('[updateIncome] Amount must be finite and greater than zero');
       return false;
     }
 
     final incomeBox = Hive.box<Income>(AppConstants.incomes);
     final walletBox = Hive.box<Wallet>(AppConstants.wallets);
-
-    Income? oldIncome;
-    Wallet? wallet;
-    double originalBalance = 0;
-    int? walletKey;
-
-    try {
-      // Step 1: Get old income
-      oldIncome = incomeBox.get(key);
-      if (oldIncome == null) {
-        debugPrint("❌ [updateIncome] Income not found for key: $key");
-        return false;
-      }
-
-      // Step 2: Find or create wallet
-      final normalizedMethod = method.trim().toLowerCase();
-      try {
-        wallet = walletBox.values.firstWhere(
-              (w) => w.type.toLowerCase() == normalizedMethod,
-        );
-        originalBalance = wallet.balance;
-        walletKey = walletBox.keyAt(walletBox.values.toList().indexOf(wallet));
-      } catch (_) {
-        wallet = Wallet(
-          name: method.trim(),
-          balance: 0,
-          updatedAt: DateTime.now(),
-          type: method.trim(),
-          createdAt: DateTime.now(),
-        );
-        debugPrint("🆕 [updateIncome] Creating new wallet: ${wallet.name}");
-      }
-
-      // Step 3: Update wallet balance (revert old, apply new)
-      wallet.balance -= oldIncome.amount; // Revert old income
-      wallet.balance += newIncome.amount; // Apply new income
-      wallet.updatedAt = DateTime.now();
-
-      if (walletKey != null) {
-        await wallet.save();
-        debugPrint("💵 [updateIncome] Existing wallet updated: ${wallet.name} → Balance: ${wallet.balance}");
-      } else {
-        walletKey = await walletBox.add(wallet);
-        debugPrint("💵 [updateIncome] New wallet created: ${wallet.name} → Balance: ${wallet.balance}");
-      }
-
-      // Step 4: Update income
-      await incomeBox.put(key, newIncome);
-      debugPrint("✅ [updateIncome] Income updated successfully");
-
-      return true;
-
-    } catch (e, st) {
-      debugPrint("❌ [updateIncome] Atomic update failed: $e\n$st");
-
-      // Rollback
-      await _rollbackIncomeUpdate(incomeBox, walletBox, key, oldIncome, wallet, originalBalance);
-
+    final oldIncome = incomeBox.get(key);
+    if (oldIncome == null) return false;
+    final oldResolved = _resolveWallet(
+      walletBox,
+      walletKey: oldIncome.walletKey,
+      legacyIdentifier: oldIncome.method,
+    );
+    final newResolved = _resolveWallet(
+      walletBox,
+      walletKey: newIncome.walletKey ?? oldIncome.walletKey,
+      legacyIdentifier: method,
+    );
+    if (newResolved == null) {
+      debugPrint('[updateIncome] Select an existing account before saving');
       return false;
     }
-  }
-
-  /// Rollback for failed income update
-  Future<void> _rollbackIncomeUpdate(
-      Box<Income> incomeBox,
-      Box<Wallet> walletBox,
-      int incomeKey,
-      Income? oldIncome,
-      Wallet? wallet,
-      double originalBalance,
-      ) async {
+    if (oldIncome.classification.startsWith('loan_') &&
+        (newIncome.amount != oldIncome.amount ||
+            newIncome.date != oldIncome.date ||
+            method.trim() != (oldIncome.method ?? '').trim() ||
+            newResolved.$1 != oldIncome.walletKey)) {
+      debugPrint(
+        '[updateIncome] Financial fields on a loan-linked transaction cannot be changed independently',
+      );
+      return false;
+    }
+    newIncome.classification = oldIncome.classification;
+    newIncome.recognizedAmount = oldIncome.recognizedAmount;
+    final oldWallet = oldResolved?.$2;
+    final newWallet = newResolved.$2;
+    final oldBalance = oldWallet?.balance;
+    final newBalance = identical(oldWallet, newWallet)
+        ? oldBalance
+        : newWallet.balance;
+    final oldUpdatedAt = oldWallet?.updatedAt;
+    final newUpdatedAt = identical(oldWallet, newWallet)
+        ? oldUpdatedAt
+        : newWallet.updatedAt;
+    final oldApplied = oldIncome.balanceApplied ?? oldWallet != null;
+    final newApplied = _affectsCurrentBalance(newWallet, newIncome.date);
     try {
-      // Restore old income
-      if (oldIncome != null) {
-        await incomeBox.put(incomeKey, oldIncome);
-        debugPrint("↩️ [rollback] Restored original income");
-      }
-
-      // Restore wallet balance or remove if newly created
-      if (wallet != null) {
-        if (originalBalance == 0) {
-          // This was a newly created wallet, remove it
-          final walletKey = walletBox.keyAt(walletBox.values.toList().indexOf(wallet));
-          await walletBox.delete(walletKey);
-          debugPrint("↩️ [rollback] Removed newly created wallet");
-        } else {
-          wallet.balance = originalBalance;
-          wallet.updatedAt = DateTime.now();
-          await wallet.save();
-          debugPrint("↩️ [rollback] Restored wallet balance: $originalBalance");
+      if (identical(oldWallet, newWallet)) {
+        newWallet.balance +=
+            (newApplied ? newIncome.amount : 0) -
+            (oldApplied ? oldIncome.amount : 0);
+        if (newApplied || oldApplied) {
+          newWallet.updatedAt = DateTime.now();
+          await newWallet.save();
+        }
+      } else {
+        if (oldWallet != null && oldApplied) {
+          oldWallet.balance -= oldIncome.amount;
+          oldWallet.updatedAt = DateTime.now();
+          await oldWallet.save();
+        }
+        if (newApplied) {
+          newWallet.balance += newIncome.amount;
+          newWallet.updatedAt = DateTime.now();
+          await newWallet.save();
         }
       }
-    } catch (e) {
-      debugPrint("⚠️ [rollback] Error during income update rollback: $e");
+      newIncome.method = method.trim().isEmpty ? null : method.trim();
+      newIncome.walletKey = newResolved.$1;
+      newIncome.balanceApplied = newApplied;
+      await incomeBox.put(key, newIncome);
+      return true;
+    } catch (e, st) {
+      debugPrint(
+        '[updateIncome] Update failed; restoring previous balances: $e\n$st',
+      );
+      await incomeBox.put(key, oldIncome);
+      if (oldWallet != null && oldBalance != null) {
+        oldWallet.balance = oldBalance;
+        oldWallet.updatedAt = oldUpdatedAt;
+        await oldWallet.save();
+      }
+      if (!identical(oldWallet, newWallet) && newBalance != null) {
+        newWallet.balance = newBalance;
+        newWallet.updatedAt = newUpdatedAt;
+        await newWallet.save();
+      }
+      return false;
     }
   }
 
   /// Atomic operation: Delete income with rollback support
   Future<bool> deleteIncome(int key, String method) async {
-    debugPrint("🗑️ [deleteIncome] Starting atomic deletion...");
-
-    if (method.trim().isEmpty) {
-      debugPrint("❌ [deleteIncome] Method cannot be empty");
-      return false;
-    }
-
     final incomeBox = Hive.box<Income>(AppConstants.incomes);
     final walletBox = Hive.box<Wallet>(AppConstants.wallets);
-
-    Income? income;
-    Wallet? wallet;
-    double originalBalance = 0;
-    int? walletKey;
-
+    final income = incomeBox.get(key);
+    if (income == null) return false;
+    if (income.classification.startsWith('loan_')) {
+      debugPrint(
+        '[deleteIncome] Loan-linked transactions must be managed with their loan',
+      );
+      return false;
+    }
+    final resolved = _resolveWallet(
+      walletBox,
+      walletKey: income.walletKey,
+      legacyIdentifier: income.method ?? method,
+    );
+    final wallet = resolved?.$2;
+    final originalBalance = wallet?.balance;
+    final originalUpdatedAt = wallet?.updatedAt;
+    final balanceWasApplied = income.balanceApplied ?? wallet != null;
     try {
-      // Step 1: Get income
-      income = incomeBox.get(key);
-      if (income == null) {
-        debugPrint("❌ [deleteIncome] Income not found for key: $key");
-        return false;
-      }
-
-      // Step 2: Find wallet
-      final normalizedMethod = method.trim().toLowerCase();
-      try {
-        wallet = walletBox.values.firstWhere(
-              (w) => w.type.toLowerCase() == normalizedMethod,
-        );
-        originalBalance = wallet.balance;
-        walletKey = walletBox.keyAt(walletBox.values.toList().indexOf(wallet));
-      } catch (_) {
-        debugPrint("⚠️ [deleteIncome] Wallet not found for method: $method");
-      }
-
-      // Step 3: Update wallet balance
-      if (wallet != null) {
+      if (wallet != null && balanceWasApplied) {
         wallet.balance -= income.amount;
         wallet.updatedAt = DateTime.now();
         await wallet.save();
-        debugPrint("💵 [deleteIncome] Wallet updated: ${wallet.name} → Balance: ${wallet.balance}");
       }
-
-      // Step 4: Delete income
       await incomeBox.delete(key);
-      debugPrint("✅ [deleteIncome] Income deleted successfully");
-
       return true;
-
-    } catch (e, st) {
-      debugPrint("❌ [deleteIncome] Atomic deletion failed: $e\n$st");
-
-      // Rollback
-      await _rollbackIncomeDelete(incomeBox, walletBox, key, income, wallet, originalBalance);
-
-      return false;
-    }
-  }
-
-  /// Rollback for failed income deletion
-  Future<void> _rollbackIncomeDelete(
-      Box<Income> incomeBox,
-      Box<Wallet> walletBox,
-      int incomeKey,
-      Income? income,
-      Wallet? wallet,
-      double originalBalance,
-      ) async {
-    try {
-      // Restore income
-      if (income != null) {
-        await incomeBox.put(incomeKey, income);
-        debugPrint("↩️ [rollback] Restored deleted income");
-      }
-
-      // Restore wallet balance
-      if (wallet != null) {
-        wallet.balance = originalBalance;
-        wallet.updatedAt = DateTime.now();
-        await wallet.save();
-        debugPrint("↩️ [rollback] Restored wallet balance: $originalBalance");
-      }
     } catch (e) {
-      debugPrint("⚠️ [rollback] Error during income delete rollback: $e");
+      debugPrint('[deleteIncome] Delete failed; restoring prior state: $e');
+      await incomeBox.put(key, income);
+      if (wallet != null && originalBalance != null) {
+        wallet.balance = originalBalance;
+        wallet.updatedAt = originalUpdatedAt;
+        await wallet.save();
+      }
+      return false;
     }
   }
 
@@ -1031,6 +802,7 @@ class UniversalHiveFunctions {
     required String description,
     required String method,
     required List<int> categoryKeys,
+    required int walletKey,
     List<int>? goalKeys, // Specific goals to allocate to
     DateTime? date,
   }) async {
@@ -1038,6 +810,7 @@ class UniversalHiveFunctions {
       amount: amount,
       description: description,
       method: method,
+      walletKey: walletKey,
       categoryKeys: categoryKeys,
       date: date,
       goalKeys: goalKeys,
@@ -1050,23 +823,33 @@ class UniversalHiveFunctions {
       final goalService = GoalService();
       return await goalService.getActiveGoals();
     } catch (e) {
-      debugPrint("❌ [UniversalHiveFunctions] Error getting goals for allocation: $e");
+      debugPrint(
+        "❌ [UniversalHiveFunctions] Error getting goals for allocation: $e",
+      );
       return [];
     }
   }
 
   // Category operations (simpler, no wallet dependencies)
-  Future<bool> addCategory(String name, String type, Color color, String icon) async {
+  Future<bool> addCategory(
+    String name,
+    String type,
+    Color color,
+    String icon,
+  ) async {
     try {
       final categoryBox = Hive.box<Category>(AppConstants.categories);
 
       // Check for duplicates
       final exists = categoryBox.values.any(
-              (cat) => cat.name.toLowerCase() == name.toLowerCase() && cat.type == type
+        (cat) =>
+            cat.name.toLowerCase() == name.toLowerCase() && cat.type == type,
       );
 
       if (exists) {
-        debugPrint("⚠️ [addCategory] Category '$name' of type '$type' already exists");
+        debugPrint(
+          "⚠️ [addCategory] Category '$name' of type '$type' already exists",
+        );
         return false;
       }
 
@@ -1078,7 +861,9 @@ class UniversalHiveFunctions {
       );
 
       await categoryBox.add(category);
-      debugPrint("✅ [addCategory] Category added: $name ($type) with icon: $icon");
+      debugPrint(
+        "✅ [addCategory] Category added: $name ($type) with icon: $icon",
+      );
       return true;
     } catch (e, st) {
       debugPrint("❌ [addCategory] Error: $e\n$st");
@@ -1136,95 +921,403 @@ class UniversalHiveFunctions {
 
         final defaultCategories = [
           // ========== INCOME CATEGORIES ==========
-          {'name': 'Salary', 'type': 'Income', 'color': Color(0xFF4CAF50), 'icon': 'work'}, // 0
-          {'name': 'Freelance', 'type': 'Income', 'color': Color(0xFF8BC34A), 'icon': 'computer'}, // 1
-          {'name': 'Business', 'type': 'Income', 'color': Color(0xFFCDDC39), 'icon': 'business_center'}, // 2
-          {'name': 'Investments', 'type': 'Income', 'color': Color(0xFF689F38), 'icon': 'trending_up'}, // 3
-          {'name': 'Dividends', 'type': 'Income', 'color': Color(0xFF33691E), 'icon': 'account_balance'}, // 4
-          {'name': 'Rental Income', 'type': 'Income', 'color': Color(0xFF558B2F), 'icon': 'house'}, // 5
-          {'name': 'Bonus', 'type': 'Income', 'color': Color(0xFF9CCC65), 'icon': 'celebration'}, // 6
-          {'name': 'Gifts', 'type': 'Income', 'color': Color(0xFF7CB342), 'icon': 'card_giftcard'}, // 7
-          {'name': 'Refunds', 'type': 'Income', 'color': Color(0xFFAED581), 'icon': 'assignment_return'}, // 8
-          {'name': 'Side Hustle', 'type': 'Income', 'color': Color(0xFFC5E1A5), 'icon': 'directions_run'}, // 9
-
+          {
+            'name': 'Salary',
+            'type': 'Income',
+            'color': Color(0xFF4CAF50),
+            'icon': 'work',
+          }, // 0
+          {
+            'name': 'Freelance',
+            'type': 'Income',
+            'color': Color(0xFF8BC34A),
+            'icon': 'computer',
+          }, // 1
+          {
+            'name': 'Business',
+            'type': 'Income',
+            'color': Color(0xFFCDDC39),
+            'icon': 'business_center',
+          }, // 2
+          {
+            'name': 'Investments',
+            'type': 'Income',
+            'color': Color(0xFF689F38),
+            'icon': 'trending_up',
+          }, // 3
+          {
+            'name': 'Dividends',
+            'type': 'Income',
+            'color': Color(0xFF33691E),
+            'icon': 'account_balance',
+          }, // 4
+          {
+            'name': 'Rental Income',
+            'type': 'Income',
+            'color': Color(0xFF558B2F),
+            'icon': 'house',
+          }, // 5
+          {
+            'name': 'Bonus',
+            'type': 'Income',
+            'color': Color(0xFF9CCC65),
+            'icon': 'celebration',
+          }, // 6
+          {
+            'name': 'Gifts',
+            'type': 'Income',
+            'color': Color(0xFF7CB342),
+            'icon': 'card_giftcard',
+          }, // 7
+          {
+            'name': 'Refunds',
+            'type': 'Income',
+            'color': Color(0xFFAED581),
+            'icon': 'assignment_return',
+          }, // 8
+          {
+            'name': 'Side Hustle',
+            'type': 'Income',
+            'color': Color(0xFFC5E1A5),
+            'icon': 'directions_run',
+          }, // 9
           // ========== EXPENSE CATEGORIES ==========
 
           // Food & Dining
-          {'name': 'Groceries', 'type': 'Expense', 'color': Color(0xFFF44336), 'icon': 'shopping_cart'}, // 10
-          {'name': 'Dining Out', 'type': 'Expense', 'color': Color(0xFFE53935), 'icon': 'restaurant'}, // 11
-          {'name': 'Food Delivery', 'type': 'Expense', 'color': Color(0xFFD32F2F), 'icon': 'delivery_dining'}, // 12
-          {'name': 'Coffee/Tea', 'type': 'Expense', 'color': Color(0xFFC62828), 'icon': 'local_cafe'}, // 13
-          {'name': 'Snacks', 'type': 'Expense', 'color': Color(0xFFB71C1C), 'icon': 'bakery_dining'}, // 14
-
+          {
+            'name': 'Groceries',
+            'type': 'Expense',
+            'color': Color(0xFFF44336),
+            'icon': 'shopping_cart',
+          }, // 10
+          {
+            'name': 'Dining Out',
+            'type': 'Expense',
+            'color': Color(0xFFE53935),
+            'icon': 'restaurant',
+          }, // 11
+          {
+            'name': 'Food Delivery',
+            'type': 'Expense',
+            'color': Color(0xFFD32F2F),
+            'icon': 'delivery_dining',
+          }, // 12
+          {
+            'name': 'Coffee/Tea',
+            'type': 'Expense',
+            'color': Color(0xFFC62828),
+            'icon': 'local_cafe',
+          }, // 13
+          {
+            'name': 'Snacks',
+            'type': 'Expense',
+            'color': Color(0xFFB71C1C),
+            'icon': 'bakery_dining',
+          }, // 14
           // Housing
-          {'name': 'Rent', 'type': 'Expense', 'color': Color(0xFF2196F3), 'icon': 'home'}, // 15
-          {'name': 'Mortgage', 'type': 'Expense', 'color': Color(0xFF1976D2), 'icon': 'real_estate_agent'},// 16
-          {'name': 'Electricity', 'type': 'Expense', 'color': Color(0xFF1565C0), 'icon': 'flash_on'}, // 17
-          {'name': 'Water Bill', 'type': 'Expense', 'color': Color(0xFF0D47A1), 'icon': 'water_drop'}, // 18
-          {'name': 'Internet', 'type': 'Expense', 'color': Color(0xFF1E88E5), 'icon': 'wifi'}, // 19
-          {'name': 'Mobile Bill', 'type': 'Expense', 'color': Color(0xFF42A5F5), 'icon': 'smartphone'}, // 20
-          {'name': 'Maintenance', 'type': 'Expense', 'color': Color(0xFF64B5F6), 'icon': 'handyman'}, // 21
-
+          {
+            'name': 'Rent',
+            'type': 'Expense',
+            'color': Color(0xFF2196F3),
+            'icon': 'home',
+          }, // 15
+          {
+            'name': 'Mortgage',
+            'type': 'Expense',
+            'color': Color(0xFF1976D2),
+            'icon': 'real_estate_agent',
+          }, // 16
+          {
+            'name': 'Electricity',
+            'type': 'Expense',
+            'color': Color(0xFF1565C0),
+            'icon': 'flash_on',
+          }, // 17
+          {
+            'name': 'Water Bill',
+            'type': 'Expense',
+            'color': Color(0xFF0D47A1),
+            'icon': 'water_drop',
+          }, // 18
+          {
+            'name': 'Internet',
+            'type': 'Expense',
+            'color': Color(0xFF1E88E5),
+            'icon': 'wifi',
+          }, // 19
+          {
+            'name': 'Mobile Bill',
+            'type': 'Expense',
+            'color': Color(0xFF42A5F5),
+            'icon': 'smartphone',
+          }, // 20
+          {
+            'name': 'Maintenance',
+            'type': 'Expense',
+            'color': Color(0xFF64B5F6),
+            'icon': 'handyman',
+          }, // 21
           // Transportation
-          {'name': 'Fuel', 'type': 'Expense', 'color': Color(0xFFFF9800), 'icon': 'local_gas_station'}, // 22
-          {'name': 'Public Transport', 'type': 'Expense', 'color': Color(0xFFF57C00), 'icon': 'directions_bus'}, // 23
-          {'name': 'Taxi/Ride Share', 'type': 'Expense', 'color': Color(0xFFEF6C00), 'icon': 'local_taxi'}, // 24
-          {'name': 'Car Insurance', 'type': 'Expense', 'color': Color(0xFFE65100), 'icon': 'car_rental'}, // 25
-          {'name': 'Car Maintenance', 'type': 'Expense', 'color': Color(0xFFFFB74D), 'icon': 'build'}, // 26
-          {'name': 'Parking', 'type': 'Expense', 'color': Color(0xFFFFA726), 'icon': 'local_parking'}, // 27
-
+          {
+            'name': 'Fuel',
+            'type': 'Expense',
+            'color': Color(0xFFFF9800),
+            'icon': 'local_gas_station',
+          }, // 22
+          {
+            'name': 'Public Transport',
+            'type': 'Expense',
+            'color': Color(0xFFF57C00),
+            'icon': 'directions_bus',
+          }, // 23
+          {
+            'name': 'Taxi/Ride Share',
+            'type': 'Expense',
+            'color': Color(0xFFEF6C00),
+            'icon': 'local_taxi',
+          }, // 24
+          {
+            'name': 'Car Insurance',
+            'type': 'Expense',
+            'color': Color(0xFFE65100),
+            'icon': 'car_rental',
+          }, // 25
+          {
+            'name': 'Car Maintenance',
+            'type': 'Expense',
+            'color': Color(0xFFFFB74D),
+            'icon': 'build',
+          }, // 26
+          {
+            'name': 'Parking',
+            'type': 'Expense',
+            'color': Color(0xFFFFA726),
+            'icon': 'local_parking',
+          }, // 27
           // Shopping
-          {'name': 'Clothing', 'type': 'Expense', 'color': Color(0xFF9C27B0), 'icon': 'checkroom'}, // 28
-          {'name': 'Electronics', 'type': 'Expense', 'color': Color(0xFF8E24AA), 'icon': 'devices'}, // 29
-          {'name': 'Personal Care', 'type': 'Expense', 'color': Color(0xFF7B1FA2), 'icon': 'spa'}, // 30
-          {'name': 'Home Supplies', 'type': 'Expense', 'color': Color(0xFF6A1B9A), 'icon': 'chair'}, // 31
-          {'name': 'Gifts', 'type': 'Expense', 'color': Color(0xFF4A148C), 'icon': 'card_giftcard'}, // 32
-
+          {
+            'name': 'Clothing',
+            'type': 'Expense',
+            'color': Color(0xFF9C27B0),
+            'icon': 'checkroom',
+          }, // 28
+          {
+            'name': 'Electronics',
+            'type': 'Expense',
+            'color': Color(0xFF8E24AA),
+            'icon': 'devices',
+          }, // 29
+          {
+            'name': 'Personal Care',
+            'type': 'Expense',
+            'color': Color(0xFF7B1FA2),
+            'icon': 'spa',
+          }, // 30
+          {
+            'name': 'Home Supplies',
+            'type': 'Expense',
+            'color': Color(0xFF6A1B9A),
+            'icon': 'chair',
+          }, // 31
+          {
+            'name': 'Gifts',
+            'type': 'Expense',
+            'color': Color(0xFF4A148C),
+            'icon': 'card_giftcard',
+          }, // 32
           // Entertainment & Leisure
-          {'name': 'Movies', 'type': 'Expense', 'color': Color(0xFFE91E63), 'icon': 'movie'}, // 33
-          {'name': 'Streaming Services', 'type': 'Expense', 'color': Color(0xFFD81B60), 'icon': 'live_tv'}, // 34
-          {'name': 'Hobbies', 'type': 'Expense', 'color': Color(0xFFC2185B), 'icon': 'palette'}, // 35
-          {'name': 'Sports', 'type': 'Expense', 'color': Color(0xFFAD1457), 'icon': 'sports_soccer'}, // 36
-          {'name': 'Games', 'type': 'Expense', 'color': Color(0xFF880E4F), 'icon': 'sports_esports'}, // 37
-          {'name': 'Books', 'type': 'Expense', 'color': Color(0xFFEC407A), 'icon': 'menu_book'}, // 38
-
+          {
+            'name': 'Movies',
+            'type': 'Expense',
+            'color': Color(0xFFE91E63),
+            'icon': 'movie',
+          }, // 33
+          {
+            'name': 'Streaming Services',
+            'type': 'Expense',
+            'color': Color(0xFFD81B60),
+            'icon': 'live_tv',
+          }, // 34
+          {
+            'name': 'Hobbies',
+            'type': 'Expense',
+            'color': Color(0xFFC2185B),
+            'icon': 'palette',
+          }, // 35
+          {
+            'name': 'Sports',
+            'type': 'Expense',
+            'color': Color(0xFFAD1457),
+            'icon': 'sports_soccer',
+          }, // 36
+          {
+            'name': 'Games',
+            'type': 'Expense',
+            'color': Color(0xFF880E4F),
+            'icon': 'sports_esports',
+          }, // 37
+          {
+            'name': 'Books',
+            'type': 'Expense',
+            'color': Color(0xFFEC407A),
+            'icon': 'menu_book',
+          }, // 38
           // Health & Fitness
-          {'name': 'Healthcare', 'type': 'Expense', 'color': Color(0xFF00BCD4), 'icon': 'local_hospital'}, // 39
-          {'name': 'Medicines', 'type': 'Expense', 'color': Color(0xFF00ACC1), 'icon': 'medication'}, // 40
-          {'name': 'Gym/Fitness', 'type': 'Expense', 'color': Color(0xFF0097A7), 'icon': 'fitness_center'}, // 41
-          {'name': 'Insurance', 'type': 'Expense', 'color': Color(0xFF00838F), 'icon': 'health_and_safety'}, // 42
-          {'name': 'Doctor Visits', 'type': 'Expense', 'color': Color(0xFF006064), 'icon': 'medical_services'}, // 43
-
-
+          {
+            'name': 'Healthcare',
+            'type': 'Expense',
+            'color': Color(0xFF00BCD4),
+            'icon': 'local_hospital',
+          }, // 39
+          {
+            'name': 'Medicines',
+            'type': 'Expense',
+            'color': Color(0xFF00ACC1),
+            'icon': 'medication',
+          }, // 40
+          {
+            'name': 'Gym/Fitness',
+            'type': 'Expense',
+            'color': Color(0xFF0097A7),
+            'icon': 'fitness_center',
+          }, // 41
+          {
+            'name': 'Insurance',
+            'type': 'Expense',
+            'color': Color(0xFF00838F),
+            'icon': 'health_and_safety',
+          }, // 42
+          {
+            'name': 'Doctor Visits',
+            'type': 'Expense',
+            'color': Color(0xFF006064),
+            'icon': 'medical_services',
+          }, // 43
           // Education
-          {'name': 'Tuition Fees', 'type': 'Expense', 'color': Color(0xFF673AB7), 'icon': 'school'}, // 44
-          {'name': 'Books & Supplies', 'type': 'Expense', 'color': Color(0xFF5E35B1), 'icon': 'book'}, // 45
-          {'name': 'Courses', 'type': 'Expense', 'color': Color(0xFF512DA8), 'icon': 'cast_for_education'}, // 46
-          {'name': 'Online Learning', 'type': 'Expense', 'color': Color(0xFF4527A0), 'icon': 'computer'}, // 47
-
+          {
+            'name': 'Tuition Fees',
+            'type': 'Expense',
+            'color': Color(0xFF673AB7),
+            'icon': 'school',
+          }, // 44
+          {
+            'name': 'Books & Supplies',
+            'type': 'Expense',
+            'color': Color(0xFF5E35B1),
+            'icon': 'book',
+          }, // 45
+          {
+            'name': 'Courses',
+            'type': 'Expense',
+            'color': Color(0xFF512DA8),
+            'icon': 'cast_for_education',
+          }, // 46
+          {
+            'name': 'Online Learning',
+            'type': 'Expense',
+            'color': Color(0xFF4527A0),
+            'icon': 'computer',
+          }, // 47
           // Travel
-          {'name': 'Flights', 'type': 'Expense', 'color': Color(0xFF795548), 'icon': 'flight'}, // 48
-          {'name': 'Hotels', 'type': 'Expense', 'color': Color(0xFF6D4C41), 'icon': 'hotel'}, // 49
-          {'name': 'Vacation', 'type': 'Expense', 'color': Color(0xFF5D4037), 'icon': 'beach_access'}, // 50
-          {'name': 'Travel Insurance', 'type': 'Expense', 'color': Color(0xFF4E342E), 'icon': 'travel_explore'}, // 51
-
+          {
+            'name': 'Flights',
+            'type': 'Expense',
+            'color': Color(0xFF795548),
+            'icon': 'flight',
+          }, // 48
+          {
+            'name': 'Hotels',
+            'type': 'Expense',
+            'color': Color(0xFF6D4C41),
+            'icon': 'hotel',
+          }, // 49
+          {
+            'name': 'Vacation',
+            'type': 'Expense',
+            'color': Color(0xFF5D4037),
+            'icon': 'beach_access',
+          }, // 50
+          {
+            'name': 'Travel Insurance',
+            'type': 'Expense',
+            'color': Color(0xFF4E342E),
+            'icon': 'travel_explore',
+          }, // 51
           // Financial
-          {'name': 'Loan Payment', 'type': 'Expense', 'color': Color(0xFF607D8B), 'icon': 'account_balance'}, // 52
-          {'name': 'Credit Card', 'type': 'Expense', 'color': Color(0xFF546E7A), 'icon': 'credit_card'}, // 53
-          {'name': 'Taxes', 'type': 'Expense', 'color': Color(0xFF455A64), 'icon': 'receipt_long'}, // 54
-          {'name': 'Bank Fees', 'type': 'Expense', 'color': Color(0xFF37474F), 'icon': 'payments'}, // 55
-
+          {
+            'name': 'Loan Payment',
+            'type': 'Expense',
+            'color': Color(0xFF607D8B),
+            'icon': 'account_balance',
+          }, // 52
+          {
+            'name': 'Credit Card',
+            'type': 'Expense',
+            'color': Color(0xFF546E7A),
+            'icon': 'credit_card',
+          }, // 53
+          {
+            'name': 'Taxes',
+            'type': 'Expense',
+            'color': Color(0xFF455A64),
+            'icon': 'receipt_long',
+          }, // 54
+          {
+            'name': 'Bank Fees',
+            'type': 'Expense',
+            'color': Color(0xFF37474F),
+            'icon': 'payments',
+          }, // 55
           // Personal & Miscellaneous
-          {'name': 'Donations', 'type': 'Expense', 'color': Color(0xFF009688), 'icon': 'volunteer_activism'}, // 56
-          {'name': 'Pet Care', 'type': 'Expense', 'color': Color(0xFF00897B), 'icon': 'pets'}, // 57
-          {'name': 'Childcare', 'type': 'Expense', 'color': Color(0xFF00796B), 'icon': 'child_friendly'}, // 58
-          {'name': 'Subscriptions', 'type': 'Expense', 'color': Color(0xFF00695C), 'icon': 'subscriptions'}, // 59
-          {'name': 'Repairs', 'type': 'Expense', 'color': Color(0xFF004D40), 'icon': 'construction'}, // 60
-
+          {
+            'name': 'Donations',
+            'type': 'Expense',
+            'color': Color(0xFF009688),
+            'icon': 'volunteer_activism',
+          }, // 56
+          {
+            'name': 'Pet Care',
+            'type': 'Expense',
+            'color': Color(0xFF00897B),
+            'icon': 'pets',
+          }, // 57
+          {
+            'name': 'Childcare',
+            'type': 'Expense',
+            'color': Color(0xFF00796B),
+            'icon': 'child_friendly',
+          }, // 58
+          {
+            'name': 'Subscriptions',
+            'type': 'Expense',
+            'color': Color(0xFF00695C),
+            'icon': 'subscriptions',
+          }, // 59
+          {
+            'name': 'Repairs',
+            'type': 'Expense',
+            'color': Color(0xFF004D40),
+            'icon': 'construction',
+          }, // 60
           // General
-          {'name': 'Other', 'type': 'Expense', 'color': Color(0xFF9E9E9E), 'icon': 'category'}, // 61
-          {'name': 'Miscellaneous', 'type': 'Expense', 'color': Color(0xFF757575), 'icon': 'more_horiz'}, // 62
-          {'name': 'Emergency', 'type': 'Expense', 'color': Color(0xFF616161), 'icon': 'warning'}, // 63
+          {
+            'name': 'Other',
+            'type': 'Expense',
+            'color': Color(0xFF9E9E9E),
+            'icon': 'category',
+          }, // 61
+          {
+            'name': 'Miscellaneous',
+            'type': 'Expense',
+            'color': Color(0xFF757575),
+            'icon': 'more_horiz',
+          }, // 62
+          {
+            'name': 'Emergency',
+            'type': 'Expense',
+            'color': Color(0xFF616161),
+            'icon': 'warning',
+          }, // 63
         ];
 
         // Add categories in batches to avoid overwhelming the system
@@ -1243,9 +1336,13 @@ class UniversalHiveFunctions {
           }
         }
 
-        debugPrint("✅ [initCategories] ${defaultCategories.length} default categories initialized");
+        debugPrint(
+          "✅ [initCategories] ${defaultCategories.length} default categories initialized",
+        );
       } else {
-        debugPrint("ℹ️ [initCategories] Categories already exist, skipping initialization");
+        debugPrint(
+          "ℹ️ [initCategories] Categories already exist, skipping initialization",
+        );
       }
       return true;
     } catch (e, st) {
@@ -1258,7 +1355,10 @@ class UniversalHiveFunctions {
   Future<double> getTotalBalance() async {
     try {
       final walletBox = Hive.box<Wallet>(AppConstants.wallets);
-      final total = walletBox.values.fold(0.0, (sum, wallet) => sum + wallet.balance);
+      final total = walletBox.values.fold(
+        0.0,
+        (sum, wallet) => sum + wallet.balance,
+      );
       debugPrint("💰 [getTotalBalance] Total balance: $total");
       return total;
     } catch (e, st) {
@@ -1274,7 +1374,7 @@ class UniversalHiveFunctions {
       final normalizedType = type.trim().toLowerCase();
 
       final wallet = walletBox.values.firstWhere(
-            (w) => w.type.toLowerCase() == normalizedType,
+        (w) => w.type.toLowerCase() == normalizedType,
       );
 
       return wallet;
@@ -1285,7 +1385,10 @@ class UniversalHiveFunctions {
   }
 
   /// Create wallet if it doesn't exist
-  Future<bool> ensureWalletExists(String type, {double initialBalance = 0}) async {
+  Future<bool> ensureWalletExists(
+    String type, {
+    double initialBalance = 0,
+  }) async {
     try {
       final wallet = await getWalletByType(type);
       if (wallet != null) return true;
@@ -1311,7 +1414,9 @@ class UniversalHiveFunctions {
   /// Atomic operation: Mark habit as completed, with optional auto-transaction creation
   /// Checks for recent matching expense/income within 5 minutes; adds if missing
   Future<bool> markHabitComplete(dynamic habitKey, Habit habit) async {
-    debugPrint("✅ [markHabitComplete] Starting atomic completion for habit: ${habit.name}");
+    debugPrint(
+      "✅ [markHabitComplete] Starting atomic completion for habit: ${habit.name}",
+    );
     final habitBox = Hive.box<Habit>(AppConstants.habits);
     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
     final incomeBox = Hive.box<Income>(AppConstants.incomes);
@@ -1331,10 +1436,14 @@ class UniversalHiveFunctions {
       final wasCompleted = habit.isCompletedToday();
       habit.markCompleted();
       await habitBox.put(habitKey, habit);
-      debugPrint("📅 [markHabitComplete] Habit marked completed: ${habit.name} (streak: ${habit.streakCount})");
+      debugPrint(
+        "📅 [markHabitComplete] Habit marked completed: ${habit.name} (streak: ${habit.streakCount})",
+      );
 
       if (wasCompleted) {
-        debugPrint("ℹ️ [markHabitComplete] Habit already completed today, skipping transaction check");
+        debugPrint(
+          "ℹ️ [markHabitComplete] Habit already completed today, skipping transaction check",
+        );
         return true;
       }
 
@@ -1347,12 +1456,18 @@ class UniversalHiveFunctions {
             .map((k) => categoryBox.get(k))
             .whereType<Category>()
             .toList();
-        isExpense = habitCategories.any((cat) => cat.type.toLowerCase() == 'expense');
-        isIncome = habitCategories.any((cat) => cat.type.toLowerCase() == 'income');
+        isExpense = habitCategories.any(
+          (cat) => cat.type.toLowerCase() == 'expense',
+        );
+        isIncome = habitCategories.any(
+          (cat) => cat.type.toLowerCase() == 'income',
+        );
       }
 
       if (!isExpense && !isIncome) {
-        debugPrint("ℹ️ [markHabitComplete] Habit has no expense/income categories, no transaction added");
+        debugPrint(
+          "ℹ️ [markHabitComplete] Habit has no expense/income categories, no transaction added",
+        );
         return true;
       }
 
@@ -1362,21 +1477,27 @@ class UniversalHiveFunctions {
       bool hasRecentTransaction = false;
 
       if (isExpense) {
-        hasRecentTransaction = expenseBox.values.any((e) =>
-        e.date.isAfter(fiveMinAgo) &&
-            e.categoryKeys.any((k) => habit.categoryKeys.contains(k)) &&
-            e.description.contains(habit.name));
+        hasRecentTransaction = expenseBox.values.any(
+          (e) =>
+              e.date.isAfter(fiveMinAgo) &&
+              e.categoryKeys.any((k) => habit.categoryKeys.contains(k)) &&
+              e.description.contains(habit.name),
+        );
       } else if (isIncome) {
-        hasRecentTransaction = incomeBox.values.any((i) =>
-        i.date.isAfter(fiveMinAgo) &&
-            i.categoryKeys.any((k) => habit.categoryKeys.contains(k)) &&
-            i.description.contains(habit.name));
+        hasRecentTransaction = incomeBox.values.any(
+          (i) =>
+              i.date.isAfter(fiveMinAgo) &&
+              i.categoryKeys.any((k) => habit.categoryKeys.contains(k)) &&
+              i.description.contains(habit.name),
+        );
       }
 
       // Step 5: Add transaction if missing
-      if (!hasRecentTransaction && habit.targetAmount != null && habit.targetAmount! > 0) {
+      if (!hasRecentTransaction &&
+          habit.targetAmount != null &&
+          habit.targetAmount! > 0) {
         final amount = habit.targetAmount!;
-        final method = 'UPI';  // Default method for auto-habits
+        final method = 'UPI'; // Default method for auto-habits
         final desc = matchingDescription;
 
         if (isExpense) {
@@ -1398,12 +1519,18 @@ class UniversalHiveFunctions {
         }
 
         if (transactionAdded) {
-          debugPrint("💳 [markHabitComplete] Auto-added ${isExpense ? 'expense' : 'income'}: $amount for ${habit.name}");
+          debugPrint(
+            "💳 [markHabitComplete] Auto-added ${isExpense ? 'expense' : 'income'}: $amount for ${habit.name}",
+          );
         } else {
-          debugPrint("⚠️ [markHabitComplete] Failed to auto-add transaction for ${habit.name}");
+          debugPrint(
+            "⚠️ [markHabitComplete] Failed to auto-add transaction for ${habit.name}",
+          );
         }
       } else if (hasRecentTransaction) {
-        debugPrint("ℹ️ [markHabitComplete] Recent transaction found, skipping auto-add for ${habit.name}");
+        debugPrint(
+          "ℹ️ [markHabitComplete] Recent transaction found, skipping auto-add for ${habit.name}",
+        );
       }
 
       // Notify about habit streak
@@ -1420,16 +1547,27 @@ class UniversalHiveFunctions {
   }
 
   /// Rollback for failed habit completion
-  Future<void> _rollbackHabitComplete(Box<Habit> habitBox, dynamic habitKey, Habit? originalHabit) async {
+  Future<void> _rollbackHabitComplete(
+    Box<Habit> habitBox,
+    dynamic habitKey,
+    Habit? originalHabit,
+  ) async {
     try {
       if (originalHabit != null) {
         // Restore original completionHistory (remove today's entry if added)
-        final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-        originalHabit.completionHistory.removeWhere((date) => date.isAtSameMomentAs(today));
-        originalHabit.lastCompletedAt = originalHabit.completionHistory.isNotEmpty
+        final today = DateTime(
+          DateTime.now().year,
+          DateTime.now().month,
+          DateTime.now().day,
+        );
+        originalHabit.completionHistory.removeWhere(
+          (date) => date.isAtSameMomentAs(today),
+        );
+        originalHabit.lastCompletedAt =
+            originalHabit.completionHistory.isNotEmpty
             ? originalHabit.completionHistory.last
             : null;
-        originalHabit.streakCount = 0;  // Reset streak on rollback
+        originalHabit.streakCount = 0; // Reset streak on rollback
         await habitBox.put(habitKey, originalHabit);
         debugPrint("↩️ [rollback] Restored original habit state");
       }
@@ -1440,7 +1578,9 @@ class UniversalHiveFunctions {
 
   /// Atomic operation: Unmark habit as completed today, with optional auto-transaction removal
   Future<bool> unmarkHabitComplete(dynamic habitKey, Habit habit) async {
-    debugPrint("↩️ [unmarkHabitComplete] Starting atomic unmark for habit: ${habit.name}");
+    debugPrint(
+      "↩️ [unmarkHabitComplete] Starting atomic unmark for habit: ${habit.name}",
+    );
     final habitBox = Hive.box<Habit>(AppConstants.habits);
     final expenseBox = Hive.box<Expense>(AppConstants.expenses);
     final incomeBox = Hive.box<Income>(AppConstants.incomes);
@@ -1454,21 +1594,33 @@ class UniversalHiveFunctions {
       // Step 1: Save original habit state
       originalHabit = habitBox.get(habitKey);
       if (originalHabit == null) {
-        debugPrint("❌ [unmarkHabitComplete] Habit not found for key: $habitKey");
+        debugPrint(
+          "❌ [unmarkHabitComplete] Habit not found for key: $habitKey",
+        );
         return false;
       }
 
       if (!habit.isCompletedToday()) {
-        debugPrint("ℹ️ [unmarkHabitComplete] Habit not completed today, nothing to unmark");
+        debugPrint(
+          "ℹ️ [unmarkHabitComplete] Habit not completed today, nothing to unmark",
+        );
         return true;
       }
 
       // Step 2: Unmark habit (remove today's completion)
-      final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-      habit.completionHistory.removeWhere((date) => date.isAtSameMomentAs(today));
-      habit.lastCompletedAt = habit.completionHistory.isNotEmpty ? habit.completionHistory.last : null;
+      final today = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
+      habit.completionHistory.removeWhere(
+        (date) => date.isAtSameMomentAs(today),
+      );
+      habit.lastCompletedAt = habit.completionHistory.isNotEmpty
+          ? habit.completionHistory.last
+          : null;
       // Recalculate streak (simplified; call _updateStreak if available)
-      habit.streakCount = 0;  // Reset on unmark
+      habit.streakCount = 0; // Reset on unmark
       await habitBox.put(habitKey, habit);
       debugPrint("📅 [unmarkHabitComplete] Habit unmarked: ${habit.name}");
 
@@ -1480,8 +1632,12 @@ class UniversalHiveFunctions {
             .map((k) => categoryBox.get(k))
             .whereType<Category>()
             .toList();
-        isExpense = habitCategories.any((cat) => cat.type.toLowerCase() == 'expense');
-        isIncome = habitCategories.any((cat) => cat.type.toLowerCase() == 'income');
+        isExpense = habitCategories.any(
+          (cat) => cat.type.toLowerCase() == 'expense',
+        );
+        isIncome = habitCategories.any(
+          (cat) => cat.type.toLowerCase() == 'income',
+        );
       }
 
       if (isExpense || isIncome) {
@@ -1492,7 +1648,8 @@ class UniversalHiveFunctions {
         if (isExpense) {
           try {
             matchingTransaction = expenseBox.values.firstWhere(
-                  (e) => e.date.isAfter(fiveMinAgo) &&
+              (e) =>
+                  e.date.isAfter(fiveMinAgo) &&
                   e.categoryKeys.any((k) => habit.categoryKeys.contains(k)) &&
                   e.description == matchingDescription,
             );
@@ -1503,7 +1660,8 @@ class UniversalHiveFunctions {
         } else if (isIncome) {
           try {
             matchingTransaction = incomeBox.values.firstWhere(
-                  (i) => i.date.isAfter(fiveMinAgo) &&
+              (i) =>
+                  i.date.isAfter(fiveMinAgo) &&
                   i.categoryKeys.any((k) => habit.categoryKeys.contains(k)) &&
                   i.description == matchingDescription,
             );
@@ -1516,15 +1674,25 @@ class UniversalHiveFunctions {
         // Step 4: Remove matching transaction if found (assume auto-added)
         if (matchingTransaction != null) {
           if (wasExpense) {
-            removedTransactionKey = expenseBox.keyAt(expenseBox.values.toList().indexOf(matchingTransaction as Expense));
+            removedTransactionKey = expenseBox.keyAt(
+              expenseBox.values.toList().indexOf(
+                matchingTransaction as Expense,
+              ),
+            );
             await deleteExpense(removedTransactionKey!);
           } else if (wasIncome) {
-            removedTransactionKey = incomeBox.keyAt(incomeBox.values.toList().indexOf(matchingTransaction as Income));
+            removedTransactionKey = incomeBox.keyAt(
+              incomeBox.values.toList().indexOf(matchingTransaction as Income),
+            );
             await deleteIncome(removedTransactionKey!, 'Habit');
           }
-          debugPrint("🗑️ [unmarkHabitComplete] Removed auto-transaction for ${habit.name}");
+          debugPrint(
+            "🗑️ [unmarkHabitComplete] Removed auto-transaction for ${habit.name}",
+          );
         } else {
-          debugPrint("ℹ️ [unmarkHabitComplete] No matching transaction found to remove for ${habit.name}");
+          debugPrint(
+            "ℹ️ [unmarkHabitComplete] No matching transaction found to remove for ${habit.name}",
+          );
         }
       }
 
@@ -1532,20 +1700,27 @@ class UniversalHiveFunctions {
     } catch (e, st) {
       debugPrint("❌ [unmarkHabitComplete] Atomic operation failed: $e\n$st");
       // Rollback: Remark as completed
-      await _rollbackUnmarkHabitComplete(habitBox, habitKey, originalHabit, removedTransactionKey, wasExpense, wasIncome);
+      await _rollbackUnmarkHabitComplete(
+        habitBox,
+        habitKey,
+        originalHabit,
+        removedTransactionKey,
+        wasExpense,
+        wasIncome,
+      );
       return false;
     }
   }
 
   /// Rollback for failed habit unmark
   Future<void> _rollbackUnmarkHabitComplete(
-      Box<Habit> habitBox,
-      dynamic habitKey,
-      Habit? originalHabit,
-      int? removedTransactionKey,
-      bool wasExpense,
-      bool wasIncome,
-      ) async {
+    Box<Habit> habitBox,
+    dynamic habitKey,
+    Habit? originalHabit,
+    int? removedTransactionKey,
+    bool wasExpense,
+    bool wasIncome,
+  ) async {
     try {
       // Restore original completion
       if (originalHabit != null) {
@@ -1556,10 +1731,14 @@ class UniversalHiveFunctions {
       if (removedTransactionKey != null) {
         if (wasExpense) {
           // Re-add expense (simplified; in real, you'd need full data)
-          debugPrint("⚠️ [rollback] Transaction restore for expense not fully implemented; manual intervention may be needed");
+          debugPrint(
+            "⚠️ [rollback] Transaction restore for expense not fully implemented; manual intervention may be needed",
+          );
         } else if (wasIncome) {
           // Similar for income
-          debugPrint("⚠️ [rollback] Transaction restore for income not fully implemented; manual intervention may be needed");
+          debugPrint(
+            "⚠️ [rollback] Transaction restore for income not fully implemented; manual intervention may be needed",
+          );
         }
       }
     } catch (e) {
@@ -1569,7 +1748,9 @@ class UniversalHiveFunctions {
 
   /// Atomic operation: Delete habit
   Future<bool> deleteHabit(dynamic habitKey) async {
-    debugPrint("🗑️ [deleteHabit] Starting atomic deletion for habit key: $habitKey");
+    debugPrint(
+      "🗑️ [deleteHabit] Starting atomic deletion for habit key: $habitKey",
+    );
     final habitBox = Hive.box<Habit>(AppConstants.habits);
     try {
       final habit = habitBox.get(habitKey);
@@ -1586,25 +1767,37 @@ class UniversalHiveFunctions {
       final incomeBox = Hive.box<Income>(AppConstants.incomes);
 
       // Find and delete matching expenses
-      final matchingExpenses = expenseBox.values.where((e) =>
-      e.date.isAfter(dayAgo) &&
-          e.description == matchingDescription &&
-          e.categoryKeys.any((k) => habit.categoryKeys.contains(k)));
+      final matchingExpenses = expenseBox.values.where(
+        (e) =>
+            e.date.isAfter(dayAgo) &&
+            e.description == matchingDescription &&
+            e.categoryKeys.any((k) => habit.categoryKeys.contains(k)),
+      );
       for (final expense in matchingExpenses) {
-        final expenseKey = expenseBox.keyAt(expenseBox.values.toList().indexOf(expense));
+        final expenseKey = expenseBox.keyAt(
+          expenseBox.values.toList().indexOf(expense),
+        );
         await deleteExpense(expenseKey);
-        debugPrint("🗑️ [deleteHabit] Cleaned up auto-expense for ${habit.name}");
+        debugPrint(
+          "🗑️ [deleteHabit] Cleaned up auto-expense for ${habit.name}",
+        );
       }
 
       // Find and delete matching incomes
-      final matchingIncomes = incomeBox.values.where((i) =>
-      i.date.isAfter(dayAgo) &&
-          i.description == matchingDescription &&
-          i.categoryKeys.any((k) => habit.categoryKeys.contains(k)));
+      final matchingIncomes = incomeBox.values.where(
+        (i) =>
+            i.date.isAfter(dayAgo) &&
+            i.description == matchingDescription &&
+            i.categoryKeys.any((k) => habit.categoryKeys.contains(k)),
+      );
       for (final income in matchingIncomes) {
-        final incomeKey = incomeBox.keyAt(incomeBox.values.toList().indexOf(income));
+        final incomeKey = incomeBox.keyAt(
+          incomeBox.values.toList().indexOf(income),
+        );
         await deleteIncome(incomeKey, 'Habit');
-        debugPrint("🗑️ [deleteHabit] Cleaned up auto-income for ${habit.name}");
+        debugPrint(
+          "🗑️ [deleteHabit] Cleaned up auto-income for ${habit.name}",
+        );
       }
 
       // Delete habit
@@ -1678,8 +1871,7 @@ class UniversalHiveFunctions {
       'warning': 0xe002,
     };
 
-    return iconMap[iconName] ?? 0xe574; // Default to 'category' icon if not found
+    return iconMap[iconName] ??
+        0xe574; // Default to 'category' icon if not found
   }
-
-
 }

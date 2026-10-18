@@ -10,7 +10,8 @@ import 'package:expense_tracker/services/langs/app_localalizations.dart';
 import 'package:expense_tracker/services/notification_service.dart';
 import 'package:expense_tracker/services/number_formatter_service.dart';
 import 'package:expense_tracker/services/progress_calendar_service.dart';
-import 'package:expense_tracker/services/wallpaper_scheduler_service.dart' hide callbackDispatcher;
+import 'package:expense_tracker/services/wallpaper_scheduler_service.dart'
+    hide callbackDispatcher;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
@@ -22,6 +23,7 @@ import 'package:workmanager/workmanager.dart';
 import 'dart:io' show Platform;
 import 'ai/smart_spend_ai.dart';
 import 'core/helpers.dart';
+import 'services/profile_service.dart';
 import 'screens/app_splash_screen.dart';
 import 'data/model/category.dart';
 import 'data/model/daily_progress.dart';
@@ -35,7 +37,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 // Conditional import for recurring scheduler
 import 'package:expense_tracker/services/recurring_scheduler.dart'
-if (dart.library.html) 'package:expense_tracker/services/recurring_scheduler_web.dart';
+    if (dart.library.html) 'package:expense_tracker/services/recurring_scheduler_web.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,7 +46,8 @@ void main() async {
 
   // Only initialize notifications on mobile platforms
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-    final bool notificationState = await Helpers().getCurrentNotificationState() ?? false;
+    final bool notificationState =
+        await Helpers().getCurrentNotificationState() ?? false;
     debugPrint('Notification state: $notificationState');
 
     if (notificationState == true) {
@@ -76,6 +79,8 @@ void main() async {
   Hive.registerAdapter(LoanDocumentAdapter());
   Hive.registerAdapter(DailyProgressAdapter());
 
+  await ProfileService.instance.initialize();
+
   // Open boxes
   await Hive.openBox<Expense>(AppConstants.expenses);
   await Hive.openBox<Income>(AppConstants.incomes);
@@ -100,7 +105,10 @@ void main() async {
   // and breaks model persistence across reloads (see gemma_provider.dart).
   // This call itself is cheap (just registers the plugin), so it's fine
   // to await — it's NOT the part that takes seconds.
-  await FlutterGemma.initialize(huggingFaceToken: token,webStorageMode: WebStorageMode.cacheApi,);
+  await FlutterGemma.initialize(
+    huggingFaceToken: token,
+    webStorageMode: WebStorageMode.cacheApi,
+  );
 
   // 🛠️ SPLASH FIX: previously `await`ed here, which meant runApp() below
   // never ran until the on-device model had fully loaded into memory —
@@ -115,7 +123,9 @@ void main() async {
   // listener API, while the rest of the app becomes usable in the
   // meantime instead of being blocked on the AI model specifically.
   unawaited(SmartSpendAI.instance.initialize());
-  if (prefs.getBool('wallpaper_enabled') ?? false) { await WallpaperSchedulerService().scheduleDailyUpdate(); }
+  if (prefs.getBool('wallpaper_enabled') ?? false) {
+    await WallpaperSchedulerService().scheduleDailyUpdate();
+  }
 
   // Only register recurring task on mobile platforms
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
@@ -201,11 +211,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
-        ),
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
       );
     }
 
@@ -214,14 +220,19 @@ class _MyAppState extends State<MyApp> {
         ColorScheme lightColorScheme;
         ColorScheme darkColorScheme;
 
-        if (lightDynamic != null && darkDynamic != null && _dynamicColorEnabled && !kIsWeb) {
+        if (lightDynamic != null &&
+            darkDynamic != null &&
+            _dynamicColorEnabled &&
+            !kIsWeb) {
           lightColorScheme = lightDynamic.harmonized();
           darkColorScheme = darkDynamic.harmonized();
           debugPrint('🎨 Using dynamic colors');
         } else {
           lightColorScheme = _defaultLightColorScheme;
           darkColorScheme = _defaultDarkColorScheme;
-          debugPrint('🎨 Using default colors (dynamic: $_dynamicColorEnabled)');
+          debugPrint(
+            '🎨 Using default colors (dynamic: $_dynamicColorEnabled)',
+          );
         }
 
         return MaterialApp(
@@ -256,10 +267,7 @@ class _MyAppState extends State<MyApp> {
             '/loans': (_) => const LoanPage(),
             '/transactions': (_) => const BottomNavBar(currentIndex: 1),
           },
-          theme: ThemeData(
-            useMaterial3: true,
-            colorScheme: lightColorScheme,
-          ),
+          theme: ThemeData(useMaterial3: true, colorScheme: lightColorScheme),
           darkTheme: ThemeData(
             useMaterial3: true,
             colorScheme: darkColorScheme,

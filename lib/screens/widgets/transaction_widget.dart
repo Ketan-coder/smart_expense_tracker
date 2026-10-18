@@ -2,7 +2,9 @@ import 'dart:math';
 import 'package:expense_tracker/data/model/category.dart';
 import 'package:expense_tracker/data/model/expense.dart';
 import 'package:expense_tracker/data/model/income.dart';
+import 'package:expense_tracker/data/model/wallet.dart';
 import 'package:expense_tracker/screens/widgets/snack_bar.dart';
+import 'package:expense_tracker/screens/widgets/wallet_account_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
@@ -86,6 +88,7 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
   late final TextEditingController _descCtrl;
   late final TextEditingController _categorySearchCtrl;
   late String _selectedMethod;
+  int? _selectedWalletKey;
   late Set<int> _selectedCategoryKeys;
   DateTime? _recordDate; // null = today
   bool _showDatePicker = false;
@@ -93,7 +96,7 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
 
   bool get _isEditing =>
       (widget.expenseKey != null && widget.existingExpense != null) ||
-          (widget.incomeKey != null && widget.existingIncome != null);
+      (widget.incomeKey != null && widget.existingIncome != null);
 
   bool get _isExpense => widget.type == TransactionType.expense;
 
@@ -113,13 +116,18 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
     );
     _categorySearchCtrl = TextEditingController();
     _selectedMethod = e?.method ?? i?.method ?? 'UPI';
-    _selectedCategoryKeys =
-        (e?.categoryKeys ?? i?.categoryKeys ?? []).toSet();
+    _selectedWalletKey = e?.walletKey ?? i?.walletKey;
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+    if (_selectedWalletKey == null && walletBox.length == 1) {
+      _selectedWalletKey = walletBox.keyAt(0) as int;
+    }
+    _selectedCategoryKeys = (e?.categoryKeys ?? i?.categoryKeys ?? []).toSet();
 
     final existingDate = e?.date ?? i?.date;
     if (existingDate != null) {
       final today = DateTime.now();
-      final isToday = existingDate.year == today.year &&
+      final isToday =
+          existingDate.year == today.year &&
           existingDate.month == today.month &&
           existingDate.day == today.day;
       if (!isToday) _recordDate = existingDate;
@@ -141,28 +149,35 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
     final query = _categorySearchCtrl.text.trim().toLowerCase();
 
     // Don't cast directly, convert safely
-    return box.toMap().entries
+    return box
+        .toMap()
+        .entries
         .where((entry) => entry.key is int)
         .map((entry) => MapEntry<int, Category>(entry.key as int, entry.value))
-        .where((e) =>
-    e.value.type.toLowerCase() == typeStr &&
-        (query.isEmpty ||
-            e.value.name.toLowerCase().contains(query)))
+        .where(
+          (e) =>
+              e.value.type.toLowerCase() == typeStr &&
+              (query.isEmpty || e.value.name.toLowerCase().contains(query)),
+        )
         .toList();
   }
 
   Future<void> _save() async {
     final amount = double.tryParse(_amountCtrl.text.trim());
     if (amount == null || amount <= 0) {
-      SnackBars.show(context,
-          message: context.t('empty_fields_error'),
-          type: SnackBarType.error);
+      SnackBars.show(
+        context,
+        message: context.t('empty_fields_error'),
+        type: SnackBarType.error,
+      );
       return;
     }
     if (_selectedCategoryKeys.isEmpty) {
-      SnackBars.show(context,
-          message: context.t('empty_fields_error'),
-          type: SnackBarType.error);
+      SnackBars.show(
+        context,
+        message: context.t('empty_fields_error'),
+        type: SnackBarType.error,
+      );
       return;
     }
 
@@ -178,15 +193,19 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
           date: saveDate,
           description: _descCtrl.text.trim(),
           method: _selectedMethod,
+          walletKey: _selectedWalletKey,
           categoryKeys: _selectedCategoryKeys.toList(),
         );
-        success = await UniversalHiveFunctions()
-            .updateExpense(widget.expenseKey!, updated);
+        success = await UniversalHiveFunctions().updateExpense(
+          widget.expenseKey!,
+          updated,
+        );
       } else {
         success = await UniversalHiveFunctions().addExpense(
           amount: amount,
           description: _descCtrl.text.trim(),
           method: _selectedMethod,
+          walletKey: _selectedWalletKey,
           categoryKeys: _selectedCategoryKeys.toList(),
           date: saveDate,
         );
@@ -198,15 +217,20 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
           date: saveDate,
           description: _descCtrl.text.trim(),
           method: _selectedMethod,
+          walletKey: _selectedWalletKey,
           categoryKeys: _selectedCategoryKeys.toList(),
         );
-        success = await UniversalHiveFunctions()
-            .updateIncome(widget.incomeKey!, updated, _selectedMethod);
+        success = await UniversalHiveFunctions().updateIncome(
+          widget.incomeKey!,
+          updated,
+          _selectedMethod,
+        );
       } else {
         success = await UniversalHiveFunctions().addIncome(
           amount: amount,
           description: _descCtrl.text.trim(),
           method: _selectedMethod,
+          walletKey: _selectedWalletKey,
           categoryKeys: _selectedCategoryKeys.toList(),
           date: saveDate,
         );
@@ -222,16 +246,20 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
       SnackBars.show(
         context,
         message: _isEditing
-            ? context.t(_isExpense
-            ? 'expense_updated_success'
-            : 'income_updated_success')
+            ? context.t(
+                _isExpense
+                    ? 'expense_updated_success'
+                    : 'income_updated_success',
+              )
             : context.t(_isExpense ? 'expense_added' : 'income_added'),
         type: SnackBarType.success,
       );
     } else {
-      SnackBars.show(context,
-          message: context.t('error_saving_category'),
-          type: SnackBarType.error);
+      SnackBars.show(
+        context,
+        message: context.t('error_saving_category'),
+        type: SnackBarType.error,
+      );
     }
   }
 
@@ -267,8 +295,7 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
             ),
             // header
             Padding(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Row(
                 children: [
                   Container(
@@ -291,11 +318,12 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text(label,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close_rounded),
@@ -310,29 +338,31 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
               child: ListView(
                 controller: scrollCtrl,
                 padding: EdgeInsets.fromLTRB(
-                    20, 16, 20,
-                    MediaQuery.of(context).viewInsets.bottom + 24),
+                  20,
+                  16,
+                  20,
+                  MediaQuery.of(context).viewInsets.bottom + 24,
+                ),
                 children: [
                   // ── Amount ─────────────────────────────────
                   TextField(
                     controller: _amountCtrl,
-                    keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     autofocus: !_isEditing,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                     decoration: InputDecoration(
                       labelText: context.t('amount'),
                       border: const OutlineInputBorder(),
                       prefixText: '${widget.currency} ',
-                      prefixStyle: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
+                      prefixStyle: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: cs.onSurfaceVariant),
+                            fontWeight: FontWeight.bold,
+                            color: cs.onSurfaceVariant,
+                          ),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -356,11 +386,17 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
                     ),
                     items: Helpers()
                         .getPaymentMethods()
-                        .map((m) =>
-                        DropdownMenuItem(value: m, child: Text(m)))
+                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
                         .toList(),
                     onChanged: (v) =>
                         setState(() => _selectedMethod = v ?? _selectedMethod),
+                  ),
+                  const SizedBox(height: 14),
+
+                  WalletAccountPicker(
+                    walletKey: _selectedWalletKey,
+                    onChanged: (key) =>
+                        setState(() => _selectedWalletKey = key),
                   ),
                   const SizedBox(height: 14),
 
@@ -376,22 +412,25 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
                   FilledButton(
                     onPressed: _isSaving ? null : _save,
                     style: FilledButton.styleFrom(
-                      backgroundColor:
-                      _isExpense ? cs.error : cs.primary,
+                      backgroundColor: _isExpense ? cs.error : cs.primary,
                       minimumSize: const Size(double.infinity, 52),
                     ),
                     child: _isSaving
                         ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white))
-                        : Text(_isEditing
-                        ? context.t('save_changes')
-                        : (_isExpense
-                        ? context.t('add_expense')
-                        : context.t('add_income'))),
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            _isEditing
+                                ? context.t('save_changes')
+                                : (_isExpense
+                                      ? context.t('add_expense')
+                                      : context.t('add_income')),
+                          ),
                   ),
                 ],
               ),
@@ -413,13 +452,13 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
           borderRadius: BorderRadius.circular(12),
           onTap: () => setState(() => _showDatePicker = !_showDatePicker),
           child: Container(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               border: Border.all(
-                  color: _showDatePicker
-                      ? cs.primary
-                      : cs.outline.withValues(alpha: 0.5)),
+                color: _showDatePicker
+                    ? cs.primary
+                    : cs.outline.withValues(alpha: 0.5),
+              ),
               borderRadius: BorderRadius.circular(12),
               color: _showDatePicker
                   ? cs.primaryContainer.withValues(alpha: 0.15)
@@ -427,27 +466,33 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
             ),
             child: Row(
               children: [
-                Icon(Icons.calendar_today_rounded,
-                    size: 18,
-                    color:
-                    _showDatePicker ? cs.primary : cs.onSurfaceVariant),
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 18,
+                  color: _showDatePicker ? cs.primary : cs.onSurfaceVariant,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(context.t('record_date'),
-                          style: TextStyle(
-                              fontSize: 12, color: cs.onSurfaceVariant)),
+                      Text(
+                        context.t('record_date'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
                       Text(
                         displayDate == null
                             ? context.t('today')
                             : DateFormat('d MMM, yyyy').format(displayDate),
                         style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: displayDate != null
-                                ? cs.primary
-                                : cs.onSurface),
+                          fontWeight: FontWeight.w600,
+                          color: displayDate != null
+                              ? cs.primary
+                              : cs.onSurface,
+                        ),
                       ),
                     ],
                   ),
@@ -475,7 +520,8 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
               lastDate: DateTime.now(), // No future dates
               onDateChanged: (date) {
                 final today = DateTime.now();
-                final isToday = date.year == today.year &&
+                final isToday =
+                    date.year == today.year &&
                     date.month == today.month &&
                     date.day == today.day;
                 setState(() {
@@ -495,161 +541,177 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
   Widget _buildCategorySection(BuildContext context, ColorScheme cs) {
     final categoryBox = Hive.box<Category>(AppConstants.categories);
 
-    return StatefulBuilder(builder: (context, setInner) {
-      final filtered = _filteredCategories(categoryBox);
-      final selectedEntries = _selectedCategoryKeys
-          .map((key) => MapEntry(key, categoryBox.get(key)))
-          .where((entry) => entry.value != null)
-          .map((entry) => MapEntry<int, Category>(entry.key, entry.value!))
-          .toList();
+    return StatefulBuilder(
+      builder: (context, setInner) {
+        final filtered = _filteredCategories(categoryBox);
+        final selectedEntries = _selectedCategoryKeys
+            .map((key) => MapEntry(key, categoryBox.get(key)))
+            .where((entry) => entry.value != null)
+            .map((entry) => MapEntry<int, Category>(entry.key, entry.value!))
+            .toList();
 
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Label + count
-          Row(
-            children: [
-              Text(context.t('categories'),
-                  style: Theme.of(context).textTheme.titleSmall),
-              const Spacer(),
-              if (_selectedCategoryKeys.isNotEmpty)
-                Text('${_selectedCategoryKeys.length} selected',
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Label + count
+            Row(
+              children: [
+                Text(
+                  context.t('categories'),
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const Spacer(),
+                if (_selectedCategoryKeys.isNotEmpty)
+                  Text(
+                    '${_selectedCategoryKeys.length} selected',
                     style: TextStyle(
-                        fontSize: 12,
-                        color: cs.primary,
-                        fontWeight: FontWeight.w500)),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Selected chips preview
-          if (selectedEntries.isNotEmpty) ...[
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: selectedEntries.map((e) {
-                final color = Helpers().hexToColor(e.value.color);
-                return Chip(
-                  avatar: CircleAvatar(backgroundColor: color, radius: 8),
-                  label: Text(e.value.name,
-                      style: const TextStyle(fontSize: 12)),
-                  deleteIcon: const Icon(Icons.close, size: 14),
-                  onDeleted: () {
-                    setState(() => _selectedCategoryKeys.remove(e.key));
-                    setInner(() {});
-                  },
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 10),
-          ],
-
-          // Search box
-          TextField(
-            controller: _categorySearchCtrl,
-            onChanged: (_) => setInner(() {}),
-            decoration: InputDecoration(
-              hintText: context.t('search_categories'),
-              prefixIcon:
-              const Icon(Icons.search_rounded, size: 20),
-              suffixIcon: _categorySearchCtrl.text.isNotEmpty
-                  ? IconButton(
-                icon: const Icon(Icons.clear, size: 18),
-                onPressed: () {
-                  _categorySearchCtrl.clear();
-                  setInner(() {});
-                },
-              )
-                  : null,
-              isDense: true,
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 10),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Category grid
-          if (filtered.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Center(
-                child: Text(context.t('no_categories_found_desc'),
-                    style: TextStyle(color: cs.onSurfaceVariant)),
-              ),
-            )
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: filtered.map((entry) {
-                final isSelected =
-                _selectedCategoryKeys.contains(entry.key);
-                final color = Helpers().hexToColor(entry.value.color);
-                final textColor =
-                ThemeData.estimateBrightnessForColor(color) ==
-                    Brightness.dark
-                    ? Colors.white
-                    : Colors.black;
-
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (isSelected) {
-                        _selectedCategoryKeys.remove(entry.key);
-                      } else {
-                        _selectedCategoryKeys.add(entry.key);
-                      }
-                    });
-                    setInner(() {});
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? color
-                          : color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isSelected
-                            ? color
-                            : color.withValues(alpha: 0.4),
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isSelected) ...[
-                          Icon(Icons.check_circle_rounded,
-                              size: 14,
-                              color: isSelected ? textColor : color),
-                          const SizedBox(width: 4),
-                        ],
-                        Text(
-                          entry.value.name,
-                          style: TextStyle(
-                            color: isSelected ? textColor : color,
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
+                      fontSize: 12,
+                      color: cs.primary,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                );
-              }).toList(),
+              ],
             ),
-        ],
-      );
-    });
+            const SizedBox(height: 8),
+
+            // Selected chips preview
+            if (selectedEntries.isNotEmpty) ...[
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: selectedEntries.map((e) {
+                  final color = Helpers().hexToColor(e.value.color);
+                  return Chip(
+                    avatar: CircleAvatar(backgroundColor: color, radius: 8),
+                    label: Text(
+                      e.value.name,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    deleteIcon: const Icon(Icons.close, size: 14),
+                    onDeleted: () {
+                      setState(() => _selectedCategoryKeys.remove(e.key));
+                      setInner(() {});
+                    },
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 10),
+            ],
+
+            // Search box
+            TextField(
+              controller: _categorySearchCtrl,
+              onChanged: (_) => setInner(() {}),
+              decoration: InputDecoration(
+                hintText: context.t('search_categories'),
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                suffixIcon: _categorySearchCtrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _categorySearchCtrl.clear();
+                          setInner(() {});
+                        },
+                      )
+                    : null,
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Category grid
+            if (filtered.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Text(
+                    context.t('no_categories_found_desc'),
+                    style: TextStyle(color: cs.onSurfaceVariant),
+                  ),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: filtered.map((entry) {
+                  final isSelected = _selectedCategoryKeys.contains(entry.key);
+                  final color = Helpers().hexToColor(entry.value.color);
+                  final textColor =
+                      ThemeData.estimateBrightnessForColor(color) ==
+                          Brightness.dark
+                      ? Colors.white
+                      : Colors.black;
+
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedCategoryKeys.remove(entry.key);
+                        } else {
+                          _selectedCategoryKeys.add(entry.key);
+                        }
+                      });
+                      setInner(() {});
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? color
+                            : color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected
+                              ? color
+                              : color.withValues(alpha: 0.4),
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isSelected) ...[
+                            Icon(
+                              Icons.check_circle_rounded,
+                              size: 14,
+                              color: isSelected ? textColor : color,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Text(
+                            entry.value.name,
+                            style: TextStyle(
+                              color: isSelected ? textColor : color,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -681,9 +743,11 @@ Future<void> generateTestData(BuildContext context) async {
 
   if (expenseCats.isEmpty || incomeCats.isEmpty) {
     if (context.mounted) {
-      SnackBars.show(context,
-          message: 'Add at least one expense & one income category first',
-          type: SnackBarType.error);
+      SnackBars.show(
+        context,
+        message: 'Add at least one expense & one income category first',
+        type: SnackBarType.error,
+      );
     }
     return;
   }
@@ -736,9 +800,7 @@ Future<void> generateTestData(BuildContext context) async {
       final pick = expenseData[rng.nextInt(expenseData.length)];
       // slight amount variation ±10%
       final amount = pick.$2 * (0.9 + rng.nextDouble() * 0.2);
-      final catKeys = [
-        expenseCats[rng.nextInt(expenseCats.length)].key
-      ];
+      final catKeys = [expenseCats[rng.nextInt(expenseCats.length)].key];
 
       await UniversalHiveFunctions().addExpense(
         amount: double.parse(amount.toStringAsFixed(2)),
@@ -766,8 +828,10 @@ Future<void> generateTestData(BuildContext context) async {
   }
 
   if (context.mounted) {
-    SnackBars.show(context,
-        message: '✅ Added $added test transactions across 30 days',
-        type: SnackBarType.success);
+    SnackBars.show(
+      context,
+      message: '✅ Added $added test transactions across 30 days',
+      type: SnackBarType.success,
+    );
   }
 }

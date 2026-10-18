@@ -8,6 +8,7 @@ import '../../core/helpers.dart';
 import '../../data/local/universal_functions.dart';
 import '../../data/model/category.dart';
 import '../../data/model/expense.dart';
+import '../../data/model/wallet.dart';
 import '../../services/langs/localzation_extension.dart';
 import '../../services/number_formatter_service.dart';
 import '../widgets/bottom_sheet.dart';
@@ -15,11 +16,17 @@ import '../widgets/custom_app_bar.dart';
 import '../widgets/privacy_overlay_widget.dart';
 import '../widgets/snack_bar.dart';
 import '../widgets/transaction_widget.dart';
+import '../widgets/wallet_account_picker.dart';
 
 class ExpenseListingPage extends StatefulWidget {
   final String? initialFilter, filterByCategory, filterByMethod;
 
-  const ExpenseListingPage({super.key, this.initialFilter, this.filterByCategory, this.filterByMethod});
+  const ExpenseListingPage({
+    super.key,
+    this.initialFilter,
+    this.filterByCategory,
+    this.filterByMethod,
+  });
 
   @override
   State<ExpenseListingPage> createState() => _ExpenseListingPageState();
@@ -67,8 +74,9 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
     // Multiple category filter
     if (_filterExpenseCategoryIds.isNotEmpty) {
       expenses = expenses.where((e) {
-        return e.value.categoryKeys
-            .any((key) => _filterExpenseCategoryIds.contains(key));
+        return e.value.categoryKeys.any(
+          (key) => _filterExpenseCategoryIds.contains(key),
+        );
       }).toList();
     }
 
@@ -83,7 +91,9 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
     // Date range filter
     if (_dateRange != null) {
       expenses = expenses.where((e) {
-        return e.value.date.isAfter(_dateRange!.start.subtract(const Duration(days: 1))) &&
+        return e.value.date.isAfter(
+              _dateRange!.start.subtract(const Duration(days: 1)),
+            ) &&
             e.value.date.isBefore(_dateRange!.end.add(const Duration(days: 1)));
       }).toList();
     }
@@ -126,8 +136,9 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
           break;
 
         case 'method':
-          comparison = (a.value.method ?? 'UPI')
-              .compareTo(b.value.method ?? 'UPI');
+          comparison = (a.value.method ?? 'UPI').compareTo(
+            b.value.method ?? 'UPI',
+          );
           break;
       }
 
@@ -154,7 +165,6 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-
                   // ALL CATEGORIES OPTION
                   CheckboxListTile(
                     title: Text(context.t('all_categories')),
@@ -209,13 +219,15 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
 
     if (_filterExpenseCategoryIds.isEmpty) return context.t('all');
 
-    final names = _filterExpenseCategoryIds.map((id) {
-      return categoryBox.get(id)?.name ?? "";
-    }).where((name) => name.isNotEmpty).toList();
+    final names = _filterExpenseCategoryIds
+        .map((id) {
+          return categoryBox.get(id)?.name ?? "";
+        })
+        .where((name) => name.isNotEmpty)
+        .toList();
 
     return names.join(", ");
   }
-
 
   void _showMethodFilter() {
     final methods = Helpers().getPaymentMethods(); // list of strings
@@ -287,7 +299,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
         children: [
           TextField(
             controller: minController,
-            decoration:  InputDecoration(
+            decoration: InputDecoration(
               labelText: context.t('min_amount'),
               border: const OutlineInputBorder(),
               prefixText: '$_currentCurrency ',
@@ -297,7 +309,7 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
           const SizedBox(height: 16),
           TextField(
             controller: maxController,
-            decoration:  InputDecoration(
+            decoration: InputDecoration(
               labelText: context.t('max_amount'),
               border: const OutlineInputBorder(),
               prefixText: '$_currentCurrency ',
@@ -402,7 +414,12 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                 value: 'date',
                 child: Row(
                   children: [
-                    Icon(_sortBy == 'date' ? Icons.check : Icons.calendar_today_rounded, size: 20),
+                    Icon(
+                      _sortBy == 'date'
+                          ? Icons.check
+                          : Icons.calendar_today_rounded,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     Text(context.t('date')),
                   ],
@@ -412,7 +429,12 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                 value: 'amount',
                 child: Row(
                   children: [
-                    Icon(_sortBy == 'amount' ? Icons.check : Icons.currency_rupee_rounded, size: 20),
+                    Icon(
+                      _sortBy == 'amount'
+                          ? Icons.check
+                          : Icons.currency_rupee_rounded,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     Text(context.t('amount')),
                   ],
@@ -422,7 +444,12 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                 value: 'category',
                 child: Row(
                   children: [
-                    Icon(_sortBy == 'category' ? Icons.check : Icons.category_rounded, size: 20),
+                    Icon(
+                      _sortBy == 'category'
+                          ? Icons.check
+                          : Icons.category_rounded,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     Text(context.t('category')),
                   ],
@@ -432,7 +459,10 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                 value: 'method',
                 child: Row(
                   children: [
-                    Icon(_sortBy == 'method' ? Icons.check : Icons.payment_rounded, size: 20),
+                    Icon(
+                      _sortBy == 'method' ? Icons.check : Icons.payment_rounded,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     Text(context.t('method')),
                   ],
@@ -449,17 +479,27 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
             color: Helpers().isLightMode(context) ? Colors.white : Colors.black,
           ),
           child: ValueListenableBuilder<Box<Expense>>(
-            valueListenable: Hive.box<Expense>(AppConstants.expenses).listenable(),
+            valueListenable: Hive.box<Expense>(
+              AppConstants.expenses,
+            ).listenable(),
             builder: (context, box, _) {
               final filteredExpenses = _getFilteredExpenses(box);
-              final total = filteredExpenses.fold(0.0, (sum, e) => sum + e.value.amount);
+              final total = filteredExpenses.fold(
+                0.0,
+                (sum, e) => sum + e.value.amountForReporting,
+              );
               final activeFilters = _getActiveFilterCount();
 
               // Group by date
-              final groupedExpenses = groupBy<MapEntry<dynamic, Expense>, DateTime>(
-                filteredExpenses,
-                    (item) => DateTime(item.value.date.year, item.value.date.year, item.value.date.day),
-              );
+              final groupedExpenses =
+                  groupBy<MapEntry<dynamic, Expense>, DateTime>(
+                    filteredExpenses,
+                    (item) => DateTime(
+                      item.value.date.year,
+                      item.value.date.year,
+                      item.value.date.day,
+                    ),
+                  );
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -472,13 +512,17 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                       child: Row(
                         children: [
                           FilterChip(
-                            label: Text('${context.t('categories')}${selectedCategoryLabel != context.t('all') ? ': $selectedCategoryLabel' : ''}'),
+                            label: Text(
+                              '${context.t('categories')}${selectedCategoryLabel != context.t('all') ? ': $selectedCategoryLabel' : ''}',
+                            ),
                             selected: _filterExpenseCategoryIds.isNotEmpty,
                             onSelected: (_) => _showCategoryFilter(),
                             avatar: Icon(
                               Icons.category_rounded,
                               size: 18,
-                              color: _filterExpenseCategoryIds.isNotEmpty ? colorScheme.primary : null,
+                              color: _filterExpenseCategoryIds.isNotEmpty
+                                  ? colorScheme.primary
+                                  : null,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -493,33 +537,43 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                             avatar: Icon(
                               Icons.payment_rounded,
                               size: 18,
-                              color: _filterMethods.isNotEmpty ? colorScheme.primary : null,
+                              color: _filterMethods.isNotEmpty
+                                  ? colorScheme.primary
+                                  : null,
                             ),
                           ),
                           const SizedBox(width: 8),
                           FilterChip(
-                            label: Text(_dateRange != null
-                                ? '${DateFormat('d MMM').format(_dateRange!.start)} - ${DateFormat('d MMM').format(_dateRange!.end)}'
-                                : context.t('date')),
+                            label: Text(
+                              _dateRange != null
+                                  ? '${DateFormat('d MMM').format(_dateRange!.start)} - ${DateFormat('d MMM').format(_dateRange!.end)}'
+                                  : context.t('date'),
+                            ),
                             selected: _dateRange != null,
                             onSelected: (_) => _showDateRangePicker(),
                             avatar: Icon(
                               Icons.date_range_rounded,
                               size: 18,
-                              color: _dateRange != null ? colorScheme.primary : null,
+                              color: _dateRange != null
+                                  ? colorScheme.primary
+                                  : null,
                             ),
                           ),
                           const SizedBox(width: 8),
                           FilterChip(
-                            label: Text(_minAmount != null || _maxAmount != null
-                                ? '$_currentCurrency ${NumberFormatterService().formatForDisplay(_minAmount ?? 0.0)} - $_currentCurrency ${NumberFormatterService().formatForDisplay(_maxAmount ?? 0.0)}'
-                                : context.t('amount')),
+                            label: Text(
+                              _minAmount != null || _maxAmount != null
+                                  ? '$_currentCurrency ${NumberFormatterService().formatForDisplay(_minAmount ?? 0.0)} - $_currentCurrency ${NumberFormatterService().formatForDisplay(_maxAmount ?? 0.0)}'
+                                  : context.t('amount'),
+                            ),
                             selected: _minAmount != null || _maxAmount != null,
                             onSelected: (_) => _showAmountFilter(),
                             avatar: Icon(
                               Icons.currency_rupee_rounded,
                               size: 18,
-                              color: _minAmount != null || _maxAmount != null ? colorScheme.primary : null,
+                              color: _minAmount != null || _maxAmount != null
+                                  ? colorScheme.primary
+                                  : null,
                             ),
                           ),
                           if (activeFilters > 0) ...[
@@ -556,13 +610,15 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                                 Text(
                                   context.t('total_spent'),
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onErrorContainer.withAlpha(178),
+                                    color: colorScheme.onErrorContainer
+                                        .withAlpha(178),
                                   ),
                                 ),
                               ],
                             ),
                             PrivacyCurrency(
-                              amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(total)}',
+                              amount:
+                                  '$_currentCurrency ${NumberFormatterService().formatForDisplay(total)}',
                               isPrivacyActive: isPrivate,
                               style: theme.textTheme.headlineMedium?.copyWith(
                                 color: colorScheme.onPrimaryContainer,
@@ -579,13 +635,23 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                     Row(
                       children: [
                         Icon(
-                          _ascending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                          _ascending
+                              ? Icons.arrow_upward_rounded
+                              : Icons.arrow_downward_rounded,
                           size: 16,
                           color: colorScheme.primary,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          context.t('sorted_by').replaceAll('--', _sortBy.capitalize()).replaceAll('(__)', _ascending ? context.t('ascending') : context.t('descending')),
+                          context
+                              .t('sorted_by')
+                              .replaceAll('--', _sortBy.capitalize())
+                              .replaceAll(
+                                '(__)',
+                                _ascending
+                                    ? context.t('ascending')
+                                    : context.t('descending'),
+                              ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -625,15 +691,25 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                     else
                       ...groupedExpenses.entries.map((entry) {
                         // Calculate total for this date
-                        double dailyTotal = entry.value.fold(0.0, (sum, expenseEntry) => sum + expenseEntry.value.amount);
+                        double dailyTotal = entry.value.fold(
+                          0.0,
+                          (sum, expenseEntry) =>
+                              sum + expenseEntry.value.amountForReporting,
+                        );
 
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8, right: 16),
+                              padding: const EdgeInsets.only(
+                                left: 4,
+                                top: 8,
+                                bottom: 8,
+                                right: 16,
+                              ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     _formatDateHeader(entry.key),
@@ -643,24 +719,33 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                                     ),
                                   ),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: colorScheme.primary.withAlpha(25),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
                                       '${context.t('total')}: $_currentCurrency ${NumberFormatterService().formatForDisplay(dailyTotal)}',
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.primary,
-                                      ),
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: colorScheme.primary,
+                                          ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                             ...entry.value.map((expenseEntry) {
-                              return _buildExpenseTile(expenseEntry, colorScheme, theme, isPrivate);
+                              return _buildExpenseTile(
+                                expenseEntry,
+                                colorScheme,
+                                theme,
+                                isPrivate,
+                              );
                             }),
                             const SizedBox(height: 8),
                           ],
@@ -678,11 +763,11 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
   }
 
   Widget _buildExpenseTile(
-      MapEntry<dynamic, Expense> expenseEntry,
-      ColorScheme colorScheme,
-      ThemeData theme,
-      bool isPrivate,
-      ) {
+    MapEntry<dynamic, Expense> expenseEntry,
+    ColorScheme colorScheme,
+    ThemeData theme,
+    bool isPrivate,
+  ) {
     final keyId = expenseEntry.key as int;
     final expense = expenseEntry.value;
     final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -707,10 +792,24 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
           // _showEditExpenseSheet(keyId, expense);
-          showTransactionAddEditSheet(context: context, type: TransactionType.expense,
-              expenseKey: keyId, existingExpense: expense, currency: _currentCurrency);
+          showTransactionAddEditSheet(
+            context: context,
+            type: TransactionType.expense,
+            expenseKey: keyId,
+            existingExpense: expense,
+            currency: _currentCurrency,
+          );
           return false;
         } else {
+          if (expense.classification.startsWith('loan_')) {
+            SnackBars.show(
+              context,
+              message:
+                  'Loan-linked transactions must be changed from the loan record.',
+              type: SnackBarType.error,
+            );
+            return false;
+          }
           final confirm = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
@@ -723,14 +822,17 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(true),
-                  child: Text(context.t('delete'), style: const TextStyle(color: Colors.red)),
+                  child: Text(
+                    context.t('delete'),
+                    style: const TextStyle(color: Colors.red),
+                  ),
                 ),
               ],
             ),
           );
           if (confirm == true) {
-            await UniversalHiveFunctions().deleteExpense(keyId);
-            return true;
+            final deleted = await UniversalHiveFunctions().deleteExpense(keyId);
+            return deleted;
           }
           return false;
         }
@@ -747,7 +849,9 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
           ),
           title: Text(
             expense.method?.isNotEmpty == true ? expense.method! : 'UPI',
-            style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -779,7 +883,8 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
             ],
           ),
           trailing: PrivacyCurrency(
-            amount: '$_currentCurrency ${NumberFormatterService().formatForDisplay(expense.amount)}',
+            amount:
+                '$_currentCurrency ${NumberFormatterService().formatForDisplay(expense.amount)}',
             isPrivacyActive: isPrivate,
             style: theme.textTheme.titleSmall?.copyWith(
               color: colorScheme.primary,
@@ -809,9 +914,15 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
   }
 
   void _showEditExpenseSheet(int expenseKey, Expense expense) {
-    final amountController = TextEditingController(text: expense.amount.toString());
+    final amountController = TextEditingController(
+      text: expense.amount.toString(),
+    );
     final descController = TextEditingController(text: expense.description);
     final methodController = TextEditingController(text: expense.method);
+    final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+    int? selectedWalletKey =
+        expense.walletKey ??
+        (walletBox.length == 1 ? walletBox.keyAt(0) as int : null);
     final selectedCategoryKeys = expense.categoryKeys.toSet();
 
     BottomSheetUtil.show(
@@ -827,8 +938,10 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
             children: [
               TextField(
                 controller: amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration:  InputDecoration(
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
                   labelText: context.t('amount'),
                   border: const OutlineInputBorder(),
                   prefixText: '$_currentCurrency ',
@@ -853,12 +966,19 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                     .getPaymentMethods()
                     .map(
                       (type) =>
-                      DropdownMenuItem(value: type, child: Text(type)),
-                )
+                          DropdownMenuItem(value: type, child: Text(type)),
+                    )
                     .toList(),
                 onChanged: (value) {
-                  if (value != null) setState(() => methodController.text = value);
+                  if (value != null)
+                    setState(() => methodController.text = value);
                 },
+              ),
+              const SizedBox(height: 16),
+              WalletAccountPicker(
+                walletKey: selectedWalletKey,
+                onChanged: (key) =>
+                    setModalState(() => selectedWalletKey = key),
               ),
               const SizedBox(height: 16),
               Text(
@@ -870,31 +990,41 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                 spacing: 8,
                 runSpacing: 4,
                 children: categories
-                    .where((category) => category.type.toString().toLowerCase() == 'expense')
+                    .where(
+                      (category) =>
+                          category.type.toString().toLowerCase() == 'expense',
+                    )
                     .map((category) {
-                  final catKey = categoryBox.keyAt(categories.indexOf(category)) as int;
-                  final isSelected = selectedCategoryKeys.contains(catKey);
-                  return ChoiceChip(
-                    label: Text(category.name),
-                    backgroundColor: (Helpers().hexToColor(category.color)).withAlpha(128),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setModalState(() {
-                        if (selected) {
-                          selectedCategoryKeys.add(catKey);
-                        } else {
-                          selectedCategoryKeys.remove(catKey);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
+                      final catKey =
+                          categoryBox.keyAt(categories.indexOf(category))
+                              as int;
+                      final isSelected = selectedCategoryKeys.contains(catKey);
+                      return ChoiceChip(
+                        label: Text(category.name),
+                        backgroundColor: (Helpers().hexToColor(
+                          category.color,
+                        )).withAlpha(128),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setModalState(() {
+                            if (selected) {
+                              selectedCategoryKeys.add(catKey);
+                            } else {
+                              selectedCategoryKeys.remove(catKey);
+                            }
+                          });
+                        },
+                      );
+                    })
+                    .toList(),
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: () {
+                onPressed: () async {
                   final amount = double.tryParse(amountController.text);
-                  if (amount == null || amount <= 0 || selectedCategoryKeys.isEmpty) {
+                  if (amount == null ||
+                      amount <= 0 ||
+                      selectedCategoryKeys.isEmpty) {
                     Navigator.pop(context);
                     SnackBars.show(
                       context,
@@ -909,10 +1039,25 @@ class _ExpenseListingPageState extends State<ExpenseListingPage> {
                     date: expense.date,
                     description: descController.text,
                     method: methodController.text,
-                    categoryKeys: selectedCategoryKeys.toList(), // Use the multiple selection
+                    walletKey: selectedWalletKey,
+                    categoryKeys: selectedCategoryKeys
+                        .toList(), // Use the multiple selection
                   );
 
-                  UniversalHiveFunctions().updateExpense(expenseKey, newExpense);
+                  final success = await UniversalHiveFunctions().updateExpense(
+                    expenseKey,
+                    newExpense,
+                  );
+                  if (!success) {
+                    SnackBars.show(
+                      context,
+                      message:
+                          'Could not update expense. Check the selected account.',
+                      type: SnackBarType.error,
+                    );
+                    return;
+                  }
+                  if (!context.mounted) return;
                   Navigator.of(context).pop();
 
                   SnackBars.show(

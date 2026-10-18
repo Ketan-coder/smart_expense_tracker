@@ -9,7 +9,8 @@ import '../services/notification_service.dart';
 
 /// OPTIMIZED: Intelligent habit detection with caching and rate limiting
 class HabitDetectionService {
-  static final HabitDetectionService _instance = HabitDetectionService._internal();
+  static final HabitDetectionService _instance =
+      HabitDetectionService._internal();
   factory HabitDetectionService() => _instance;
   HabitDetectionService._internal();
 
@@ -27,7 +28,9 @@ class HabitDetectionService {
   static bool _shouldRunDetection() {
     if (_lastDetectionTime == null) return true;
 
-    final hoursSinceLastRun = DateTime.now().difference(_lastDetectionTime!).inHours;
+    final hoursSinceLastRun = DateTime.now()
+        .difference(_lastDetectionTime!)
+        .inHours;
     return hoursSinceLastRun >= _cacheValidityHours;
   }
 
@@ -37,7 +40,9 @@ class HabitDetectionService {
 
     // CHECK CACHE FIRST (critical optimization)
     if (!_shouldRunDetection() && _cachedPatterns != null) {
-      debugPrint("✅ Using cached patterns (${_cachedPatterns!.length} patterns)");
+      debugPrint(
+        "✅ Using cached patterns (${_cachedPatterns!.length} patterns)",
+      );
       return _cachedPatterns!;
     }
 
@@ -61,7 +66,9 @@ class HabitDetectionService {
         .take(50) // LIMIT: Only analyze last 50 incomes
         .toList();
 
-    debugPrint("📊 Analyzing ${recentExpenses.length} expenses and ${recentIncomes.length} incomes (limited)");
+    debugPrint(
+      "📊 Analyzing ${recentExpenses.length} expenses and ${recentIncomes.length} incomes (limited)",
+    );
 
     List<Map<String, dynamic>> detectedPatterns = [];
 
@@ -69,13 +76,15 @@ class HabitDetectionService {
     try {
       // Use Future.timeout to prevent hanging
       detectedPatterns.addAll(
-        await Future.value(_detectExpensePatterns(recentExpenses))
-            .timeout(const Duration(seconds: 5)),
+        await Future.value(
+          _detectExpensePatterns(recentExpenses),
+        ).timeout(const Duration(seconds: 5)),
       );
 
       detectedPatterns.addAll(
-        await Future.value(_detectIncomePatterns(recentIncomes))
-            .timeout(const Duration(seconds: 3)),
+        await Future.value(
+          _detectIncomePatterns(recentIncomes),
+        ).timeout(const Duration(seconds: 3)),
       );
     } catch (e) {
       debugPrint("⚠️ Detection timeout or error: $e");
@@ -86,7 +95,9 @@ class HabitDetectionService {
     // Cache results
     _cachedPatterns = detectedPatterns;
 
-    debugPrint("✅ Detected ${detectedPatterns.length} potential habits (cached)");
+    debugPrint(
+      "✅ Detected ${detectedPatterns.length} potential habits (cached)",
+    );
     return detectedPatterns;
   }
 
@@ -114,13 +125,17 @@ class HabitDetectionService {
 
       if (entry.value.length >= minOccurrences) {
         final pattern = _analyzePatternSimplified(
-          entry.value.map((e) => {
-            'date': e.date,
-            'amount': e.amount,
-            'description': e.description,
-            'categoryKeys': e.categoryKeys,
-            'method': e.method,
-          }).toList(),
+          entry.value
+              .map(
+                (e) => {
+                  'date': e.date,
+                  'amount': e.amountForReporting,
+                  'description': e.description,
+                  'categoryKeys': e.categoryKeys,
+                  'method': e.method,
+                },
+              )
+              .toList(),
           'expense',
         );
 
@@ -155,13 +170,17 @@ class HabitDetectionService {
 
       if (entry.value.length >= minOccurrences) {
         final pattern = _analyzePatternSimplified(
-          entry.value.map((i) => {
-            'date': i.date,
-            'amount': i.amount,
-            'description': i.description,
-            'categoryKeys': i.categoryKeys,
-            'method': i.method,
-          }).toList(),
+          entry.value
+              .map(
+                (i) => {
+                  'date': i.date,
+                  'amount': i.amountForReporting,
+                  'description': i.description,
+                  'categoryKeys': i.categoryKeys,
+                  'method': i.method,
+                },
+              )
+              .toList(),
           'income',
         );
 
@@ -177,17 +196,20 @@ class HabitDetectionService {
 
   /// SIMPLIFIED: Faster pattern analysis (removed complex math)
   Map<String, dynamic>? _analyzePatternSimplified(
-      List<Map<String, dynamic>> transactions,
-      String type,
-      ) {
+    List<Map<String, dynamic>> transactions,
+    String type,
+  ) {
     if (transactions.length < minOccurrences) return null;
 
     // Sort by date
-    transactions.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+    transactions.sort(
+      (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime),
+    );
 
     // Calculate SIMPLE average interval (no std dev)
     List<int> intervals = [];
-    for (int i = 1; i < transactions.length && i < 10; i++) { // LIMIT: Only check first 10
+    for (int i = 1; i < transactions.length && i < 10; i++) {
+      // LIMIT: Only check first 10
       final diff = (transactions[i]['date'] as DateTime)
           .difference(transactions[i - 1]['date'] as DateTime)
           .inDays;
@@ -216,10 +238,12 @@ class HabitDetectionService {
     }
 
     // Calculate average amount (simple)
-    final avgAmount = transactions
-        .take(10) // LIMIT: Only use first 10 for average
-        .map((t) => t['amount'] as double)
-        .reduce((a, b) => a + b) / transactions.take(10).length;
+    final avgAmount =
+        transactions
+            .take(10) // LIMIT: Only use first 10 for average
+            .map((t) => t['amount'] as double)
+            .reduce((a, b) => a + b) /
+        transactions.take(10).length;
 
     return {
       'name': transactions.first['description'] as String,
@@ -254,7 +278,8 @@ class HabitDetectionService {
     await NotificationService.showNotification(
       id: id,
       title: '🎯 New Habit Detected!',
-      body: 'We noticed you ${pattern['name']} ${pattern['frequency']}. Track it as a habit?',
+      body:
+          'We noticed you ${pattern['name']} ${pattern['frequency']}. Track it as a habit?',
       channelId: 'habit_detection',
       channelName: 'Habit Detection',
       payload: 'new_habit|${pattern['name']}',
@@ -289,7 +314,9 @@ class HabitDetectionService {
       final hoursSince = DateTime.now().difference(lastRunTime).inHours;
 
       if (hoursSince < 24) {
-        debugPrint("⏭️ Skipping: Last run was $hoursSince hours ago (need 24h)");
+        debugPrint(
+          "⏭️ Skipping: Last run was $hoursSince hours ago (need 24h)",
+        );
         return;
       }
     }
@@ -315,7 +342,10 @@ class HabitDetectionService {
       }
 
       // Update last run time
-      await prefs.setString('last_habit_detection', DateTime.now().toIso8601String());
+      await prefs.setString(
+        'last_habit_detection',
+        DateTime.now().toIso8601String(),
+      );
 
       debugPrint("✅ Auto-detection complete: $notified notifications sent");
     } catch (e) {

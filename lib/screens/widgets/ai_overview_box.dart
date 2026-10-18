@@ -31,7 +31,7 @@ const bool kAIOverviewDebugMode = kDebugMode;
 // =============================================================================
 //
 // The AI overview is expensive to (re)generate, so it is computed at most
-// once per calendar day and then reused:
+// once per calendar day for each profile/data snapshot and then reused.
 //
 // - Within a single app session, navigating away from and back to the
 //   screen reads from an in-memory map — synchronous, zero flicker, zero
@@ -122,10 +122,10 @@ class _AIOverviewCache {
   }
 
   static Future<void> write(
-      String prompt, {
-        String? response,
-        bool failed = false,
-      }) async {
+    String prompt, {
+    String? response,
+    bool failed = false,
+  }) async {
     final key = _keyFor(prompt);
     final entry = _AIOverviewEntry(
       date: _today(),
@@ -160,9 +160,9 @@ class _AIOverviewCache {
   /// AIOverviewBox instances mounting close together never fire two
   /// underlying AI requests.
   static Future<String?> runDeduped(
-      String prompt,
-      Future<String?> Function() generate,
-      ) {
+    String prompt,
+    Future<String?> Function() generate,
+  ) {
     final key = _keyFor(prompt);
     final existing = _inFlight[key];
     if (existing != null) return existing;
@@ -183,6 +183,8 @@ class _AIOverviewCache {
 class AIOverviewBox extends StatefulWidget {
   final String prompt;
   final String title;
+  final String cacheScope;
+  final String? extraContext;
 
   /// Per-instance override for [kAIOverviewDebugMode]. Leave null to use
   /// the file-level constant.
@@ -191,6 +193,8 @@ class AIOverviewBox extends StatefulWidget {
   const AIOverviewBox({
     super.key,
     required this.prompt,
+    required this.cacheScope,
+    this.extraContext,
     this.title = 'AI Overview',
     this.debugMode,
   });
@@ -284,7 +288,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
     // ever built, so there is nothing to flicker. Skipped in debug mode,
     // which always regenerates.
     if (!_debug) {
-      final cachedSync = _AIOverviewCache.readSync(widget.prompt);
+      final cachedSync = _AIOverviewCache.readSync(_cacheKey);
       if (cachedSync != null) {
         if (cachedSync.failed || cachedSync.response == null) {
           _hidden = true;
@@ -326,6 +330,26 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant AIOverviewBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.prompt == widget.prompt &&
+        oldWidget.cacheScope == widget.cacheScope) {
+      return;
+    }
+
+    _generationKickedOff = false;
+    _response = null;
+    _generatedAt = null;
+    _hidden = false;
+    _isGenerating = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadOrGenerate();
+    });
+  }
+
+  String get _cacheKey => '${widget.cacheScope}\n${widget.prompt}';
+
   void _onAIStateChanged() {
     if (!mounted) return;
     setState(() {});
@@ -345,17 +369,13 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
     _phraseTimer?.cancel();
     _phraseIndex = 0;
 
-    _phraseTimer = Timer.periodic(
-      const Duration(milliseconds: 1900),
-          (_) {
-        if (!mounted) return;
-        final phrases = _getLoadingPhrases(context);
-        setState(() {
-          _phraseIndex =
-              (_phraseIndex + 1) % phrases.length;
-        });
-      },
-    );
+    _phraseTimer = Timer.periodic(const Duration(milliseconds: 1900), (_) {
+      if (!mounted) return;
+      final phrases = _getLoadingPhrases(context);
+      setState(() {
+        _phraseIndex = (_phraseIndex + 1) % phrases.length;
+      });
+    });
   }
 
   void _stopPhraseCycle() {
@@ -368,24 +388,29 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
     bool isRetry = false,
   }) async {
     if (!mounted) return;
+    final cacheKey = _cacheKey;
 
     // Unsupported device / AI disabled — nothing to show, ever.
-    if (!_ai.isAiCapable || !_ai.isEnabled || !_isOverviewEnabled || _ai.state != AiState.ready) return;
+    if (!_ai.isAiCapable ||
+        !_ai.isEnabled ||
+        !_isOverviewEnabled ||
+        _ai.state != AiState.ready)
+      return;
 
     final bypassCache = _debug || forceRefresh;
 
     if (forceRefresh) {
       _generationKickedOff = false;
-      await _AIOverviewCache.invalidate(widget.prompt);
-      if (!mounted) return;
+      await _AIOverviewCache.invalidate(cacheKey);
+      if (!mounted || cacheKey != _cacheKey) return;
     }
 
     if (!bypassCache) {
       // Already generated (or already known to have failed) today —
       // read it back and stop right there. This is what makes repeated
       // navigation to this screen a no-op instead of a fresh AI call.
-      final cached = await _AIOverviewCache.read(widget.prompt);
-      if (!mounted) return;
+      final cached = await _AIOverviewCache.read(cacheKey);
+      if (!mounted || cacheKey != _cacheKey) return;
 
       if (cached != null) {
         _stopPhraseCycle();
@@ -438,17 +463,17 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
     });
     _startPhraseCycle();
 
-    final result = await _AIOverviewCache.runDeduped(
-      widget.prompt,
-          () async {
-        // ai.ask() returns `dynamic`: either the model's String answer,
-        // or `false` when it can't currently produce one (disabled,
-        // still loading, etc). Normalize that to String? here so the
-        // cache layer only ever deals with a clean Future<String?>.
-        final raw = await _ai.ask(widget.prompt);
-        return raw is String ? raw : null;
-      },
-    );
+    final result = await _AIOverviewCache.runDeduped(cacheKey, () async {
+      // ai.ask() returns `dynamic`: either the model's String answer,
+      // or `false` when it can't currently produce one (disabled,
+      // still loading, etc). Normalize that to String? here so the
+      // cache layer only ever deals with a clean Future<String?>.
+      final raw = await _ai.ask(
+        widget.prompt,
+        extraContext: widget.extraContext,
+      );
+      return raw is String ? raw : null;
+    });
 
     if (!mounted) return;
     _stopPhraseCycle();
@@ -456,9 +481,9 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
     if (result is String && result.trim().isNotEmpty) {
       final text = result.trim();
       if (!bypassCache) {
-        await _AIOverviewCache.write(widget.prompt, response: text);
+        await _AIOverviewCache.write(cacheKey, response: text);
       }
-      if (!mounted) return;
+      if (!mounted || cacheKey != _cacheKey) return;
 
       setState(() {
         _response = text;
@@ -494,15 +519,15 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
       setState(() {
         _isGenerating = false;
         _errorText =
-        'AI Overview failed to generate (after 1 retry). In '
+            'AI Overview failed to generate (after 1 retry). In '
             'production this would hide the box until tomorrow instead of '
             'showing this message.';
       });
       return;
     }
 
-    await _AIOverviewCache.write(widget.prompt, response: null, failed: true);
-    if (!mounted) return;
+    await _AIOverviewCache.write(cacheKey, response: null, failed: true);
+    if (!mounted || cacheKey != _cacheKey) return;
 
     setState(() {
       _response = null;
@@ -556,7 +581,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
         r'\s*(?:K|M|B|T|L|Cr|Lakh|Lakhs|Crore|Crores)?',
         caseSensitive: false,
       ),
-          (match) {
+      (match) {
         final original = match.group(0) ?? '';
         final currencyMatch = RegExp(
           '^$currencyPrefix',
@@ -579,7 +604,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
         r'\b',
         caseSensitive: false,
       ),
-          (match) {
+      (match) {
         final value = match.group(0) ?? '';
         final currencyMatch = RegExp(
           r'(USD|EUR|INR|GBP|JPY|AUD|CAD|CHF|CNY|HKD|NZD|RUB|SGD|ZAR|SEK|AED)',
@@ -600,7 +625,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
         r'\b',
         caseSensitive: false,
       ),
-          (match) => '•••••',
+      (match) => '•••••',
     );
 
     result = result.replaceAllMapped(
@@ -614,7 +639,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
         r'\b',
         caseSensitive: false,
       ),
-          (match) => '•••••',
+      (match) => '•••••',
     );
 
     result = result.replaceAllMapped(
@@ -628,7 +653,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
         r'(\d+(?:\.\d+)?\s*(?:K|M|B|T))\b',
         caseSensitive: false,
       ),
-          (match) {
+      (match) {
         final prefix = match.group(1) ?? '';
         final middle = match.group(2) ?? ' ';
         return '$prefix$middle•••••';
@@ -702,10 +727,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
   // LOADING UI
   // ---------------------------------------------------------------------------
 
-  Widget _buildGeneratingBox(
-      ThemeData theme,
-      ColorScheme colorScheme,
-      ) {
+  Widget _buildGeneratingBox(ThemeData theme, ColorScheme colorScheme) {
     return _buildGeneratingShell(
       colorScheme: colorScheme,
       child: AnimatedBuilder(
@@ -788,9 +810,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
                               children: [
                                 Flexible(
                                   child: AnimatedSwitcher(
-                                    duration: const Duration(
-                                      milliseconds: 350,
-                                    ),
+                                    duration: const Duration(milliseconds: 350),
                                     transitionBuilder: (child, animation) {
                                       return FadeTransition(
                                         opacity: animation,
@@ -807,9 +827,10 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
                                       _getLoadingPhrases(context)[_phraseIndex],
                                       key: ValueKey(_phraseIndex),
                                       overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
                                     ),
                                   ),
                                 ),
@@ -1069,10 +1090,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
     );
   }
 
-  Widget _buildResponseBox(
-      ThemeData theme,
-      ColorScheme colorScheme,
-      ) {
+  Widget _buildResponseBox(ThemeData theme, ColorScheme colorScheme) {
     final isPrivate = _privacyManager.shouldHideSensitiveData();
     final displayedResponse = _maskMoneyTerms(_response ?? '');
 
@@ -1102,7 +1120,8 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
             // the visual "reward" cue that content just finished.
             BoxShadow(
               color: colorScheme.primary.withValues(
-                alpha: 0.14 * (1 - _revealController.value) +
+                alpha:
+                    0.14 * (1 - _revealController.value) +
                     0.02 * _revealController.value,
               ),
               blurRadius: 26,
@@ -1148,9 +1167,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
                   icon: Icon(
                     Icons.refresh_rounded,
                     size: 18,
-                    color: colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.7,
-                    ),
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
                   tooltip: 'Refresh insights',
                   visualDensity: VisualDensity.compact,
@@ -1212,9 +1229,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
                   ),
 
                   // Numbered list
-                  listBulletPadding: const EdgeInsets.only(
-                    right: 8,
-                  ),
+                  listBulletPadding: const EdgeInsets.only(right: 8),
 
                   // Code / highlighted text
                   code: theme.textTheme.bodySmall?.copyWith(
@@ -1236,10 +1251,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
                     color: colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(10),
                     border: Border(
-                      left: BorderSide(
-                        color: colorScheme.primary,
-                        width: 3,
-                      ),
+                      left: BorderSide(color: colorScheme.primary, width: 3),
                     ),
                   ),
 
@@ -1265,7 +1277,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
                       Expanded(
                         child: Text(
                           '${context.t('ai_overview_on_device')} · '
-                              '${context.t('ai_overview_disclaimer')}',
+                          '${context.t('ai_overview_disclaimer')}',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.onSurfaceVariant.withValues(
                               alpha: 0.55,
@@ -1289,7 +1301,7 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
                       const SizedBox(width: 4),
                       Text(
                         '${context.t('ai_overview_updated_today')} '
-                            '${_formatTime(_generatedAt!)}',
+                        '${_formatTime(_generatedAt!)}',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: colorScheme.onSurfaceVariant.withValues(
                             alpha: 0.55,
@@ -1318,7 +1330,10 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
 
     // Device cannot run the on-device AI, AI disabled, or today's attempt
     // already failed once — nothing to show.
-    if (!_ai.isAiCapable || !_ai.isEnabled || _hidden || _ai.state != AiState.ready) {
+    if (!_ai.isAiCapable ||
+        !_ai.isEnabled ||
+        _hidden ||
+        _ai.state != AiState.ready) {
       return const SizedBox.shrink();
     }
 
@@ -1338,13 +1353,13 @@ class _AIOverviewBoxState extends State<AIOverviewBox>
           },
           child: (_response == null || _isGenerating)
               ? KeyedSubtree(
-            key: const ValueKey('generating'),
-            child: _buildGeneratingBox(theme, colorScheme),
-          )
+                  key: const ValueKey('generating'),
+                  child: _buildGeneratingBox(theme, colorScheme),
+                )
               : KeyedSubtree(
-            key: const ValueKey('response'),
-            child: _buildResponseBox(theme, colorScheme),
-          ),
+                  key: const ValueKey('response'),
+                  child: _buildResponseBox(theme, colorScheme),
+                ),
         );
       },
     );

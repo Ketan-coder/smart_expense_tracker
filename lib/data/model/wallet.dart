@@ -19,12 +19,16 @@ class Wallet extends HiveObject {
   @HiveField(4)
   DateTime? updatedAt;
 
+  @HiveField(5)
+  DateTime? balanceAsOf;
+
   Wallet({
     required this.name,
     required this.balance,
     required this.type,
     required this.createdAt,
     this.updatedAt,
+    this.balanceAsOf,
   });
 
   @override

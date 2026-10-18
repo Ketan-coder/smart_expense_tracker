@@ -16,6 +16,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/helpers.dart';
+import '../core/profile_scope.dart';
 import 'ai_provider.dart';
 import 'chat_history_store.dart';
 import 'context_builder.dart';
@@ -189,11 +190,6 @@ class SmartSpendAI {
 
   AiProvider? _provider;
   ModelConfig? _activeConfig;
-  final ContextBuilder _contextBuilder = ContextBuilder();
-  final MemoryStore _memoryStore = MemoryStore();
-  final ChatHistoryStore _historyStore = ChatHistoryStore();
-  String? _cachedContext;
-  DateTime? _contextBuiltAt;
 
   // ── Initialize ─────────────────────────────────────────────
 
@@ -362,17 +358,8 @@ class SmartSpendAI {
 
   // ── Context ────────────────────────────────────────────────
 
-  Future<String> _getContext() async {
-    final now = DateTime.now();
-    if (_cachedContext != null &&
-        _contextBuiltAt != null &&
-        now.difference(_contextBuiltAt!).inMinutes < 5) {
-      return _cachedContext!;
-    }
-    _cachedContext = await _contextBuilder.buildFullContext();
-    _contextBuiltAt = now;
-    return _cachedContext!;
-  }
+  Future<String> _getContext(String profileId) =>
+      ContextBuilder(profileId: profileId).buildFullContext();
 
   String _buildSystemContext(
     String financialContext, {
@@ -395,34 +382,39 @@ RULES:
    never guess.
 
 3. Be warm, natural, and specific.
-   Reference actual ₹ amounts instead of vague statements.
+   Reference actual amounts and the currency shown in the financial snapshot.
 
 4. Keep answers concise:
    2-5 sentences unless the user asks for more detail.
 
-5. You understand Indian context:
-   ₹, UPI, EMI, Swiggy, Zomato, NACH, local merchants.
+5. Use the profile's currency and local context. Only use Indian-specific
+   assumptions (₹, UPI, EMI, Swiggy, Zomato, NACH) when the profile data
+   supports them.
 
-6. LANGUAGE:
+6. Wallet balances are current available account balances, not spending.
+   Never describe a wallet balance as money spent. Spending totals come only
+   from the SPENDING section and reportable expense transactions.
+
+7. LANGUAGE:
    $languageInstruction
 
-7. NEVER translate the user's question into another language before
+8. NEVER translate the user's question into another language before
    answering it.
 
-8. Answer naturally in the requested language.
+9. Answer naturally in the requested language.
    Do not mention that you detected the language.
 
-9. Treat the recent conversation as context. Resolve short follow-ups such as
+10. Treat the recent conversation as context. Resolve short follow-ups such as
    "yes", "show me", and "tell me more" against the immediately preceding
    messages. If the user accepts an offer you made, do exactly what you offered
    instead of repeating the previous answer or making the offer again.
 
-10. When asked for a spending breakdown, give the actual categories and
+11. When asked for a spending breakdown, give the actual categories and
     amounts from the matching period in the financial data. Do not repeat
     only the total. If the data does not contain that breakdown, say so
     clearly rather than inventing categories or amounts.
 
-11. A category's total is different from the largest single transaction.
+12. A category's total is different from the largest single transaction.
     When asked which category had the highest spending, compare the category
     totals for the requested period and answer with the top category first.
     Do not substitute the largest individual expense or repeat the full
@@ -560,6 +552,7 @@ Do not switch languages during this conversation unless the user asks you to.
       yield 'AI is not ready yet.';
       return;
     }
+    final profileId = ProfileScope.activeProfileId;
 
     // The UI already adds the current user message to history.
     // The provider receives the current message separately.
@@ -572,6 +565,7 @@ Do not switch languages during this conversation unless the user asks you to.
 
       final systemContext = await _buildPersonalizedSystemContext(
         userMessage: userMessage,
+        profileId: profileId,
       );
 
       await for (final token in _provider!.chat(
@@ -593,7 +587,13 @@ Do not switch languages during this conversation unless the user asks you to.
       return;
     }
 
-    unawaited(_maybeExtractMemories(userMessage, buffer.toString()));
+    unawaited(
+      _maybeExtractMemories(
+        userMessage,
+        buffer.toString(),
+        profileId: profileId,
+      ),
+    );
   }
 
   /// Builds the financial-data + memories + rolling-summary system prompt
@@ -611,13 +611,16 @@ Do not switch languages during this conversation unless the user asks you to.
     String? userMessage,
     String? language,
     bool includeMemories = true,
+    required String profileId,
   }) async {
-    final financialContext = await _getContext();
+    final memoryStore = MemoryStore(profileId: profileId);
+    final historyStore = ChatHistoryStore(profileId: profileId);
+    final financialContext = await _getContext(profileId);
 
     final allMemories = includeMemories
-        ? await _memoryStore.load()
+        ? await memoryStore.load()
         : <UserMemory>[];
-    final summary = await _historyStore.loadSummary();
+    final summary = await historyStore.loadSummary();
 
     // Reserve room for the system rules themselves, the current message,
     // the couple of raw history turns GemmaProvider still sends, and the
@@ -641,11 +644,11 @@ Do not switch languages during this conversation unless the user asks you to.
       // — a few of the most important memories is still much better
       // than none.
       for (final limit in [12, 8, 5, 3]) {
-        final relevant = _memoryStore.getRelevantMemories(
+        final relevant = memoryStore.getRelevantMemories(
           allMemories,
           limit: limit,
         );
-        final candidate = _memoryStore.toContextBlock(relevant);
+        final candidate = memoryStore.toContextBlock(relevant);
         if (candidate.length <= charsLeft) {
           memoryBlock = candidate;
           break;
@@ -683,15 +686,18 @@ Do not switch languages during this conversation unless the user asks you to.
   /// instead of climbing turn after turn.
   Future<void> _maybeExtractMemories(
     String userMessage,
-    String assistantReply,
-  ) async {
+    String assistantReply, {
+    required String profileId,
+  }) async {
     try {
+      final memoryStore = MemoryStore(profileId: profileId);
+      final historyStore = ChatHistoryStore(profileId: profileId);
       // Don't run memory extraction for empty conversations.
       if (userMessage.trim().isEmpty) {
         return;
       }
 
-      final existingMemories = await _memoryStore.load();
+      final existingMemories = await memoryStore.load();
 
       final existingList = existingMemories.isEmpty
           ? 'None'
@@ -703,7 +709,7 @@ Do not switch languages during this conversation unless the user asks you to.
                 )
                 .join('\n');
 
-      final existingSummary = await _historyStore.loadSummary();
+      final existingSummary = await historyStore.loadSummary();
 
       final prompt =
           '''
@@ -839,7 +845,7 @@ Do not use markdown.
           final capped = summary.trim().length > 400
               ? summary.trim().substring(0, 400)
               : summary.trim();
-          await _historyStore.saveSummary(capped);
+          await historyStore.saveSummary(capped);
         }
         memoriesJson = (decoded['memories'] is List)
             ? decoded['memories'] as List
@@ -892,7 +898,7 @@ Do not use markdown.
         // Save/update structured memory.
         // -------------------------------------------------------
 
-        await _memoryStore.upsertMemory(
+        await memoryStore.upsertMemory(
           key: key,
           fact: fact,
           type: type,
@@ -908,11 +914,11 @@ Do not use markdown.
 
   // ── Memories (for Settings / "What Fin remembers" UI) ────────
 
-  Future<List<UserMemory>> getMemories() => _memoryStore.load();
+  Future<List<UserMemory>> getMemories() => MemoryStore().load();
 
-  Future<void> forgetMemory(String id) => _memoryStore.removeMemory(id);
+  Future<void> forgetMemory(String id) => MemoryStore().removeMemory(id);
 
-  Future<void> clearMemories() => _memoryStore.clear();
+  Future<void> clearMemories() => MemoryStore().clear();
 
   // ── Universal AI entry point ──────────────────────────────────
 
@@ -944,6 +950,7 @@ Do not use markdown.
     }
 
     try {
+      final profileId = ProfileScope.activeProfileId;
       // Get the Language from the Helpers
       language = await Helpers().getCurrentLanguage();
       debugPrint('Language ==> $language');
@@ -954,6 +961,7 @@ Do not use markdown.
       var systemContext = await _buildPersonalizedSystemContext(
         language: language ?? 'English',
         includeMemories: includeMemories,
+        profileId: profileId,
       );
 
       if (extraContext != null && extraContext.isNotEmpty) {
