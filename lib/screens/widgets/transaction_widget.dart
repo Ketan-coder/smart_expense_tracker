@@ -163,6 +163,16 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
   }
 
   Future<void> _save() async {
+    final walletProblem = walletSelectionProblem(walletKey: _selectedWalletKey);
+    if (walletProblem != null) {
+      SnackBars.show(
+        context,
+        message: walletSelectionProblemMessage(context, walletProblem),
+        type: SnackBarType.error,
+      );
+      return;
+    }
+
     final amount = double.tryParse(_amountCtrl.text.trim());
     if (amount == null || amount <= 0) {
       SnackBars.show(
@@ -257,7 +267,7 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
     } else {
       SnackBars.show(
         context,
-        message: context.t('error_saving_category'),
+        message: context.t('transaction_save_failed'),
         type: SnackBarType.error,
       );
     }
@@ -721,6 +731,23 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
 
 /// Generates realistic random expense + income data for the past 30 days.
 /// Call this from a settings/debug button.
+Future<int> ensureTestDataWallet() async {
+  final walletBox = Hive.box<Wallet>(AppConstants.wallets);
+  final existingKeys = walletBox.keys.whereType<int>().toList();
+  if (existingKeys.isNotEmpty) return existingKeys.first;
+
+  final now = DateTime.now();
+  return walletBox.add(
+    Wallet(
+      name: 'Sample Data Wallet',
+      balance: 0,
+      type: 'cash',
+      createdAt: now,
+      balanceAsOf: now,
+    ),
+  );
+}
+
 Future<void> generateTestData(BuildContext context) async {
   final rng = Random();
   final categoryBox = Hive.box<Category>(AppConstants.categories);
@@ -751,6 +778,8 @@ Future<void> generateTestData(BuildContext context) async {
     }
     return;
   }
+
+  final walletKey = await ensureTestDataWallet();
 
   // Realistic Mumbai expense data
   final expenseData = [
@@ -790,6 +819,7 @@ Future<void> generateTestData(BuildContext context) async {
 
   final methods = ['UPI', 'Cash', 'Credit Card', 'Debit Card', 'Net Banking'];
   int added = 0;
+  int failed = 0;
 
   // Add expenses — 2-3 per day spread across 30 days
   for (int day = 0; day < 30; day++) {
@@ -802,14 +832,19 @@ Future<void> generateTestData(BuildContext context) async {
       final amount = pick.$2 * (0.9 + rng.nextDouble() * 0.2);
       final catKeys = [expenseCats[rng.nextInt(expenseCats.length)].key];
 
-      await UniversalHiveFunctions().addExpense(
+      final saved = await UniversalHiveFunctions().addExpense(
         amount: double.parse(amount.toStringAsFixed(2)),
         description: pick.$1,
         method: methods[rng.nextInt(methods.length)],
         categoryKeys: catKeys,
+        walletKey: walletKey,
         date: date,
       );
-      added++;
+      if (saved) {
+        added++;
+      } else {
+        failed++;
+      }
     }
   }
 
@@ -817,21 +852,32 @@ Future<void> generateTestData(BuildContext context) async {
   for (final inc in incomeData.take(2)) {
     final daysAgo = rng.nextInt(28) + 1;
     final date = DateTime.now().subtract(Duration(days: daysAgo));
-    await UniversalHiveFunctions().addIncome(
+    final saved = await UniversalHiveFunctions().addIncome(
       amount: inc.$2,
       description: inc.$1,
       method: methods[rng.nextInt(methods.length)],
       categoryKeys: [incomeCats[rng.nextInt(incomeCats.length)].key],
+      walletKey: walletKey,
       date: date,
     );
-    added++;
+    if (saved) {
+      added++;
+    } else {
+      failed++;
+    }
   }
 
   if (context.mounted) {
+    final message = failed > 0
+        ? context
+              .t(added > 0 ? 'random_data_partial' : 'random_data_failed')
+              .replaceAll('{count}', '$added')
+              .replaceAll('{failed}', '$failed')
+        : context.t('random_data_generated').replaceAll('{count}', '$added');
     SnackBars.show(
       context,
-      message: '✅ Added $added test transactions across 30 days',
-      type: SnackBarType.success,
+      message: message,
+      type: failed > 0 ? SnackBarType.error : SnackBarType.success,
     );
   }
 }

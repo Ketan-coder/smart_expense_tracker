@@ -1287,8 +1287,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       final results =
                           await Dialogs.showConfirmation(context: context) ??
                           false;
-                      if (results) {
-                        generateTestData(context);
+                      if (results && context.mounted) {
+                        await generateTestData(context);
                       }
                     },
                   ),

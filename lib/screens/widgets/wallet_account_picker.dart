@@ -3,6 +3,35 @@ import 'package:hive_ce/hive.dart';
 
 import '../../core/app_constants.dart';
 import '../../data/model/wallet.dart';
+import '../../services/langs/localzation_extension.dart';
+
+enum WalletSelectionProblem { walletRequired, walletSelectionRequired }
+
+int? resolveWalletSelection({int? walletKey}) {
+  final box = Hive.box<Wallet>(AppConstants.wallets);
+  if (walletKey != null) return walletKey;
+  final keys = box.keys.whereType<int>().toList();
+  return keys.length == 1 ? keys.single : null;
+}
+
+WalletSelectionProblem? walletSelectionProblem({int? walletKey}) {
+  final box = Hive.box<Wallet>(AppConstants.wallets);
+  if (box.isEmpty) return WalletSelectionProblem.walletRequired;
+  final selectedKey = resolveWalletSelection(walletKey: walletKey);
+  if (selectedKey == null || box.get(selectedKey) == null) {
+    return WalletSelectionProblem.walletSelectionRequired;
+  }
+  return null;
+}
+
+String walletSelectionProblemMessage(
+  BuildContext context,
+  WalletSelectionProblem problem,
+) => context.t(
+  problem == WalletSelectionProblem.walletRequired
+      ? 'transaction_wallet_required'
+      : 'transaction_wallet_select',
+);
 
 class WalletAccountPicker extends StatelessWidget {
   const WalletAccountPicker({
@@ -28,8 +57,9 @@ class WalletAccountPicker extends StatelessWidget {
         : null;
 
     if (accounts.isEmpty) {
-      return const Text(
-        'Add an account in Manage wallets before recording this transaction.',
+      return Text(
+        context.t('transaction_wallet_required'),
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
       );
     }
 

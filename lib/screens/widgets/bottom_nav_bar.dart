@@ -1889,13 +1889,24 @@ class _BottomNavBarState extends State<BottomNavBar>
   }
 
   Future<void> _handleQuickActionTap(QuickAction action) async {
+    final walletKey = resolveWalletSelection(walletKey: action.walletKey);
+    final walletProblem = walletSelectionProblem(walletKey: walletKey);
+    if (walletProblem != null) {
+      SnackBars.show(
+        context,
+        message: walletSelectionProblemMessage(context, walletProblem),
+        type: SnackBarType.error,
+      );
+      return;
+    }
+
     bool success = false;
     if (action.type == 'expense') {
       success = await UniversalHiveFunctions().addExpense(
         amount: action.amount,
         description: action.description ?? action.label,
         method: action.method,
-        walletKey: action.walletKey,
+        walletKey: walletKey,
         categoryKeys: action.categoryKeys,
       );
     } else {
@@ -1903,7 +1914,7 @@ class _BottomNavBarState extends State<BottomNavBar>
         amount: action.amount,
         description: action.description ?? action.label,
         method: action.method,
-        walletKey: action.walletKey,
+        walletKey: walletKey,
         categoryKeys: action.categoryKeys,
       );
     }
@@ -1914,6 +1925,12 @@ class _BottomNavBarState extends State<BottomNavBar>
         amount: action.amount,
         currency: _currentCurrency,
         description: action.description ?? action.label,
+      );
+    } else if (mounted) {
+      SnackBars.show(
+        context,
+        message: context.t('transaction_save_failed'),
+        type: SnackBarType.error,
       );
     }
   }
@@ -3012,6 +3029,20 @@ class _BottomNavBarState extends State<BottomNavBar>
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: () async {
+                  final walletProblem = walletSelectionProblem(
+                    walletKey: selectedWalletKey,
+                  );
+                  if (walletProblem != null) {
+                    SnackBars.show(
+                      context,
+                      message: walletSelectionProblemMessage(
+                        context,
+                        walletProblem,
+                      ),
+                      type: SnackBarType.error,
+                    );
+                    return;
+                  }
                   final amount = double.tryParse(amountController.text) ?? 0.0;
                   if (addController.text.trim().isEmpty ||
                       amount <= 0 ||
@@ -3042,6 +3073,12 @@ class _BottomNavBarState extends State<BottomNavBar>
                       amount: amount,
                       currency: _currentCurrency,
                       description: '',
+                    );
+                  } else if (context.mounted) {
+                    SnackBars.show(
+                      context,
+                      message: context.t('transaction_save_failed'),
+                      type: SnackBarType.error,
                     );
                   }
                 },
@@ -3160,6 +3197,20 @@ class _BottomNavBarState extends State<BottomNavBar>
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: () async {
+                  final walletProblem = walletSelectionProblem(
+                    walletKey: selectedWalletKey,
+                  );
+                  if (walletProblem != null) {
+                    SnackBars.show(
+                      context,
+                      message: walletSelectionProblemMessage(
+                        context,
+                        walletProblem,
+                      ),
+                      type: SnackBarType.error,
+                    );
+                    return;
+                  }
                   final amount = double.tryParse(amountController.text) ?? 0.0;
                   if (addController.text.trim().isEmpty ||
                       amount <= 0 ||
@@ -3190,6 +3241,12 @@ class _BottomNavBarState extends State<BottomNavBar>
                       amount: amount,
                       currency: _currentCurrency,
                       description: '',
+                    );
+                  } else if (context.mounted) {
+                    SnackBars.show(
+                      context,
+                      message: context.t('transaction_save_failed'),
+                      type: SnackBarType.error,
                     );
                   }
                 },
