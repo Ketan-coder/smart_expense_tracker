@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:io' show Platform, exit;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -88,6 +89,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _adaptiveBrightnessEnabled = true;
   bool _showQuickActions = true;
   bool _aiOverviewEnabled = false;
+  bool _wallpaperAutoUpdateEnabled = false;
 
   final List<Map<String, String>> _currencies = [
     {"code": "USD", "name": "US Dollar", "symbol": "\$"},
@@ -149,6 +151,9 @@ class _SettingsPageState extends State<SettingsPage> {
         await Helpers().getCurrentShowQuickActions() ?? true;
     final aiOverviewEnabled =
         await Helpers().getCurrentAIOverviewBoxes() ?? true;
+    final wallpaperAutoUpdateEnabled =
+        (await SharedPreferences.getInstance()).getBool('wallpaper_enabled') ??
+        false;
     await NumberFormatterService().initialize();
 
     if (mounted) {
@@ -163,8 +168,70 @@ class _SettingsPageState extends State<SettingsPage> {
         _dynamicColorState = dynamicColorState;
         _showQuickActions = showQuickActions;
         _aiOverviewEnabled = aiOverviewEnabled;
+        _wallpaperAutoUpdateEnabled = wallpaperAutoUpdateEnabled;
         _selectedNumberFormat = NumberFormatterService().currentFormat;
       });
+    }
+  }
+
+  Future<void> _updateWallpaperAutoUpdate(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    final previousValue = prefs.getBool('wallpaper_enabled') ?? false;
+    try {
+      await prefs.setBool('wallpaper_enabled', enabled);
+      if (enabled) {
+        await WallpaperSchedulerService().scheduleDailyUpdate();
+      } else {
+        await WallpaperSchedulerService().cancelScheduledUpdates();
+      }
+      if (mounted) {
+        setState(() => _wallpaperAutoUpdateEnabled = enabled);
+        SnackBars.show(
+          context,
+          message: context.t(
+            enabled ? 'wallpaper_auto_enabled' : 'wallpaper_auto_disabled',
+          ),
+          type: SnackBarType.success,
+        );
+      }
+    } catch (error, stackTrace) {
+      await prefs.setBool('wallpaper_enabled', previousValue);
+      debugPrint('Failed to update automatic wallpaper setting: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        SnackBars.show(
+          context,
+          message: context.t('wallpaper_auto_update_failed'),
+          type: SnackBarType.error,
+        );
+      }
+    }
+  }
+
+  Future<void> _reportProblemOrSuggestion() async {
+    final uri = financialGuideReportUri(
+      subject: context.t('settings_report_subject'),
+      body: context.t('settings_report_body'),
+    );
+    try {
+      final launched = await launchUrl(uri);
+      if (!launched && mounted) {
+        SnackBars.show(
+          context,
+          message: context.t('settings_report_failed'),
+          type: SnackBarType.error,
+        );
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Could not open the report email: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        SnackBars.show(
+          context,
+          message: context.t('settings_report_failed'),
+          type: SnackBarType.error,
+        );
+      }
     }
   }
 
@@ -339,6 +406,12 @@ class _SettingsPageState extends State<SettingsPage> {
     }
 
     if (value) {
+      final shouldContinue = await _showNotificationPermissionRationale();
+      if (!shouldContinue || !mounted) {
+        setState(() => _notificationState = false);
+        return;
+      }
+
       final status = await Permission.notification.request();
 
       if (status.isGranted) {
@@ -390,6 +463,48 @@ class _SettingsPageState extends State<SettingsPage> {
       }
       _restartApp();
     }
+  }
+
+  Future<bool> _showNotificationPermissionRationale() async {
+    return await showModalBottomSheet<bool>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (sheetContext) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.notifications_active_outlined, size: 32),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Stay on top of your finances',
+                    style: Theme.of(sheetContext).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Allow notifications to receive reminders for recurring payments and updates about your spending and goals. You can change this anytime in Settings.',
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(sheetContext, true),
+                      child: const Text('Continue'),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(sheetContext, false),
+                    child: const Text('Not now'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ) ??
+        false;
   }
 
   Future<void> _updateDarkThemeState(bool value) async {
@@ -903,33 +1018,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 6),
 
-                ListTile(
-                  leading: const Icon(Icons.calendar_today),
-                  title: Text(context.t('progress_calender')),
-                  subtitle: Text(context.t('see_your_year_progress')),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProgressCalendarPage(),
-                      ),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.wallpaper),
-                  title: Text(context.t('wallpaper_settings')),
-                  subtitle: Text(context.t('update_wallpaper')),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const WallpaperSettingsPage(),
-                      ),
-                    );
-                  },
-                ),
-
                 // Auto Theme
                 ListTile(
                   leading: const Icon(Icons.brightness_auto),
@@ -1141,8 +1229,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     enabled: _privacyModeEnabled,
                   ),
-
-                  const Divider(),
+                  
                 ] else ...[
                   // Show that privacy features are not available
                   const SizedBox(height: 8),
@@ -1171,6 +1258,97 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ],
 
+                const Divider(),
+
+                // Calendar and Wallpaper
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        context.t('wallpaper_section'),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ListTile(
+                  leading: const Icon(Icons.calendar_today),
+                  title: Text(context.t('progress_calender')),
+                  subtitle: Text(context.t('see_your_year_progress')),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ProgressCalendarPage(),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.wallpaper),
+                  title: Text(context.t('wallpaper_settings')),
+                  subtitle: Text(context.t('update_wallpaper')),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const WallpaperSettingsPage(),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.update),
+                  title: Text(context.t('wallpaper_auto_update')),
+                  subtitle: Text(
+                    context.t(
+                      _wallpaperAutoUpdateEnabled
+                          ? 'wallpaper_auto_update_on_desc'
+                          : 'wallpaper_auto_update_off_desc',
+                    ),
+                  ),
+                  trailing: Switch(
+                    value: _wallpaperAutoUpdateEnabled,
+                    onChanged: _updateWallpaperAutoUpdate,
+                  ),
+                ),
+
+                const Divider(),
+
+                // Profile and regional preferences
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        context.t('profile_preferences'),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+
                 // Currency and Language (always available)
                 const SizedBox(height: 8),
                 ListTile(
@@ -1182,19 +1360,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: _showFinancialProfiles,
-                ),
-                ListTile(
-                  leading: const Icon(Icons.menu_book_outlined),
-                  title: Text(context.t('financial_guide')),
-                  subtitle: Text(context.t('financial_guide_subtitle')),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const FinancialGuidePage(),
-                      ),
-                    );
-                  },
                 ),
                 ListTile(
                   leading: const Icon(Icons.currency_exchange),
@@ -1348,6 +1513,51 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                 ],
+
+                const Divider(),
+
+                // Help and support
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        context.t('help_support'),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ListTile(
+                  leading: const Icon(Icons.menu_book_outlined),
+                  title: Text(context.t('financial_guide')),
+                  subtitle: Text(context.t('financial_guide_subtitle')),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const FinancialGuidePage(),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.feedback_outlined),
+                  title: Text(context.t('report_problem_suggestion')),
+                  subtitle: Text(context.t('report_problem_suggestion_desc')),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: _reportProblemOrSuggestion,
+                ),
 
                 const Divider(),
 

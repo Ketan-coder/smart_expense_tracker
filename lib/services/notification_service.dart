@@ -48,7 +48,7 @@ class NotificationService {
       GlobalKey<NavigatorState>();
   static GlobalKey<NavigatorState> get navigatorKey => _navigatorKey;
 
-  static Future<void> initialize() async {
+  static Future<void> initialize({bool requestPermission = true}) async {
     if (_isInitialized) {
       debugPrint('[INIT] Notification Service already initialized');
       return;
@@ -81,8 +81,11 @@ class NotificationService {
       // Create notification channel FIRST
       await createNotificationChannel();
 
-      // Request notification permissions (not exact alarms)
-      await requestNotificationPermission();
+      // Permission prompts are deferred during app startup so the UI can
+      // explain why notifications are needed before Android shows its dialog.
+      if (requestPermission) {
+        await requestNotificationPermission();
+      }
 
       _isInitialized = true;
       debugPrint('[INIT] Notification Service initialized successfully');
@@ -132,7 +135,8 @@ class NotificationService {
           _navigatorKey.currentState?.pushNamed('/settings');
           break;
         case 'open_transaction_page':
-          _navigatorKey.currentState?.pushNamed('/transaction');
+        case 'open_transactions':
+          _navigatorKey.currentState?.pushNamed('/transactions');
           break;
         case 'open_wallet_page':
           _navigatorKey.currentState?.pushNamed('/wallet');
@@ -241,6 +245,15 @@ class NotificationService {
           description: 'Daily and weekly financial summaries',
           importance: Importance.low,
           enableVibration: false,
+        ),
+      );
+
+      await androidImplementation?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'transaction_review_alerts',
+          'Transaction Review',
+          description: 'Daily reminders to review captured transactions',
+          importance: Importance.defaultImportance,
         ),
       );
 
@@ -370,6 +383,40 @@ class NotificationService {
         channelId: 'reminder_channel',
         channelName: 'Reminders',
       );
+    }
+  }
+
+  /// Schedule the nightly transaction review reminder at 9:00 PM every day.
+  static Future<void> scheduleDailyTransactionReview() async {
+    if (!_isInitialized) return;
+
+    final now = tz.TZDateTime.now(tz.local);
+    var first = tz.TZDateTime(tz.local, now.year, now.month, now.day, 21);
+    if (!first.isAfter(now)) first = first.add(const Duration(days: 1));
+
+    try {
+      await _notificationsPlugin.zonedSchedule(
+        91001,
+        'Review today\'s transactions',
+        'Check captured transactions and update any categories or details.',
+        first,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'transaction_review_alerts',
+            'Transaction Review',
+            channelDescription:
+                'Daily reminders to review captured transactions',
+            icon: 'ic_notification',
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+        payload: 'open_transactions',
+      );
+    } catch (e) {
+      debugPrint('[SCHEDULE] Daily transaction review failed: $e');
     }
   }
 

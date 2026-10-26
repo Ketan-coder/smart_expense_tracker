@@ -938,6 +938,7 @@ import '../../services/biometric_auth.dart';
 import '../../services/habit_detection_service.dart';
 import '../../services/langs/localzation_extension.dart';
 import '../../services/notification_helper.dart';
+import '../../services/notification_service.dart';
 import '../../services/number_formatter_service.dart';
 import '../../services/privacy/adaptive_brightness_service.dart';
 import '../../services/privacy/privacy_manager.dart';
@@ -948,6 +949,7 @@ import '../add_edit_habit_bottom_sheet.dart';
 import '../goals/add_edit_goal_sheet.dart';
 import '../home/home_page.dart';
 import '../transaction_page.dart' hide TransactionType;
+import 'bottom_sheet.dart';
 import 'floating_toolbar.dart';
 
 class BottomNavBar extends StatefulWidget {
@@ -1189,7 +1191,7 @@ class _BottomNavBarState extends State<BottomNavBar>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     if (_isMobilePlatform) {
-      SmsListener.stopListening();
+      // SmsListener.stopListening(_onSmsReceived);
       _privacyManager.removeListener(_onPrivacyStateChanged);
       _shakeDetector?.dispose();
       _brightnessService.restoreBrightness();
@@ -1217,6 +1219,7 @@ class _BottomNavBarState extends State<BottomNavBar>
           await _checkAndRequestBiometric();
         } else {
           setState(() => _isAuthenticated = true);
+          await _runFirstLaunchPermissionFlow();
           await _initializePlatformFeatures();
           await _initializeFirstTimeSetup();
         }
@@ -1225,10 +1228,12 @@ class _BottomNavBarState extends State<BottomNavBar>
         await _initializeFirstTimeSetup();
       }
 
-      // Notifications (mobile only)
+      // Keep the existing summary and spending-pattern notifications when the
+      // app is opened during the evening. The separate nightly review
+      // reminder is also scheduled at startup.
       if (_isMobilePlatform &&
           Helpers().isWithinNotificationHours(startHour: 20, endHour: 22)) {
-        debugPrint("🔔 Triggering scheduled notifications...");
+        debugPrint("🔔 Triggering evening financial notifications...");
         NotificationHelper().sendFinancialSummary();
         NotificationHelper().checkSpendingPatterns();
       }
@@ -1269,6 +1274,7 @@ class _BottomNavBarState extends State<BottomNavBar>
           _isAuthenticated = true;
           _isAuthenticating = false;
         });
+        await _runFirstLaunchPermissionFlow();
         await _initializePlatformFeatures();
         await _initializeFirstTimeSetup();
         debugPrint("🔐 ✅ Authentication successful");
@@ -1356,6 +1362,7 @@ class _BottomNavBarState extends State<BottomNavBar>
                   behavior: SnackBarBehavior.floating,
                 );
               }
+              await _runFirstLaunchPermissionFlow();
               await _initializePlatformFeatures();
               await _initializeFirstTimeSetup();
             },
@@ -1409,7 +1416,7 @@ class _BottomNavBarState extends State<BottomNavBar>
     setState(() => permissionsGranted = hasPermissions);
 
     if (hasPermissions) {
-      _startListening();
+      await _startListening();
       debugPrint("📱 ✅ SMS listener initialized");
     } else {
       debugPrint("📱 ⚠️ SMS permissions not granted");
@@ -1422,6 +1429,101 @@ class _BottomNavBarState extends State<BottomNavBar>
     }
 
     debugPrint("📱 ========================================");
+  }
+
+  Future<void> _runFirstLaunchPermissionFlow() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getBool('permissionRationaleShown') ?? false) || !mounted) {
+      return;
+    }
+
+    final allowNotifications = await _showPermissionRationale(
+      icon: Icons.notifications_active_outlined,
+      title: 'Stay on top of your finances',
+      description:
+          'Notifications provide reminders for recurring payments and updates about your spending and goals.',
+    );
+    if (allowNotifications && mounted) {
+      final granted = await NotificationService.requestNotificationPermission();
+      await Helpers().setCurrentNotificationState(granted);
+    } else {
+      await Helpers().setCurrentNotificationState(false);
+    }
+
+    if (!mounted) return;
+    final allowSms = await _showPermissionRationale(
+      icon: Icons.sms_outlined,
+      title: 'Add transactions automatically',
+      description:
+          'SMS access lets the app detect bank transaction messages and add matching transactions automatically.',
+    );
+
+    await prefs.setBool('permissionRationaleShown', true);
+    if (!allowSms) {
+      await Helpers().setCurrentSmsParsingState(false);
+    }
+  }
+
+  Future<bool> _showPermissionRationale({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) async {
+    return await BottomSheetUtil.show<bool>(
+          context: context,
+          title: '',
+          showCloseIcon: false,
+          isScrollable: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 12),
+              Center(
+                child: Container(
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 42,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                description,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+              const Spacer(),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Continue'),
+              ),
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Not now'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   Future<void> _initializeFirstTimeSetup() async {
@@ -1503,11 +1605,9 @@ class _BottomNavBarState extends State<BottomNavBar>
     return keys.isNotEmpty ? keys : [7];
   }
 
-  void _startListening() {
+  Future<void> _startListening() async {
     if (!_isMobilePlatform) return;
-    SmsListener.startListening(_onSmsReceived);
-    setState(() => isListening = true);
-    debugPrint("📱 SMS listener started successfully");
+    if (mounted) setState(() => isListening = SmsListener.isReady);
   }
 
   Future<void> _onSmsReceived(
@@ -1561,18 +1661,23 @@ class _BottomNavBarState extends State<BottomNavBar>
         );
       }
 
-      if (mounted && success) {
+      if (success) {
         final isCredit = transaction['type'] == 'credit';
-        TransactionSheet.show(
-          context: context,
-          isIncome: isCredit,
-          amount: amount,
-          currency: _currentCurrency,
-          description: description,
-        );
+        if (mounted) {
+          TransactionSheet.show(
+            context: context,
+            isIncome: isCredit,
+            amount: amount,
+            currency: _currentCurrency,
+            description: description,
+          );
+        }
         debugPrint("📨 ✅ Transaction saved successfully");
       } else {
         debugPrint("📨 ❌ Failed to save transaction");
+        // Keep replayed SMS in the native queue when persistence fails. The
+        // queue drain acknowledges only callbacks that complete successfully.
+        throw StateError('SMS transaction could not be saved');
       }
     } else {
       debugPrint("📨 ⚠️ Not a transaction SMS or parsing failed");

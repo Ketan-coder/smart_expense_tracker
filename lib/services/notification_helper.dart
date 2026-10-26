@@ -11,6 +11,29 @@ import 'notification_service.dart';
 
 /// Notification helper methods
 class NotificationHelper {
+  /// Confirm that an SMS-imported transaction was saved successfully.
+  static Future<void> notifySmsTransactionLogged({
+    required double amount,
+    required String type,
+    required String description,
+    required String currency,
+    required String dedupeKey,
+  }) async {
+    try {
+      await NotificationService.showNotification(
+        id: _generateNotificationId('sms_logged_$dedupeKey'),
+        title: 'Transaction logged',
+        body:
+            '$currency${amount.toStringAsFixed(2)} ${type.toLowerCase()} from $description',
+        channelId: 'transaction_alerts',
+        channelName: 'Transaction Alerts',
+        payload: 'open_transactions',
+      );
+    } catch (e) {
+      debugPrint('⚠️ [Notification] Error confirming SMS transaction: $e');
+    }
+  }
+
   /// Check wallet balance and notify if negative or low
   static Future<void> checkWalletBalance(
     Wallet wallet,
@@ -158,11 +181,16 @@ class NotificationHelper {
 
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
+      final tomorrow = today.add(const Duration(days: 1));
       final weekAgo = today.subtract(const Duration(days: 7));
 
       // Calculate today's expenses
       final todayExpenses = expenseBox.values
-          .where((expense) => expense.date.isAfter(today))
+          .where(
+            (expense) =>
+                !expense.date.isBefore(today) &&
+                expense.date.isBefore(tomorrow),
+          )
           .fold(0.0, (sum, expense) => sum + expense.amountForReporting);
 
       // Calculate weekly expenses
@@ -180,7 +208,7 @@ class NotificationHelper {
         ),
         title: '📈 Daily Summary',
         body:
-            'Today: ₹${todayExpenses.toStringAsFixed(0)} | Week: ₹${weeklyExpenses.toStringAsFixed(0)} | Total: ₹${totalBalance.toStringAsFixed(0)}',
+            'Today: ₹${todayExpenses.toStringAsFixed(0)} | Week: ₹${weeklyExpenses.toStringAsFixed(0)} | Total: ₹${totalBalance.toStringAsFixed(0)}. Tap to review and recategorize.',
         channelId: 'summary_alerts',
         channelName: 'Financial Summary',
         payload: 'open_reports_page',

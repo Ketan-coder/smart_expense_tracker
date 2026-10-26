@@ -469,7 +469,7 @@ class _SmsDebugScreenState extends State<SmsDebugScreen> {
 
   @override
   void dispose() {
-    SmsListener.stopListening();
+    SmsListener.stopListening(_onSmsReceived);
     super.dispose();
   }
 }

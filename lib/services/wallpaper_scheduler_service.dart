@@ -44,6 +44,11 @@ void callbackDispatcher() {
       }
 
       final prefs = await SharedPreferences.getInstance();
+      if (task == 'wallpaperDailyTask' &&
+          !(prefs.getBool('wallpaper_enabled') ?? false)) {
+        debugPrint('⏭️ Automatic wallpaper updates are disabled');
+        return true;
+      }
       ProfileScope.activeProfileId =
           prefs.getString('active_financial_profile') ?? 'default';
 
@@ -259,6 +264,12 @@ class WallpaperSchedulerService {
 
   Future<void> runCatchUpIfNeeded() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool('wallpaper_enabled') ?? false)) {
+      debugPrint(
+        '⏭️ Skipping wallpaper catch-up; automatic updates are disabled',
+      );
+      return;
+    }
     final lastUpdateStr = prefs.getString('last_wallpaper_update');
 
     final today = DateTime(
@@ -305,8 +316,8 @@ class WallpaperSchedulerService {
   }
 
   Future<void> cancelScheduledUpdates() async {
-    await Workmanager().cancelAll();
-    debugPrint('❌ Cancelled all scheduled wallpaper updates');
+    await Workmanager().cancelByUniqueName('wallpaper_daily_update');
+    debugPrint('❌ Cancelled scheduled wallpaper updates');
   }
 
   Duration _getDurationUntilMidnight() {

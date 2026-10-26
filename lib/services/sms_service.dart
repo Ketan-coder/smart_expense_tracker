@@ -1,36 +1,45 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 typedef SmsCallback =
-    void Function(String sender, String message, int timestamp);
+FutureOr<void> Function(String sender, String message, int timestamp);
 
 class SmsListener {
-  // CRITICAL FIX: Use the correct channel name matching MainActivity
+  // Must match SMS_CHANNEL in MainActivity.
   static const MethodChannel _channel = MethodChannel(
     'com.example.expense_tracker/sms',
   );
   static SmsCallback? _callback;
   static bool _isListening = false;
 
+  // Drain coordination.
+  static bool _draining = false;
+  static bool _drainAgain = false;
+
+  // Queue ids currently being processed (live path or drain), so the same
+  // queued SMS is never processed twice concurrently.
+  static final Set<String> _inFlight = <String>{};
+
+  static bool get isReady => _isListening && _callback != null;
+
+  // ---------------------------------------------------------------------
+  // Channel plumbing
+  // ---------------------------------------------------------------------
+
   static Future<bool> initialize() async {
     try {
       debugPrint("🔧 Initializing SMS listener...");
-      debugPrint("🔧 Channel name: com.example.expense_tracker/sms");
-
-      // Set up method call handler FIRST before any other operations
       _setupMethodCallHandler();
 
-      // Test if the channel is working
       try {
         String? testResult = await _channel.invokeMethod('testReceiver');
         debugPrint("📱 Channel test result: $testResult");
       } catch (e) {
-        debugPrint(
-          "⚠️ Channel test failed (this is OK if method doesn't exist): $e",
-        );
+        debugPrint("⚠️ Channel test failed (OK if method doesn't exist): $e");
       }
 
-      // Check permissions
       try {
         bool hasPermissions =
             await _channel.invokeMethod('checkPermissions') ?? false;
@@ -39,14 +48,11 @@ class SmsListener {
         if (!hasPermissions) {
           debugPrint("🔐 Requesting SMS permissions...");
           await _channel.invokeMethod('requestPermissions');
-          return false; // Will get result via callback
+          return false; // Result arrives via onPermissionResult
         }
-
-        debugPrint("✅ SMS permissions already granted");
         return true;
       } catch (e) {
         debugPrint("⚠️ Permission check failed (may not be implemented): $e");
-        // Assume permissions are granted if check fails
         return true;
       }
     } catch (e) {
@@ -56,214 +62,246 @@ class SmsListener {
   }
 
   static void _setupMethodCallHandler() {
-    debugPrint("🎧 Setting up method call handler...");
-
     _channel.setMethodCallHandler((call) async {
-      debugPrint("📞 ========================================");
-      debugPrint("📞 Method call received: ${call.method}");
-      debugPrint("📞 Arguments type: ${call.arguments.runtimeType}");
-      debugPrint("📞 Arguments: ${call.arguments}");
-      debugPrint("📞 ========================================");
-
       switch (call.method) {
         case 'onSmsReceived':
-          debugPrint("📨 SMS received callback triggered!");
-          debugPrint("📨 Listening status: $_isListening");
-          debugPrint("📨 Callback set: ${_callback != null}");
-
-          if (!_isListening) {
-            debugPrint("⚠️ Not listening, ignoring SMS");
-            return;
-          }
-
-          if (_callback == null) {
-            debugPrint("❌ No callback set, ignoring SMS");
-            return;
-          }
-
-          try {
-            final args = call.arguments as Map<dynamic, dynamic>;
-            debugPrint("📨 Parsing arguments...");
-            debugPrint("📨 Raw sender: ${args['sender']}");
-            debugPrint("📨 Raw message: ${args['message']}");
-            debugPrint("📨 Raw timestamp: ${args['timestamp']}");
-
-            final sender = args['sender']?.toString() ?? '';
-            final message = args['message']?.toString() ?? '';
-            final timestamp =
-                args['timestamp'] as int? ??
-                DateTime.now().millisecondsSinceEpoch;
-
-            debugPrint("📨 Parsed SMS Details:");
-            debugPrint("   👤 Sender: $sender");
-            debugPrint("   📝 Message length: ${message.length}");
-            debugPrint(
-              "   📝 Message preview: ${message.length > 50 ? '${message.substring(0, 50)}...' : message}",
-            );
-            debugPrint("   ⏰ Timestamp: $timestamp");
-            debugPrint(
-              "   ⏰ DateTime: ${DateTime.fromMillisecondsSinceEpoch(timestamp)}",
-            );
-
-            debugPrint("📨 Calling callback function...");
-            _callback!(sender, message, timestamp);
-            debugPrint("✅ SMS callback executed successfully");
-          } catch (e, stackTrace) {
-            debugPrint("❌ Error processing SMS: $e");
-            debugPrint("❌ Stack trace: $stackTrace");
-          }
+          await _handleIncomingSms(call.arguments);
           break;
 
         case 'onPermissionResult':
           final granted = call.arguments as bool? ?? false;
           debugPrint("🔐 Permission result: $granted");
-
-          if (granted) {
-            debugPrint("✅ SMS permissions granted!");
-          } else {
-            debugPrint("❌ SMS permissions denied");
-          }
+          if (granted && isReady) unawaited(drainPendingMessages());
           break;
 
         default:
           debugPrint("⚠️ Unknown method call: ${call.method}");
       }
     });
+  }
 
-    debugPrint("✅ Method call handler setup complete");
+  static Future<void> _handleIncomingSms(dynamic arguments) async {
+    final args = Map<dynamic, dynamic>.from(arguments as Map);
+    final id = args['id']?.toString();
+
+    // Not ready: native already persisted it (when it sent an id), so it will
+    // be replayed by the drain in startListening(). Only legacy callers
+    // without an id need to be queued from here.
+    if (!isReady) {
+      debugPrint("⚠️ Not ready, SMS stays queued for replay");
+      if (id == null) await _queueNatively(arguments);
+      return;
+    }
+
+    if (id != null && !_inFlight.add(id)) return; // already being processed
+
+    try {
+      await _callback!(
+        args['sender']?.toString() ?? '',
+        args['message']?.toString() ?? '',
+        (args['timestamp'] as num?)?.toInt() ??
+            DateTime.now().millisecondsSinceEpoch,
+      );
+      if (id != null) await _ack(id);
+    } catch (e, stackTrace) {
+      debugPrint("❌ Error processing SMS: $e");
+      debugPrint("❌ Stack trace: $stackTrace");
+      // With an id it is still in the native queue and will be retried.
+      if (id == null) await _queueNatively(arguments);
+    } finally {
+      if (id != null) _inFlight.remove(id);
+    }
+  }
+
+  static Future<void> _queueNatively(dynamic arguments) async {
+    try {
+      await _channel.invokeMethod('queuePendingSms', arguments);
+    } catch (e) {
+      debugPrint("❌ Failed to queue SMS natively: $e");
+    }
+  }
+
+  static Future<void> _ack(String id) async {
+    try {
+      await _channel.invokeMethod('ackPendingSms', <String, dynamic>{
+        'ids': <String>[id],
+      });
+    } catch (e) {
+      debugPrint("⚠️ Ack failed for $id: $e");
+    }
   }
 
   static void startListening(SmsCallback callback) {
     _callback = callback;
     _isListening = true;
-
-    debugPrint("🎧 ========================================");
-    debugPrint("🎧 Starting SMS listening...");
-    debugPrint("🎧 Callback set: ${_callback != null}");
-    debugPrint("🎧 Is listening: $_isListening");
-    debugPrint("🎧 Channel: com.example.expense_tracker/sms");
-    debugPrint("🎧 ========================================");
-
-    // Ensure handler is set up
+    debugPrint("🎧 Starting SMS listening (callback registered)");
     _setupMethodCallHandler();
-
-    debugPrint("🎧 SMS listener ready and waiting for messages");
+    unawaited(drainPendingMessages(callback));
   }
 
-  static void stopListening() {
+  static void stopListening([SmsCallback? callback]) {
+    // A disposed screen must not stop a newer screen's listener.
+    if (callback != null && _callback != callback) return;
     _isListening = false;
     _callback = null;
     debugPrint("🛑 SMS listening stopped");
   }
 
-  // Enhanced debugging for transaction detection
+  /// Replays SMS queued natively while Dart wasn't ready. An item is
+  /// acknowledged only after the callback finished successfully. Safe to call
+  /// repeatedly (start, resume, ...).
+  static Future<void> drainPendingMessages([SmsCallback? callback]) async {
+    final cb = callback ?? _callback;
+    if (cb == null) return;
+
+    if (_draining) {
+      _drainAgain = true;
+      return;
+    }
+
+    _draining = true;
+    try {
+      do {
+        _drainAgain = false;
+        await _drainOnce(cb);
+      } while (_drainAgain);
+    } finally {
+      _draining = false;
+    }
+  }
+
+  static Future<void> _drainOnce(SmsCallback callback) async {
+    List<dynamic>? pending;
+    try {
+      pending = await _channel.invokeMethod<List<dynamic>>('getPendingSms');
+    } catch (e) {
+      debugPrint('⚠️ Pending SMS fetch failed: $e');
+      return;
+    }
+    if (pending == null || pending.isEmpty) return;
+
+    debugPrint("📥 Draining ${pending.length} pending SMS");
+
+    for (final raw in pending) {
+      String? id;
+      try {
+        final item = Map<dynamic, dynamic>.from(raw as Map);
+        id = item['id']?.toString();
+        if (id == null) continue;
+        if (!_inFlight.add(id)) {
+          id = null; // someone else owns it; don't remove their marker
+          continue;
+        }
+
+        await callback(
+          item['sender']?.toString() ?? '',
+          item['message']?.toString() ?? '',
+          (item['timestamp'] as num?)?.toInt() ??
+              DateTime.now().millisecondsSinceEpoch,
+        );
+        await _ack(id);
+      } catch (e, stackTrace) {
+        // One bad message must not block the rest; it stays queued.
+        debugPrint('⚠️ Pending SMS item failed: $e');
+        debugPrint('$stackTrace');
+      } finally {
+        if (id != null) _inFlight.remove(id);
+      }
+    }
+  }
+
+  /// SMS in the system inbox with date >= [sinceMs], oldest first.
+  /// Returns null when the inbox could not be read (permission, old native
+  /// build without the method, ...) so callers don't advance their sync marker.
+  static Future<List<Map<String, dynamic>>?> readInboxSince(int sinceMs) async {
+    try {
+      final rows = await _channel.invokeMethod<List<dynamic>>(
+        'getInboxSince',
+        <String, dynamic>{'since': sinceMs},
+      );
+      return (rows ?? <dynamic>[])
+          .map((r) => Map<String, dynamic>.from(r as Map))
+          .toList();
+    } catch (e) {
+      debugPrint('⚠️ Inbox read failed: $e');
+      return null;
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Parsing
+  // ---------------------------------------------------------------------
+
+  // Messages that mention money but are NOT a completed transaction.
+  static final RegExp _notATransaction = RegExp(
+    r'\botp\b|one[\s-]?time\s+(?:password|pin)|\bdo not share\b|\bnever share\b'
+    r'|\bwill be (?:debited|deducted|charged)\b|\bis due\b|\bdue (?:on|by|date)\b'
+    r'|\bminimum (?:amount )?due\b|\bpayment request\b|\bcollect request\b'
+    r'|\brequested\b|\bfailed\b|\bdeclined\b|\bunsuccessful\b|\bnot successful\b',
+    caseSensitive: false,
+  );
+
+  // "credit card" / "debit card" must not count as a direction keyword.
+  static final RegExp _cardPhrase = RegExp(
+    r'\b(?:debit|credit)\s*(?:/\s*(?:debit|credit)\s*)?cards?\b',
+    caseSensitive: false,
+  );
+
+  static final RegExp _debitRe = RegExp(
+    r'\b(?:debited|debit|sent|paid|withdrawn|withdrawal|deducted|spent|purchased?|charged|transfer(?:red)? to|used (?:at|for|on))\b',
+    caseSensitive: false,
+  );
+
+  static final RegExp _creditRe = RegExp(
+    r'\b(?:credited|credit|received|deposited|refund(?:ed)?|transfer(?:red)? from|added to|cashback)\b',
+    caseSensitive: false,
+  );
+
+  static final RegExp _amountRe = RegExp(
+    r'(?<![a-z])(?:rs\.?|inr|₹)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)'
+    r'|([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(?:rs\b\.?|inr\b|₹)',
+    caseSensitive: false,
+  );
+
+  static final RegExp _balanceContext = RegExp(
+    r'\b(?:bal(?:ance)?|avl|avail(?:able)?|limit|outstanding)\b',
+    caseSensitive: false,
+  );
+
+  static final RegExp _refRe = RegExp(
+    r'(?:upi\s*)?(?:ref(?:erence)?|rrn|utr)(?:\s*(?:no|number|id))?\.?\s*[:#\-]?\s*([0-9]{6,})',
+    caseSensitive: false,
+  );
+
+  // Banks send from alphanumeric headers (JD-KOTAKB-S). A plain phone number
+  // is a person, not a bank alert.
+  static final RegExp _personalNumber = RegExp(r'^\+\d{8,}$|^\d{10,}$');
+
+  static String? _direction(String message) {
+    final cleaned = message.replaceAll(_cardPhrase, ' ');
+    final d = _debitRe.firstMatch(cleaned);
+    final c = _creditRe.firstMatch(cleaned);
+    if (d == null && c == null) return null;
+    if (c == null) return 'debit';
+    if (d == null) return 'credit';
+    // Both present: the earliest strong keyword describes the user's account
+    // ("Rs.500 debited from A/c ... credited to merchant").
+    return d.start <= c.start ? 'debit' : 'credit';
+  }
+
   static bool isTransactionMessage(String message) {
-    debugPrint("🔍 ========================================");
-    debugPrint("🔍 Checking if transaction message...");
-    debugPrint(
-      "🔍 Message: ${message.length > 100 ? '${message.substring(0, 100)}...' : message}",
-    );
-
-    String lowerMsg = message.toLowerCase();
-
-    List<String> transactionKeywords = [
-      'debited',
-      'credited',
-      'sent',
-      'received',
-      'paid',
-      'withdrawn',
-      'deposited',
-      'transferred',
-      'transaction',
-      'purchase',
-      'refund',
-      'deducted',
-      'added',
-      'balance',
-      'account',
-      'upi',
-      'neft',
-      'imps',
-      'rtgs',
-      'bank',
-      'atm',
-      'pos',
-      'online',
-    ];
-
-    List<String> matchedKeywords = transactionKeywords
-        .where((keyword) => lowerMsg.contains(keyword))
-        .toList();
-    bool isTransaction = matchedKeywords.isNotEmpty;
-
-    debugPrint("🔍 Is transaction: $isTransaction");
-    if (isTransaction) {
-      debugPrint("🔍 Matched keywords: $matchedKeywords");
-    }
-    debugPrint("🔍 ========================================");
-
-    return isTransaction;
+    if (_notATransaction.hasMatch(message)) return false;
+    return extractAmount(message) != null && _direction(message) != null;
   }
 
-  static bool isDebitMessage(String message) {
-    String lowerMsg = message.toLowerCase();
-    List<String> debitKeywords = [
-      'debited',
-      'sent',
-      'paid',
-      'withdrawn',
-      'deducted',
-      'purchase',
-      'spent',
-      'transfer to',
-      'payment',
-      'debit',
-    ];
+  static bool isDebitMessage(String message) => _direction(message) == 'debit';
 
-    List<String> matchedKeywords = debitKeywords
-        .where((keyword) => lowerMsg.contains(keyword))
-        .toList();
-    bool isDebit = matchedKeywords.isNotEmpty;
-
-    debugPrint("🔍 Is debit: $isDebit");
-    if (isDebit) {
-      debugPrint("🔍 Matched debit keywords: $matchedKeywords");
-    }
-    return isDebit;
-  }
-
-  static bool isCreditMessage(String message) {
-    String lowerMsg = message.toLowerCase();
-    List<String> creditKeywords = [
-      'credited',
-      'received',
-      'deposited',
-      'added',
-      'refund',
-      'transfer from',
-      'salary',
-      'interest',
-      'credit',
-    ];
-
-    List<String> matchedKeywords = creditKeywords
-        .where((keyword) => lowerMsg.contains(keyword))
-        .toList();
-    bool isCredit = matchedKeywords.isNotEmpty;
-
-    debugPrint("🔍 Is credit: $isCredit");
-    if (isCredit) {
-      debugPrint("🔍 Matched credit keywords: $matchedKeywords");
-    }
-    return isCredit;
-  }
+  static bool isCreditMessage(String message) =>
+      _direction(message) == 'credit';
 
   static String extractMethod(String message) {
-    debugPrint("🔍 Extracting payment method from message...");
-
-    String upperMsg = message.toUpperCase();
-    List<String> methodKeywords = [
+    final upperMsg = message.toUpperCase();
+    const methodKeywords = [
       'UPI',
       'NEFT',
       'IMPS',
@@ -276,83 +314,34 @@ class SmsListener {
       'CREDIT CARD',
     ];
 
-    String method = 'OTHER';
-
-    for (String keyword in methodKeywords) {
-      if (upperMsg.contains(keyword)) {
-        method = keyword;
-        debugPrint("🔍 Found method: $method");
-        break;
+    for (final keyword in methodKeywords) {
+      if (RegExp('\\b${RegExp.escape(keyword)}\\b').hasMatch(upperMsg)) {
+        return keyword;
       }
     }
-
-    if (method == 'OTHER') {
-      debugPrint("🔍 No specific method found, defaulting to: $method");
-    }
-
-    return method;
+    return 'OTHER';
   }
 
+  /// First amount that is not a balance/limit figure.
   static double? extractAmount(String message) {
-    debugPrint("💰 ========================================");
-    debugPrint("💰 Extracting amount from message...");
-    debugPrint(
-      "💰 Message: ${message.length > 100 ? '${message.substring(0, 100)}...' : message}",
-    );
+    for (final match in _amountRe.allMatches(message)) {
+      final raw = match.group(1) ?? match.group(2);
+      if (raw == null) continue;
 
-    List<RegExp> amountPatterns = [
-      // Indian Rupee patterns
-      RegExp(
-        r'(?:rs\.?\s*|inr\s*|₹\s*)([0-9,]+(?:\.[0-9]{2})?)',
-        caseSensitive: false,
-      ),
-      RegExp(
-        r'([0-9,]+(?:\.[0-9]{2})?)\s*(?:rs\.?|inr|₹)',
-        caseSensitive: false,
-      ),
+      final from = match.start - 25 < 0 ? 0 : match.start - 25;
+      final before = message.substring(from, match.start);
+      if (_balanceContext.hasMatch(before)) continue;
 
-      // Amount with label
-      RegExp(
-        r'amount[:\s]*(?:rs\.?|inr|₹)?\s*([0-9,]+(?:\.[0-9]{2})?)',
-        caseSensitive: false,
-      ),
-
-      // USD/Dollar
-      RegExp(
-        r'(?:usd|dollar)\s*([0-9,]+(?:\.[0-9]{2})?)',
-        caseSensitive: false,
-      ),
-
-      // Generic number (last resort)
-      RegExp(r'(?:^|\s)([0-9,]+\.[0-9]{2})(?:\s|$)', caseSensitive: false),
-    ];
-
-    for (int i = 0; i < amountPatterns.length; i++) {
-      RegExp pattern = amountPatterns[i];
-      Match? match = pattern.firstMatch(message);
-      if (match != null) {
-        String amountStr = match.group(1)?.replaceAll(',', '') ?? '0';
-        debugPrint("💰 Pattern $i matched: $amountStr");
-
-        double? amount = double.tryParse(amountStr);
-        if (amount != null && amount > 0) {
-          debugPrint("💰 ✅ Valid amount found: ₹$amount");
-          debugPrint("💰 ========================================");
-          return amount;
-        } else {
-          debugPrint("💰 ❌ Invalid amount after parsing: $amount");
-        }
-      }
+      final amount = double.tryParse(raw.replaceAll(',', ''));
+      if (amount != null && amount > 0) return amount;
     }
-
-    debugPrint("💰 ❌ No valid amount found in message");
-    debugPrint("💰 ========================================");
     return null;
   }
 
-  static String extractBankName(String sender) {
-    debugPrint("🏦 Extracting bank name from sender: $sender");
+  static String? extractReference(String message) =>
+      _refRe.firstMatch(message)?.group(1);
 
+  static String extractBankName(String sender) {
     Map<String, String> bankPatterns = {
       // Indian Banks
       'SBI': 'State Bank of India',
@@ -392,81 +381,54 @@ class SmsListener {
 
     String upperSender = sender.toUpperCase();
     for (String pattern in bankPatterns.keys) {
-      if (upperSender.contains(pattern)) {
-        String bankName = bankPatterns[pattern]!;
-        debugPrint("🏦 Bank identified: $bankName (pattern: $pattern)");
-        return bankName;
-      }
+      if (upperSender.contains(pattern)) return bankPatterns[pattern]!;
     }
-
-    debugPrint("🏦 No bank pattern matched, using sender: $sender");
     return sender;
   }
 
   static Map<String, dynamic>? parseTransactionSms(
-    String sender,
-    String message,
-    int timestamp,
-  ) {
-    debugPrint("🔄 ========================================");
-    debugPrint("🔄 PARSING TRANSACTION SMS");
-    debugPrint("🔄 ========================================");
-    debugPrint("🔄 Sender: $sender");
-    debugPrint("🔄 Full message: $message");
-    debugPrint("🔄 Timestamp: $timestamp");
-
-    // Step 1: Check if transaction message
-    if (!isTransactionMessage(message)) {
-      debugPrint("🔄 ❌ Not identified as transaction message");
-      debugPrint("🔄 ========================================");
+      String sender,
+      String message,
+      int timestamp,
+      ) {
+    if (_personalNumber.hasMatch(sender.trim())) {
+      debugPrint("🔄 ❌ Ignoring SMS from a personal number");
       return null;
     }
-    debugPrint("🔄 ✅ Identified as transaction message");
+    if (_notATransaction.hasMatch(message)) {
+      debugPrint("🔄 ❌ Not a completed transaction (OTP/reminder/failed)");
+      return null;
+    }
 
-    // Step 2: Extract amount
-    double? amount = extractAmount(message);
+    final amount = extractAmount(message);
     if (amount == null) {
-      debugPrint("🔄 ❌ No valid amount found, cannot process");
-      debugPrint("🔄 ========================================");
+      debugPrint("🔄 ❌ No valid amount found");
       return null;
     }
-    debugPrint("🔄 ✅ Amount extracted: ₹$amount");
 
-    // Step 3: Determine transaction type
-    final isDebit = isDebitMessage(message);
-    final isCredit = isCreditMessage(message);
-    if (isDebit == isCredit) {
-      debugPrint("🔄 ⚠️ Direction is ambiguous; ignoring message");
+    final direction = _direction(message);
+    if (direction == null) {
+      debugPrint("🔄 ❌ No debit/credit direction found");
       return null;
     }
-    final transactionType = isDebit ? 'debit' : 'credit';
 
-    // Step 4: Extract additional info
-    String bankName = extractBankName(sender);
-    String method = extractMethod(message);
+    final bankName = extractBankName(sender);
+    final method = extractMethod(message);
 
-    // Step 5: Create transaction object
-    Map<String, dynamic> transaction = {
-      'type': transactionType,
+    final transaction = <String, dynamic>{
+      'type': direction,
       'amount': amount,
       'sender': sender,
       'bankName': bankName,
       'message': message,
       'method': method,
+      'ref': extractReference(message),
       'timestamp': DateTime.fromMillisecondsSinceEpoch(timestamp),
       'rawTimestamp': timestamp,
     };
 
-    debugPrint("🔄 ========================================");
-    debugPrint("🔄 ✅ TRANSACTION PARSED SUCCESSFULLY");
-    debugPrint("🔄 ========================================");
-    debugPrint("🔄 Type: ${transaction['type']}");
-    debugPrint("🔄 Amount: ₹${transaction['amount']}");
-    debugPrint("🔄 Bank: ${transaction['bankName']}");
-    debugPrint("🔄 Method: ${transaction['method']}");
-    debugPrint("🔄 Date: ${transaction['timestamp']}");
-    debugPrint("🔄 ========================================");
-
+    debugPrint("🔄 ✅ TRANSACTION PARSED: $direction ₹$amount "
+        "($bankName, $method, ref=${transaction['ref']})");
     return transaction;
   }
 }

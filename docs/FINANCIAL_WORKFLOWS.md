@@ -117,6 +117,15 @@ included in the AI financial snapshot's historical totals.
 When reconciling a total, verify the selected period, classification, and
 reportable amount before comparing it with a current wallet balance.
 
+## Progress wallpaper automation
+
+The progress wallpaper can be previewed, generated, and applied manually from
+**Settings → Wallpaper → Wallpaper Settings**. Automatic daily updates are a
+separate option in **Settings → Wallpaper** and can be turned off without
+removing the wallpaper already applied to the device. When disabled, scheduled
+updates and automatic catch-up updates are skipped; manual wallpaper changes
+remain available.
+
 ## Financial profiles and currency
 
 A profile is a separate local ledger, for example **India (INR)** and

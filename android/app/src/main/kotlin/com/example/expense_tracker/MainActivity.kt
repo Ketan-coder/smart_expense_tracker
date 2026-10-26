@@ -391,6 +391,33 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 }
 
+                "getPendingSms" -> {
+                    result.success(SmsReceiver().getPendingSms(this))
+                }
+
+                "getInboxSince" -> {
+                    val since = call.argument<Number>("since")?.toLong() ?: 0L
+                    try {
+                        result.success(SmsInbox.readSince(this, since))
+                    } catch (e: Exception) {
+                        result.error("INBOX_ERROR", e.message, null)
+                    }
+                }
+
+                "ackPendingSms" -> {
+                    val ids = call.argument<List<String>>("ids") ?: emptyList()
+                    result.success(SmsReceiver().ackPendingSms(this, ids))
+                }
+
+                "queuePendingSms" -> {
+                    val sender = call.argument<String>("sender") ?: ""
+                    val message = call.argument<String>("message") ?: ""
+                    val timestamp = call.argument<Number>("timestamp")?.toLong()
+                        ?: System.currentTimeMillis()
+                    SmsReceiver().enqueuePendingSms(this, sender, message, timestamp)
+                    result.success(true)
+                }
+
                 else -> {
                     Log.w(TAG, "SMS Channel - Unknown method: ${call.method}")
                     result.notImplemented()

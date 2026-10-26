@@ -124,14 +124,10 @@ class _TransactionSheetContentState extends State<_TransactionSheetContent> {
     _selectedCategoryKeys = (e?.categoryKeys ?? i?.categoryKeys ?? []).toSet();
 
     final existingDate = e?.date ?? i?.date;
-    if (existingDate != null) {
-      final today = DateTime.now();
-      final isToday =
-          existingDate.year == today.year &&
-          existingDate.month == today.month &&
-          existingDate.day == today.day;
-      if (!isToday) _recordDate = existingDate;
-    }
+    // Preserve the exact transaction timestamp while editing. This is
+    // important even for transactions dated today: changing only a category
+    // must not move the transaction to the top of the latest list.
+    if (_isEditing && existingDate != null) _recordDate = existingDate;
   }
 
   @override

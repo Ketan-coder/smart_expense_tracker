@@ -10,6 +10,7 @@ import 'package:expense_tracker/services/langs/app_localalizations.dart';
 import 'package:expense_tracker/services/notification_service.dart';
 import 'package:expense_tracker/services/number_formatter_service.dart';
 import 'package:expense_tracker/services/progress_calendar_service.dart';
+import 'package:expense_tracker/services/sms_transaction_helper.dart';
 import 'package:expense_tracker/services/wallpaper_scheduler_service.dart'
     hide callbackDispatcher;
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -44,15 +45,10 @@ void main() async {
   await dotenv.load(fileName: ".env");
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-  // Only initialize notifications on mobile platforms
+  // Initialize notification channels on mobile, but defer permission prompts
+  // until the in-app rationale has been shown on the first screen.
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-    final bool notificationState =
-        await Helpers().getCurrentNotificationState() ?? false;
-    debugPrint('Notification state: $notificationState');
-
-    if (notificationState == true) {
-      await NotificationService.initialize();
-    }
+    await NotificationService.initialize(requestPermission: false);
   } else {
     debugPrint('Notifications not supported on this platform');
   }
@@ -95,10 +91,14 @@ void main() async {
   await ProgressCalendarService().initialize();
   final scheduler = WallpaperSchedulerService();
   await scheduler.initialize();
-  await scheduler.scheduleDailyUpdate();
-  await scheduler.runCatchUpIfNeeded();
-  await NumberFormatterService().initialize();
   final prefs = await SharedPreferences.getInstance();
+  if (prefs.getBool('wallpaper_enabled') ?? false) {
+    await scheduler.scheduleDailyUpdate();
+    await scheduler.runCatchUpIfNeeded();
+  } else {
+    await scheduler.cancelScheduledUpdates();
+  }
+  await NumberFormatterService().initialize();
   String? token = await Helpers().getEnvValue('HUGGING_FACE_TOKEN');
   // This is the ONLY place FlutterGemma.initialize() should be called.
   // GemmaProvider must NOT call it again — doing so resets webStorageMode
@@ -123,9 +123,6 @@ void main() async {
   // listener API, while the rest of the app becomes usable in the
   // meantime instead of being blocked on the AI model specifically.
   unawaited(SmartSpendAI.instance.initialize());
-  if (prefs.getBool('wallpaper_enabled') ?? false) {
-    await WallpaperSchedulerService().scheduleDailyUpdate();
-  }
 
   // Only register recurring task on mobile platforms
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
@@ -137,6 +134,11 @@ void main() async {
     }
   } else {
     debugPrint('Recurring task scheduler not available on this platform');
+  }
+
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    await NotificationService.scheduleDailyTransactionReview();
+    SmsTransactionHandler.start();
   }
 
   runApp(const MyApp());
