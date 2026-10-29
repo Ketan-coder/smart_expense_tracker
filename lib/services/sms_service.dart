@@ -277,6 +277,34 @@ class SmsListener {
   // is a person, not a bank alert.
   static final RegExp _personalNumber = RegExp(r'^\+\d{8,}$|^\d{10,}$');
 
+  // TRAI headers: -P = promotional, -S/-T = service/transactional.
+  static final RegExp _promoSender = RegExp(r'-P$', caseSensitive: false);
+
+// Promo wording that mentions money but isn't a completed transaction.
+  static final RegExp _promoText = RegExp(
+    r'\bclick here\b|https?://|\bt\s*&\s*c\b|\bapply\b|\beligible\b'
+    r'|\bpre[\s-]?approved\b|\boffer\b|\binstantly\b|\bto receive\b|\band receive\b'
+    r'|\bavail\b|\bwin\b|\bcongratulations\b|\bvoucher\b|\bcoupon\b',
+    caseSensitive: false,
+  );
+
+// Proof that a real account/instrument was affected. Bare "account" is
+// deliberately NOT here ("credited in your account" is promo wording).
+  static final RegExp _txnEvidence = RegExp(
+    r'\ba/c\b|\bacct?\b|\b(?:x{2,}|\*{2,})\s?\d{3,4}\b|\bupi\b'
+    r'|\b(?:ref|rrn|utr)\b|\bcard\s+(?:no|ending)\b'
+    r'|\b(?:imps|neft|rtgs|atm|pos)\b|\bavl\b|\bbal(?:ance)?\b',
+    caseSensitive: false,
+  );
+
+  static bool _looksPromotional(String sender, String message) {
+    if (_promoSender.hasMatch(sender.trim())) return true;
+    if (_promoText.hasMatch(message) && !_txnEvidence.hasMatch(message)) {
+      return true;
+    }
+    return !_txnEvidence.hasMatch(message); // no proof of a real transaction
+  }
+
   static String? _direction(String message) {
     final cleaned = message.replaceAll(_cardPhrase, ' ');
     final d = _debitRe.firstMatch(cleaned);
@@ -291,6 +319,7 @@ class SmsListener {
 
   static bool isTransactionMessage(String message) {
     if (_notATransaction.hasMatch(message)) return false;
+    if (!_txnEvidence.hasMatch(message)) return false;
     return extractAmount(message) != null && _direction(message) != null;
   }
 
@@ -393,6 +422,10 @@ class SmsListener {
       ) {
     if (_personalNumber.hasMatch(sender.trim())) {
       debugPrint("🔄 ❌ Ignoring SMS from a personal number");
+      return null;
+    }
+    if (_looksPromotional(sender, message)) {
+      debugPrint("🔄 ❌ Promotional / no transaction evidence");
       return null;
     }
     if (_notATransaction.hasMatch(message)) {
