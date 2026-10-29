@@ -793,7 +793,6 @@ class _IncomeListingPageState extends State<IncomeListingPage> {
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
-          _showEditIncomeSheet(keyId, income);
           showTransactionAddEditSheet(
             context: context,
             type: TransactionType.income,
